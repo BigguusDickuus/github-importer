@@ -1,73 +1,81 @@
-# Welcome to your Lovable project
+# Oráculo IA - Tarot, Lenormand e Cartomancia Online
 
-## Project info
+Aplicação web de consultas de tarot, lenormand e cartomancia com inteligência artificial.
 
-**URL**: https://lovable.dev/projects/1cb79e60-2c2f-48d4-8a0f-0f3229062b3d
+## 🔮 Sobre o Projeto
 
-## How can I edit this code?
+O Oráculo IA é uma plataforma online que oferece consultas personalizadas através de diferentes métodos de leitura: Tarot, Lenormand e Cartomancia Clássica. Utilizando inteligência artificial, a plataforma oferece interpretações precisas e insights valiosos.
 
-There are several ways of editing your application.
+## 📁 Estrutura do Projeto
 
-**Use Lovable**
-
-Simply visit the [Lovable Project](https://lovable.dev/projects/1cb79e60-2c2f-48d4-8a0f-0f3229062b3d) and start prompting.
-
-Changes made via Lovable will be committed automatically to this repo.
-
-**Use your preferred IDE**
-
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
-
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
-
-Follow these steps:
-
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
-
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
-
-# Step 3: Install the necessary dependencies.
-npm i
-
-# Step 4: Start the development server with auto-reloading and an instant preview.
-npm run dev
+```
+src/
+├── components/          # Componentes React
+│   ├── ui/             # Componentes UI reutilizáveis (shadcn/ui)
+│   ├── icons/          # Ícones customizados
+│   ├── Landing.tsx     # Página inicial (deslogado)
+│   ├── HomeLogada.tsx  # Página inicial (logado)
+│   ├── Dashboard.tsx   # Dashboard principal
+│   ├── Header.tsx      # Cabeçalho da aplicação
+│   ├── Login.tsx       # Página de login
+│   ├── History.tsx     # Histórico de leituras
+│   ├── Credits.tsx     # Compra de créditos
+│   ├── Profile.tsx     # Perfil do usuário
+│   ├── Admin.tsx       # Área administrativa
+│   └── ...            # Outros componentes
+├── pages/              # Páginas da aplicação
+├── index.css           # Estilos globais e Tailwind
+└── App.tsx            # Configuração de rotas
 ```
 
-**Edit a file directly in GitHub**
+## 🛣️ Rotas Disponíveis
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+- `/` - Landing page (usuários deslogados)
+- `/dashboard` - Dashboard principal (usuários logados)
+- `/login` - Página de login
+- `/historico` - Histórico de leituras
+- `/transacoes` - Histórico de transações
+- `/creditos` - Compra de créditos
+- `/perfil` - Perfil do usuário
+- `/admin` - Área administrativa
 
-**Use GitHub Codespaces**
+## 🚀 Tecnologias
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+- **React 18** - Biblioteca JavaScript para interfaces
+- **TypeScript** - Tipagem estática
+- **Vite** - Build tool e dev server
+- **Tailwind CSS** - Framework CSS utility-first
+- **Radix UI** - Componentes acessíveis
+- **React Router** - Roteamento
+- **Framer Motion** - Animações
+- **Shadcn/ui** - Componentes UI
 
-## What technologies are used for this project?
+## 💻 Executando o Projeto
 
-This project is built with:
+```bash
+# Instalar dependências
+npm install
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
+# Executar em modo de desenvolvimento
+npm run dev
 
-## How can I deploy this project?
+# Build para produção
+npm run build
+```
 
-Simply open [Lovable](https://lovable.dev/projects/1cb79e60-2c2f-48d4-8a0f-0f3229062b3d) and click on Share -> Publish.
+O projeto estará disponível em `http://localhost:8080`
 
-## Can I connect a custom domain to my Lovable project?
+## 🎨 Design System
 
-Yes, you can!
+A aplicação utiliza um design system baseado em temas escuros com cores místicas:
 
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
+- **night-sky**: Fundo principal (#0a0e27)
+- **midnight-surface**: Superfícies (#141b3d)
+- **mystic-indigo**: Cor primária (#6366f1)
+- **oracle-ember**: Cor de destaque (#f59e0b)
+- **starlight-text**: Texto principal (#f8fafc)
+- **moonlight-text**: Texto secundário (#cbd5e1)
 
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/features/custom-domain#custom-domain)
+## 📦 Deploy
+
+Acesse [Lovable](https://lovable.dev/projects/1cb79e60-2c2f-48d4-8a0f-0f3229062b3d) e clique em Share → Publish.
