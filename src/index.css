@@ -1,43 +1,50 @@
 @import url("https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap");
+
+/* Note: This project uses Tailwind CSS v3 with custom configuration */
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-/* Definition of the design system. All colors, gradients, fonts, etc should be defined here. 
-All colors MUST be HSL.
-*/
-
 @layer base {
   :root {
-    /* Core colors */
+    /* Background colors */
     --background: 220 64% 5%;
     --foreground: 210 20% 98%;
 
+    /* Card colors */
     --card: 224 32% 7%;
     --card-foreground: 210 20% 98%;
 
+    /* Popover colors */
     --popover: 224 32% 7%;
     --popover-foreground: 210 20% 98%;
 
+    /* Primary colors */
     --primary: 243 75% 68%;
     --primary-foreground: 210 20% 98%;
 
+    /* Secondary colors */
     --secondary: 224 32% 7%;
     --secondary-foreground: 210 20% 98%;
 
+    /* Muted colors */
     --muted: 215 16% 15%;
     --muted-foreground: 220 9% 65%;
 
+    /* Accent colors */
     --accent: 215 16% 15%;
     --accent-foreground: 210 20% 98%;
 
+    /* Destructive colors */
     --destructive: 4 84% 60%;
     --destructive-foreground: 210 20% 98%;
 
+    /* Border and input */
     --border: 215 16% 15%;
     --input: 215 16% 15%;
     --ring: 243 75% 68%;
 
+    /* Border radius */
     --radius: 0.5rem;
 
     /* Sidebar colors */
@@ -67,32 +74,23 @@ All colors MUST be HSL.
   .dark {
     --background: 220 64% 5%;
     --foreground: 210 20% 98%;
-
     --card: 224 32% 7%;
     --card-foreground: 210 20% 98%;
-
     --popover: 224 32% 7%;
     --popover-foreground: 210 20% 98%;
-
     --primary: 243 75% 68%;
     --primary-foreground: 210 20% 98%;
-
     --secondary: 224 32% 7%;
     --secondary-foreground: 210 20% 98%;
-
     --muted: 215 16% 15%;
     --muted-foreground: 220 9% 65%;
-
     --accent: 215 16% 15%;
     --accent-foreground: 210 20% 98%;
-
     --destructive: 4 84% 60%;
     --destructive-foreground: 210 20% 98%;
-
     --border: 215 16% 15%;
     --input: 215 16% 15%;
     --ring: 243 75% 68%;
-
     --sidebar-background: 240 5.9% 10%;
     --sidebar-foreground: 240 4.8% 95.9%;
     --sidebar-primary: 224.3 76.3% 48%;
@@ -112,5 +110,20 @@ All colors MUST be HSL.
   body {
     @apply bg-background text-foreground;
     font-family: 'Space Grotesk', ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif;
+    line-height: 1.5;
+    margin: 0;
+    padding: 0;
+  }
+
+  /* Remove default margins and padding */
+  h1, h2, h3, h4, h5, h6, p, ul, ol, li, div {
+    margin: 0;
+    padding: 0;
+  }
+
+  /* Ensure sections don't have unexpected spacing */
+  section {
+    margin: 0;
+    padding: 0;
   }
 }
