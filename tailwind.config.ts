@@ -13,6 +13,9 @@ export default {
       },
     },
     extend: {
+      fontFamily: {
+        sans: ['Space Grotesk', 'ui-sans-serif', 'system-ui', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'Helvetica Neue', 'Arial', 'Noto Sans', 'sans-serif'],
+      },
       colors: {
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",
@@ -57,6 +60,17 @@ export default {
           border: "hsl(var(--sidebar-border))",
           ring: "hsl(var(--sidebar-ring))",
         },
+        "night-sky": "hsl(var(--night-sky))",
+        "midnight-surface": "hsl(var(--midnight-surface))",
+        "mystic-indigo": "hsl(var(--mystic-indigo))",
+        "mystic-indigo-dark": "hsl(var(--mystic-indigo-dark))",
+        "oracle-ember": "hsl(var(--oracle-ember))",
+        "starlight-text": "hsl(var(--starlight-text))",
+        "moonlight-text": "hsl(var(--moonlight-text))",
+        "obsidian-border": "hsl(var(--obsidian-border))",
+        "verdant-success": "hsl(var(--verdant-success))",
+        "solar-warning": "hsl(var(--solar-warning))",
+        "blood-moon-error": "hsl(var(--blood-moon-error))",
       },
       borderRadius: {
         lg: "var(--radius)",
