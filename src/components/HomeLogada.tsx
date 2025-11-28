@@ -256,13 +256,8 @@ export function HomeLogada() {
       <Header isLoggedIn={true} onBuyCredits={() => setShowPaymentModal(true)} credits={credits} />
 
       {/* Hero Section */}
-      <section className="hero-section relative z-10 pt-24 pb-40 md:pt-40 md:pb-56 flex flex-col items-center justify-center" style={{ marginTop: 'calc(64px + 24px + 40px)' }}>
+      <section className="hero-section relative z-10 pt-28 pb-32 md:pt-36 md:pb-44 flex flex-col items-center justify-center">
         <style>{`
-          @media (min-width: 768px) {
-            .hero-section {
-              margin-top: calc(80px + 24px + 40px) !important;
-            }
-          }
           @media (max-width: 767px) {
             .hero-section-container {
               padding-left: 5% !important;
