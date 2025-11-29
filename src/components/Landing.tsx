@@ -449,7 +449,7 @@ export function HomeDeslogada() {
   ];
 
   return (
-    <div className="bg-night-sky text-moonlight-text relative">
+    <div className="min-h-screen bg-night-sky text-moonlight-text relative">
       {/* Background Gradients - Fixed */}
       <div className="fixed inset-0 overflow-hidden pointer-events-none">
         <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[800px] bg-mystic-indigo/20 rounded-full blur-[150px]" />
@@ -460,8 +460,13 @@ export function HomeDeslogada() {
       <Header isLoggedIn={false} onLoginClick={() => setShowLoginModal(true)} />
 
       {/* Hero Section */}
-      <section className="hero-section relative z-10 pt-20 pb-16 md:pt-28 md:pb-20 flex flex-col items-center">
+      <section className="hero-section relative z-10 pt-24 pb-40 md:pt-40 md:pb-56 flex flex-col items-center justify-center" style={{ marginTop: 'calc(64px + 24px + 40px)' }}>
         <style>{`
+          @media (min-width: 768px) {
+            .hero-section {
+              margin-top: calc(80px + 24px + 40px) !important;
+            }
+          }
           @media (max-width: 767px) {
             .hero-section-container {
               padding-left: 5% !important;
@@ -481,26 +486,38 @@ export function HomeDeslogada() {
             }
           }
         `}</style>
-        <div className="hero-section-container w-full flex flex-col items-center justify-start">
+        <div className="hero-section-container w-full flex flex-col items-center justify-center">
           <div className="w-full max-w-[1200px] flex flex-col items-center">
-            <div style={{ marginBottom: '24px' }}>
+            
+            <div style={{ marginBottom: '40px' }}>
               <h1 
-                className="mb-3 text-3xl md:text-5xl font-semibold text-starlight-text tracking-tight text-center w-full"
+                className="mb-10 text-starlight-text tracking-tight text-center w-full"
+                style={{ 
+                  fontSize: '2.5rem',
+                  lineHeight: '1.1'
+                }}
               >
-                Tarot Online
+                <style>{`
+                  @media (min-width: 768px) {
+                    .hero-title {
+                      font-size: 3.0rem !important;
+                    }
+                  }
+                `}</style>
+                <span className="hero-title" style={{ fontSize: '2.5rem' }}>Tarot Online</span>
               </h1>
 
-              <p className="mb-3 text-lg md:text-2xl text-moonlight-text text-center w-full max-w-[800px]">
+              <p className="mb-8 text-xl md:text-2xl text-moonlight-text text-center w-full max-w-[800px]">
                 Consultas de Tarot, Tarot Cigano e Cartomancia Clássica disponíveis 24/7
               </p>
 
-              <p className="mb-8 text-base md:text-lg text-oracle-ember text-center w-full max-w-[700px]">
+              <p className="mb-24 text-lg md:text-xl text-oracle-ember text-center w-full max-w-[700px]">
                 Interpretações profundas e personalizadas para suas perguntas
               </p>
             </div>
 
             {/* Prompt Card - ATUALIZADO COM ESPAÇAMENTOS */}
-            <div className="w-full max-w-[900px]" style={{ marginBottom: '20px' }}>
+            <div className="w-full max-w-[900px]" style={{ marginBottom: '24px' }}>
               <div 
                 className="bg-midnight-surface/80 backdrop-blur-sm border border-obsidian-border rounded-3xl shadow-2xl w-full flex flex-col"
                 style={{ padding: '24px', gap: '24px' }}
@@ -590,7 +607,7 @@ export function HomeDeslogada() {
       </section>
 
       {/* Como Funciona */}
-      <section id="como-funciona" className="relative z-10 py-28 md:py-32 flex flex-col items-center justify-center">
+      <section className="relative z-10 py-40 md:py-48 flex flex-col items-center justify-center">
         <style>{`
           @media (max-width: 767px) {
             .como-funciona-container {
