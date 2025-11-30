@@ -438,18 +438,35 @@ export function HomeDeslogada() {
       // Aguarda um pouco para garantir que o trigger criou o profile básico
       await new Promise((resolve) => setTimeout(resolve, 500));
 
-      // Atualiza o profile existente com os dados adicionais
-      const { error: updateError } = await supabase
-        .from("profiles")
-        .update({
-          birthday: signupBirthDate, // já vem em YYYY-MM-DD do input type="date"
-          cpf: cleanCpf,
-          phone: cleanPhone,
-        })
-        .eq("id", data.user.id);
+      // Tenta atualizar o profile existente com os dados adicionais (com pequena estratégia de retry)
+      let profileUpdated: any = null;
+      let lastUpdateError: any = null;
 
-      if (updateError) {
-        console.error("Erro ao atualizar profile após signup:", updateError);
+      for (let attempt = 1; attempt <= 2; attempt++) {
+        const { data: updatedProfile, error: updateError } = await supabase
+          .from("profiles")
+          .update({
+            birthday: signupBirthDate, // já vem em YYYY-MM-DD do input type="date"
+            cpf: cleanCpf,
+            phone: cleanPhone,
+          })
+          .eq("id", data.user.id)
+          .select("id, email, birthday, cpf, phone")
+          .maybeSingle();
+
+        console.log("Tentativa de update do profile", attempt, { updatedProfile, updateError });
+
+        if (!updateError && updatedProfile) {
+          profileUpdated = updatedProfile;
+          break;
+        }
+
+        lastUpdateError = updateError;
+        await new Promise((resolve) => setTimeout(resolve, 300));
+      }
+
+      if (!profileUpdated) {
+        console.error("Falha ao atualizar profile após signup:", lastUpdateError);
         alert("Erro ao salvar os dados, tente novamente mais tarde");
         await supabase.auth.signOut();
         return;
