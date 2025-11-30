@@ -460,7 +460,7 @@ export function HomeDeslogada() {
       <Header isLoggedIn={false} onLoginClick={() => setShowLoginModal(true)} />
 
       {/* Hero Section */}
-      <section className="hero-section relative z-10 pt-24 pb-40 md:pt-40 md:pb-56 flex flex-col items-center justify-center" style={{ marginTop: 'calc(64px + 24px + 40px)' }}>
+      <section className="hero-section relative z-10 pb-40 md:pb-56 flex flex-col items-center justify-center" style={{ marginTop: 'calc(64px + 24px + 40px)' }}>
         <style>{`
           @media (min-width: 768px) {
             .hero-section {
@@ -511,7 +511,7 @@ export function HomeDeslogada() {
                 Consultas de Tarot, Tarot Cigano e Cartomancia Clássica disponíveis 24/7
               </p>
 
-              <p className="mb-24 text-lg md:text-xl text-oracle-ember text-center w-full max-w-[700px]">
+              <p className="mb-24 text-lg md:text-xl text-oracle-ember text-center w-full max-w-[700px]" style={{ marginLeft: 'auto', marginRight: 'auto' }}>
                 Interpretações profundas e personalizadas para suas perguntas
               </p>
             </div>
