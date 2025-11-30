@@ -35,7 +35,8 @@
   }
   
   body {
-    @apply bg-night-sky text-starlight-text;
+    background-color: #050816;
+    color: #F9FAFB;
     font-family: 'Space Grotesk', system-ui, -apple-system, sans-serif;
   }
 }
