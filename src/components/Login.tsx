@@ -34,6 +34,38 @@ export function Login() {
     setLoading(true);
 
     try {
+      const cleanCpf = removeNonDigits(cpf);
+
+      // Check if email or CPF already exists
+      const { data: existingProfiles, error: checkError } = await supabase
+        .from("profiles")
+        .select("email, cpf")
+        .or(`email.eq.${email},cpf.eq.${cleanCpf}`);
+
+      if (checkError) throw checkError;
+
+      if (existingProfiles && existingProfiles.length > 0) {
+        const existingEmail = existingProfiles.some(p => p.email === email);
+        const existingCpf = existingProfiles.some(p => p.cpf === cleanCpf);
+
+        let errorMessage = "";
+        if (existingEmail && existingCpf) {
+          errorMessage = "Email e CPF já cadastrados";
+        } else if (existingEmail) {
+          errorMessage = "Email já cadastrado";
+        } else if (existingCpf) {
+          errorMessage = "CPF já cadastrado";
+        }
+
+        toast({
+          title: "Conta já existe",
+          description: errorMessage,
+          variant: "destructive",
+        });
+        setLoading(false);
+        return;
+      }
+
       // Sign up with Supabase Auth
       const { data, error: signUpError } = await supabase.auth.signUp({
         email,
@@ -48,7 +80,7 @@ export function Login() {
         id: data.user.id,
         email,
         birthday: convertBirthdayToISO(birthday),
-        cpf: removeNonDigits(cpf),
+        cpf: cleanCpf,
         phone: removeNonDigits(phone),
       });
 
