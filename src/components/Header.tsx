@@ -70,7 +70,7 @@ export function Header({ isLoggedIn = false, credits = 15, onBuyCredits, onLogin
                   className="flex flex-col items-center hover:opacity-80 transition-opacity cursor-pointer md:absolute md:left-1/2 md:-translate-x-1/2"
                 >
                   <span className="text-mystic-indigo">{credits}</span>
-                  <span className="text-moonlight-text text-xs mt-1">créditos</span>
+                  <span className="text-moonlight-text text-xs">créditos</span>
                 </button>
               )}
 
