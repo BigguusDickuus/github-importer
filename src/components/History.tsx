@@ -148,7 +148,7 @@ export function History() {
           <div className="history-content-wrapper">
             {/* Header - Fixed */}
             <div className="text-center" style={{ marginBottom: '24px' }}>
-              <h1 className="text-starlight-text" style={{ marginBottom: '16px' }}>
+              <h1 className="text-3xl md:text-4xl text-starlight-text" style={{ marginBottom: '16px' }}>
                 Histórico de Leituras
               </h1>
               <p className="text-lg text-moonlight-text">
@@ -413,7 +413,7 @@ export function History() {
             {filteredReadings.length === 0 && (
               <div className="text-center" style={{ paddingTop: '48px', paddingBottom: '48px', marginBottom: '48px' }}>
                 <Sparkles className="w-12 h-12 text-moonlight-text mx-auto" style={{ marginBottom: '16px' }} />
-                <h3 className="text-starlight-text" style={{ marginBottom: '8px' }}>Nenhuma leitura encontrada</h3>
+                <h3 className="text-xl text-starlight-text" style={{ marginBottom: '8px' }}>Nenhuma leitura encontrada</h3>
                 <p className="text-moonlight-text" style={{ marginBottom: '24px' }}>
                   {filterOracle === "all"
                     ? "Você ainda não fez nenhuma consulta"
@@ -462,9 +462,9 @@ export function History() {
                   <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-mystic-indigo to-oracle-ember flex items-center justify-center">
                     <Sparkles className="w-5 h-5 text-starlight-text" />
                   </div>
-                  <span className="text-starlight-text">Tarot Online</span>
+                  <span className="text-xl text-starlight-text">Tarot Online</span>
                 </div>
-                <small className="block text-moonlight-text/70">
+                <small className="block text-moonlight-text/70 leading-relaxed">
                   Consultas de Tarot, Tarot Cigano e Cartomancia Clássica disponíveis 24/7 com interpretações profundas e personalizadas.
                 </small>
               </div>
@@ -583,7 +583,7 @@ export function History() {
                 onClick={(e) => e.stopPropagation()}
               >
                 <div style={{ marginBottom: '24px' }}>
-                  <h2 className="text-starlight-text">Comprar Créditos</h2>
+                  <h2 className="text-2xl md:text-3xl text-starlight-text">Comprar Créditos</h2>
                 </div>
                 <div className="flex items-center justify-center" style={{ padding: '64px 0' }}>
                   <p className="text-lg text-moonlight-text">
@@ -633,7 +633,7 @@ export function History() {
                 onClick={(e) => e.stopPropagation()}
               >
                 <div style={{ marginBottom: '24px' }}>
-                  <h2 className="text-starlight-text">Leitura Completa</h2>
+                  <h2 className="text-2xl md:text-3xl text-starlight-text">Leitura Completa</h2>
                 </div>
 
                 <div>
@@ -644,9 +644,9 @@ export function History() {
                   <p className="text-sm text-moonlight-text" style={{ marginBottom: '24px' }}>
                     {new Date(selectedReading.date).toLocaleDateString('pt-BR')} às {selectedReading.time}
                   </p>
-                  <h3 className="text-starlight-text" style={{ marginBottom: '24px' }}>{selectedReading.question}</h3>
+                  <h3 className="text-xl text-starlight-text" style={{ marginBottom: '24px' }}>{selectedReading.question}</h3>
                   <div className="prose prose-invert max-w-none" style={{ marginBottom: '32px' }}>
-                    <p className="text-moonlight-text">{selectedReading.fullReading}</p>
+                    <p className="text-moonlight-text leading-relaxed">{selectedReading.fullReading}</p>
                   </div>
                 </div>
 
@@ -701,7 +701,7 @@ export function History() {
                 onClick={(e) => e.stopPropagation()}
               >
                 <div style={{ marginBottom: '24px' }}>
-                  <h2 className="text-starlight-text">Confirmar Exclusão</h2>
+                  <h2 className="text-xl md:text-2xl text-starlight-text">Confirmar Exclusão</h2>
                 </div>
 
                 <p className="text-moonlight-text" style={{ marginBottom: '32px' }}>

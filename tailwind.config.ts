@@ -2,12 +2,8 @@ import type { Config } from "tailwindcss";
 
 export default {
   darkMode: ["class"],
-  content: [
-    "./pages/**/*.{ts,tsx}",
-    "./components/**/*.{ts,tsx}",
-    "./app/**/*.{ts,tsx}",
-    "./src/**/*.{ts,tsx}",
-  ],
+  content: ["./pages/**/*.{ts,tsx}", "./components/**/*.{ts,tsx}", "./app/**/*.{ts,tsx}", "./src/**/*.{ts,tsx}"],
+  prefix: "",
   theme: {
     container: {
       center: true,
@@ -17,18 +13,10 @@ export default {
       },
     },
     extend: {
+      fontFamily: {
+        sans: ['Space Grotesk', 'ui-sans-serif', 'system-ui', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'Helvetica Neue', 'Arial', 'Noto Sans', 'sans-serif'],
+      },
       colors: {
-        "night-sky": "#050816",
-        "midnight-surface": "#101322",
-        "mystic-indigo": "#6366F1",
-        "mystic-indigo-dark": "#4F46E5",
-        "oracle-ember": "#F97316",
-        "starlight-text": "#F9FAFB",
-        "moonlight-text": "#9CA3AF",
-        "obsidian-border": "#1F2933",
-        "verdant-success": "#22C55E",
-        "solar-warning": "#FACC15",
-        "blood-moon-error": "#EF4444",
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",
         ring: "hsl(var(--ring))",
@@ -62,29 +50,54 @@ export default {
           DEFAULT: "hsl(var(--card))",
           foreground: "hsl(var(--card-foreground))",
         },
-      },
-      spacing: {
-        '1': '4px',
-        '2': '8px',
-        '3': '12px',
-        '4': '16px',
-        '5': '20px',
-        '6': '24px',
-        '8': '32px',
-        '10': '40px',
-        '12': '48px',
-        '16': '64px',
-        '20': '80px',
-        '24': '96px',
-        'touch': '44px',
-      },
-      fontFamily: {
-        sans: ["Space Grotesk", "system-ui", "sans-serif"],
+        sidebar: {
+          DEFAULT: "hsl(var(--sidebar-background))",
+          foreground: "hsl(var(--sidebar-foreground))",
+          primary: "hsl(var(--sidebar-primary))",
+          "primary-foreground": "hsl(var(--sidebar-primary-foreground))",
+          accent: "hsl(var(--sidebar-accent))",
+          "accent-foreground": "hsl(var(--sidebar-accent-foreground))",
+          border: "hsl(var(--sidebar-border))",
+          ring: "hsl(var(--sidebar-ring))",
+        },
+        "night-sky": "hsl(var(--night-sky))",
+        "midnight-surface": "hsl(var(--midnight-surface))",
+        "mystic-indigo": "hsl(var(--mystic-indigo))",
+        "mystic-indigo-dark": "hsl(var(--mystic-indigo-dark))",
+        "oracle-ember": "hsl(var(--oracle-ember))",
+        "starlight-text": "hsl(var(--starlight-text))",
+        "moonlight-text": "hsl(var(--moonlight-text))",
+        "obsidian-border": "hsl(var(--obsidian-border))",
+        "verdant-success": "hsl(var(--verdant-success))",
+        "solar-warning": "hsl(var(--solar-warning))",
+        "blood-moon-error": "hsl(var(--blood-moon-error))",
       },
       borderRadius: {
         lg: "var(--radius)",
         md: "calc(var(--radius) - 2px)",
         sm: "calc(var(--radius) - 4px)",
+      },
+      keyframes: {
+        "accordion-down": {
+          from: {
+            height: "0",
+          },
+          to: {
+            height: "var(--radix-accordion-content-height)",
+          },
+        },
+        "accordion-up": {
+          from: {
+            height: "var(--radix-accordion-content-height)",
+          },
+          to: {
+            height: "0",
+          },
+        },
+      },
+      animation: {
+        "accordion-down": "accordion-down 0.2s ease-out",
+        "accordion-up": "accordion-up 0.2s ease-out",
       },
     },
   },

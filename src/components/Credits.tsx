@@ -56,7 +56,7 @@ export function Credits() {
     <div className="min-h-screen bg-night-sky">
       <Header isLoggedIn={true} credits={12} />
 
-      <main className="max-w-7xl mx-auto">
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 md:py-12">
         {/* Header */}
         <div className="mb-8 text-center">
           <h1 className="text-starlight-text mb-2">Comprar Créditos</h1>
@@ -67,7 +67,7 @@ export function Credits() {
 
         {/* Current Balance */}
         <div className="mb-12 max-w-md mx-auto">
-          <div className="bg-gradient-to-br from-mystic-indigo to-mystic-indigo-dark rounded-2xl text-center" style={{ padding: '32px' }}>
+          <div className="bg-gradient-to-br from-mystic-indigo to-mystic-indigo-dark rounded-2xl p-8 text-center">
             <p className="text-starlight-text/80 mb-2">Saldo Atual</p>
             <p className="text-5xl text-starlight-text mb-1">12</p>
             <p className="text-starlight-text/80">créditos disponíveis</p>
@@ -77,15 +77,14 @@ export function Credits() {
         {/* Plans */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-16">
           {plans.map((plan) => (
-              <div
-                key={plan.name}
-                className={`bg-midnight-surface border rounded-2xl transition-all duration-300 flex flex-col ${
-                  plan.highlight
-                    ? "border-mystic-indigo shadow-xl shadow-mystic-indigo/20 md:scale-105"
-                    : "border-obsidian-border hover:border-mystic-indigo/50"
-                }`}
-                style={{ padding: '32px' }}
-              >
+            <div
+              key={plan.name}
+              className={`bg-midnight-surface border rounded-2xl p-8 transition-all duration-300 flex flex-col ${
+                plan.highlight
+                  ? "border-mystic-indigo shadow-xl shadow-mystic-indigo/20 md:scale-105"
+                  : "border-obsidian-border hover:border-mystic-indigo/50"
+              }`}
+            >
               {plan.savings && (
                 <div className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-oracle-ember/10 border border-oracle-ember mb-4 w-fit">
                   <span className="text-xs text-oracle-ember">{plan.savings}</span>
@@ -114,7 +113,7 @@ export function Credits() {
                 </p>
               </div>
 
-              <div className="space-y-3 flex-1">
+              <div className="space-y-3 mb-8 flex-1">
                 {plan.features.map((feature, index) => (
                   <div key={index} className="flex items-start gap-2">
                     <Check className="w-5 h-5 text-verdant-success flex-shrink-0 mt-0.5" />

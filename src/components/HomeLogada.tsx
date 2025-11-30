@@ -256,7 +256,7 @@ export function HomeLogada() {
       <Header isLoggedIn={true} onBuyCredits={() => setShowPaymentModal(true)} credits={credits} />
 
       {/* Hero Section */}
-      <section className="hero-section relative z-10 flex flex-col items-center justify-center" style={{ marginTop: 'calc(64px + 24px + 40px)' }}>
+      <section className="hero-section relative z-10 pt-24 pb-40 md:pt-40 md:pb-56 flex flex-col items-center justify-center" style={{ marginTop: 'calc(64px + 24px + 40px)' }}>
         <style>{`
           @media (min-width: 768px) {
             .hero-section {
@@ -285,9 +285,9 @@ export function HomeLogada() {
         <div className="hero-section-container w-full flex flex-col items-center">
           <div className="w-full max-w-[1200px] flex flex-col items-center">
             
-            <div className="mb-10">
+            <div style={{ marginBottom: '40px' }}>
               <h1 
-                className="text-starlight-text tracking-tight text-center w-full"
+                className="mb-10 text-starlight-text tracking-tight text-center w-full"
                 style={{ 
                   fontSize: '2.5rem',
                   lineHeight: '1.1'
@@ -303,19 +303,20 @@ export function HomeLogada() {
                 <span className="hero-title" style={{ fontSize: '2.5rem' }}>Tarot Online</span>
               </h1>
 
-              <p className="text-moonlight-text text-center w-full max-w-[800px]">
+              <p className="mb-8 text-xl md:text-2xl text-moonlight-text text-center w-full max-w-[800px]">
                 Consultas de Tarot, Tarot Cigano e Cartomancia Clássica disponíveis 24/7
               </p>
 
-              <p className="text-oracle-ember text-center w-full max-w-[700px]">
+              <p className="mb-24 text-lg md:text-xl text-oracle-ember text-center w-full max-w-[700px]">
                 Interpretações profundas e personalizadas para suas perguntas
               </p>
             </div>
 
             {/* Prompt Card - HABILITADO */}
-            <div className="w-full max-w-[900px] mb-6">
+            <div className="w-full max-w-[900px]" style={{ marginBottom: '24px' }}>
               <div 
-                className="bg-midnight-surface/80 backdrop-blur-sm border border-obsidian-border rounded-3xl shadow-2xl w-full flex flex-col p-6 gap-6"
+                className="bg-midnight-surface/80 backdrop-blur-sm border border-obsidian-border rounded-3xl shadow-2xl w-full flex flex-col"
+                style={{ padding: '24px', gap: '24px' }}
               >
                 <div 
                   onClick={credits === 0 ? handleFieldClick : undefined}
@@ -326,8 +327,9 @@ export function HomeLogada() {
                     value={question}
                     onChange={(e) => setQuestion(e.target.value)}
                     rows={6}
-                    className="w-full bg-night-sky/50 border border-obsidian-border rounded-2xl text-lg md:text-xl text-starlight-text placeholder:text-moonlight-text/60 focus:outline-none focus:border-mystic-indigo transition-colors resize-none disabled:opacity-50 p-6"
+                    className="w-full bg-night-sky/50 border border-obsidian-border rounded-2xl text-lg md:text-xl text-starlight-text placeholder:text-moonlight-text/60 focus:outline-none focus:border-mystic-indigo transition-colors resize-none disabled:opacity-50"
                     style={{ 
+                      padding: '24px',
                       pointerEvents: credits === 0 ? 'none' : 'auto'
                     }}
                     disabled={credits === 0}
@@ -348,12 +350,12 @@ export function HomeLogada() {
               </div>
             </div>
 
-            <p className="text-base md:text-lg text-moonlight-text/80 text-center w-full mb-6">
+            <p className="text-base md:text-lg text-moonlight-text/80 text-center w-full" style={{ marginBottom: '24px' }}>
               1 crédito por oráculo selecionado • Sem limites de temas
             </p>
 
-            <div className="flex flex-col sm:flex-row gap-5 justify-center items-center w-full max-w-[600px] mb-10">
-              <Button
+            <div className="flex flex-col sm:flex-row gap-5 justify-center items-center w-full max-w-[600px]" style={{ marginBottom: '40px' }}>
+              <Button 
                 size="lg" 
                 variant="outline"
                 className="w-full sm:flex-1 border-obsidian-border text-moonlight-text hover:bg-midnight-surface hover:text-starlight-text h-14 md:h-16 text-base md:text-lg px-8"
@@ -364,8 +366,8 @@ export function HomeLogada() {
             </div>
 
             {/* DEBUG BUTTON - Remover em produção */}
-            <div className="flex justify-center w-full mb-10">
-              <Button
+            <div className="flex justify-center w-full" style={{ marginBottom: '40px' }}>
+              <Button 
                 size="sm" 
                 variant="outline"
                 className="border-oracle-ember text-oracle-ember hover:bg-oracle-ember/10"
@@ -380,7 +382,7 @@ export function HomeLogada() {
       </section>
 
       {/* Planos */}
-      <section className="relative z-10 flex flex-col items-center justify-center">
+      <section className="relative z-10 py-40 md:py-48 flex flex-col items-center justify-center">
         <style>{`
           @media (max-width: 767px) {
             .planos-container {
@@ -404,11 +406,12 @@ export function HomeLogada() {
         <div className="planos-container w-full flex flex-col items-center">
           <div className="w-full max-w-[1400px] flex flex-col items-center">
             
-            <div className="w-full flex flex-col items-center mb-10">
-              <h2 className="text-starlight-text text-center w-full">
+            <div className="w-full flex flex-col items-center" style={{ marginBottom: '40px' }}>
+              <h2 className="mb-8 text-4xl md:text-6xl text-starlight-text text-center w-full">
                 Planos de créditos
               </h2>
-              <p className="text-moonlight-text text-center w-full max-w-[800px]">
+              
+              <p className="text-lg md:text-2xl text-moonlight-text text-center w-full max-w-[800px]">
                 Escolha o plano ideal para suas consultas
               </p>
             </div>
@@ -465,9 +468,9 @@ export function HomeLogada() {
                       style={{ padding: '48px' }}
                     >
                       {plan.badge && (
-                        <div className="absolute -top-4" style={{ left: '50%', transform: 'translateX(-50%)' }}>
-                          <div
-                            className="bg-oracle-ember rounded-full text-starlight-text shadow-lg whitespace-nowrap"
+                        <div className="absolute -top-4 left-1/2 -translate-x-1/2">
+                          <div 
+                            className="bg-oracle-ember rounded-full text-sm md:text-base text-starlight-text shadow-lg whitespace-nowrap"
                             style={{ padding: '8px 20px' }}
                           >
                             {plan.badge}
@@ -476,22 +479,22 @@ export function HomeLogada() {
                       )}
                       
                       <div className="text-center w-full" style={{ marginBottom: '32px', marginTop: '8px' }}>
-                        <h3 className="text-starlight-text" style={{ marginBottom: '16px' }}>
+                        <h3 className="text-3xl text-starlight-text" style={{ marginBottom: '16px' }}>
                           {plan.name}
                         </h3>
-                        <p className="text-moonlight-text">
+                        <p className="text-lg text-moonlight-text">
                           {plan.description}
                         </p>
                       </div>
 
                       <div className="text-center w-full" style={{ marginBottom: '32px' }}>
                         <div className="flex justify-center" style={{ marginBottom: '16px' }}>
-                          <span className="text-mystic-indigo" style={{ fontSize: '3rem', fontWeight: plan.highlight ? 700 : 400 }}>
+                          <span className={`text-6xl text-mystic-indigo ${plan.highlight ? 'font-bold' : ''}`}>
                             {plan.price}
                           </span>
                         </div>
-                        <p className="text-moonlight-text" style={{ marginBottom: '16px' }}>
-                          <span className="text-starlight-text" style={{ fontSize: '2rem' }}>{plan.credits}</span> consultas
+                        <p className="text-lg text-moonlight-text" style={{ marginBottom: '16px' }}>
+                          <span className="text-4xl text-starlight-text">{plan.credits}</span> consultas
                         </p>
                         <p className="text-base text-moonlight-text/70">
                           {plan.pricePerCredit}
@@ -670,7 +673,7 @@ export function HomeLogada() {
           />
           
           {/* Modal */}
-          <div className="fixed inset-0 z-50 flex items-center justify-center pointer-events-none p-4">
+          <div className="fixed inset-0 z-50 flex items-center justify-center pointer-events-none" style={{ padding: '16px' }}>
             <div className="relative pointer-events-auto">
               {/* Botão X - Fora do modal, canto superior direito */}
               <button
@@ -695,7 +698,8 @@ export function HomeLogada() {
               </button>
 
               <div 
-                className="bg-midnight-surface border border-obsidian-border rounded-3xl shadow-2xl w-full max-w-3xl max-h-[80vh] overflow-y-auto p-8"
+                className="bg-midnight-surface border border-obsidian-border rounded-3xl shadow-2xl w-full max-w-3xl max-h-[80vh] overflow-y-auto"
+                style={{ padding: '32px' }}
                 onClick={(e) => e.stopPropagation()}
               >
                 <div className="mb-6">
@@ -709,7 +713,7 @@ export function HomeLogada() {
                 {/* Plans Grid */}
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   {/* Plano Iniciante */}
-                  <div className="plan-card-mobile bg-night-sky/50 border border-obsidian-border rounded-2xl flex flex-col items-center text-center p-6">
+                  <div className="plan-card-mobile bg-night-sky/50 border border-obsidian-border rounded-2xl flex flex-col items-center text-center" style={{ padding: '24px' }}>
                     <style>{`
                       @media (max-width: 767px) {
                         .plan-card-mobile {
@@ -766,8 +770,8 @@ export function HomeLogada() {
                   </div>
 
                   {/* Plano Explorador */}
-                  <div className="plan-card-mobile bg-night-sky/50 border-2 border-mystic-indigo rounded-2xl flex flex-col items-center text-center relative p-6">
-                    <div className="plan-badge absolute -top-3 left-1/2 -translate-x-1/2 bg-mystic-indigo text-starlight-text text-xs rounded-full px-3 py-1">
+                  <div className="plan-card-mobile bg-night-sky/50 border-2 border-mystic-indigo rounded-2xl flex flex-col items-center text-center relative" style={{ padding: '24px' }}>
+                    <div className="plan-badge absolute -top-3 left-1/2 -translate-x-1/2 bg-mystic-indigo text-starlight-text text-xs rounded-full" style={{ paddingLeft: '12px', paddingRight: '12px', paddingTop: '4px', paddingBottom: '4px' }}>
                       POPULAR
                     </div>
                     <h3 className="plan-title text-xl text-starlight-text" style={{ marginBottom: '8px' }}>Explorador</h3>
@@ -788,9 +792,9 @@ export function HomeLogada() {
                   </div>
 
                   {/* Plano Místico */}
-                  <div className="plan-card-mobile bg-night-sky/50 border border-obsidian-border rounded-2xl flex flex-col items-center text-center p-6">
-                    <h3 className="plan-title text-xl text-starlight-text mb-2">Místico</h3>
-                    <div className="plan-credits-wrapper mb-2">
+                  <div className="plan-card-mobile bg-night-sky/50 border border-obsidian-border rounded-2xl flex flex-col items-center text-center" style={{ padding: '24px' }}>
+                    <h3 className="plan-title text-xl text-starlight-text" style={{ marginBottom: '8px' }}>Místico</h3>
+                    <div className="plan-credits-wrapper" style={{ marginBottom: '8px' }}>
                       <div className="plan-credits-number text-3xl text-starlight-text">60</div>
                       <div className="plan-credits-text text-moonlight-text/70">créditos</div>
                     </div>
@@ -822,7 +826,7 @@ export function HomeLogada() {
           />
           
           {/* Modal */}
-          <div className="fixed inset-0 z-50 flex items-center justify-center pointer-events-none p-4">
+          <div className="fixed inset-0 z-50 flex items-center justify-center pointer-events-none" style={{ padding: '16px' }}>
             <div className="relative pointer-events-auto">
               {/* Botão X - Fora do modal, canto superior direito */}
               <button
@@ -847,7 +851,8 @@ export function HomeLogada() {
               </button>
 
               <div 
-                className="bg-midnight-surface border border-obsidian-border rounded-3xl shadow-2xl w-full max-w-3xl max-h-[80vh] overflow-y-auto p-8"
+                className="bg-midnight-surface border border-obsidian-border rounded-3xl shadow-2xl w-full max-w-3xl max-h-[80vh] overflow-y-auto"
+                style={{ padding: '32px' }}
                 onClick={(e) => e.stopPropagation()}
               >
                 <div className="mb-6">
@@ -861,7 +866,7 @@ export function HomeLogada() {
                 {/* Plans Grid */}
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   {/* Plano Iniciante */}
-                  <div className="plan-card-mobile bg-night-sky/50 border border-obsidian-border rounded-2xl flex flex-col items-center text-center p-6">
+                  <div className="plan-card-mobile bg-night-sky/50 border border-obsidian-border rounded-2xl flex flex-col items-center text-center" style={{ padding: '24px' }}>
                     <style>{`
                       @media (max-width: 767px) {
                         .plan-card-mobile {
@@ -918,8 +923,8 @@ export function HomeLogada() {
                   </div>
 
                   {/* Plano Explorador */}
-                  <div className="plan-card-mobile bg-night-sky/50 border-2 border-mystic-indigo rounded-2xl flex flex-col items-center text-center relative p-6">
-                    <div className="plan-badge absolute -top-3 left-1/2 -translate-x-1/2 bg-mystic-indigo text-starlight-text text-xs rounded-full px-3 py-1">
+                  <div className="plan-card-mobile bg-night-sky/50 border-2 border-mystic-indigo rounded-2xl flex flex-col items-center text-center relative" style={{ padding: '24px' }}>
+                    <div className="plan-badge absolute -top-3 left-1/2 -translate-x-1/2 bg-mystic-indigo text-starlight-text text-xs rounded-full" style={{ paddingLeft: '12px', paddingRight: '12px', paddingTop: '4px', paddingBottom: '4px' }}>
                       POPULAR
                     </div>
                     <h3 className="plan-title text-xl text-starlight-text" style={{ marginBottom: '8px' }}>Explorador</h3>
@@ -940,9 +945,9 @@ export function HomeLogada() {
                   </div>
 
                   {/* Plano Místico */}
-                  <div className="plan-card-mobile bg-night-sky/50 border border-obsidian-border rounded-2xl flex flex-col items-center text-center p-6">
-                    <h3 className="plan-title text-xl text-starlight-text mb-2">Místico</h3>
-                    <div className="plan-credits-wrapper mb-2">
+                  <div className="plan-card-mobile bg-night-sky/50 border border-obsidian-border rounded-2xl flex flex-col items-center text-center" style={{ padding: '24px' }}>
+                    <h3 className="plan-title text-xl text-starlight-text" style={{ marginBottom: '8px' }}>Místico</h3>
+                    <div className="plan-credits-wrapper" style={{ marginBottom: '8px' }}>
                       <div className="plan-credits-number text-3xl text-starlight-text">60</div>
                       <div className="plan-credits-text text-moonlight-text/70">créditos</div>
                     </div>
@@ -1007,9 +1012,9 @@ export function HomeLogada() {
             }
           }
         `}</style>
-        <div className="footer-container w-full py-12">
+        <div className="footer-container w-full" style={{ paddingTop: '48px', paddingBottom: '48px' }}>
           <div className="max-w-[1400px] mx-auto">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-12 mb-20">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-12" style={{ marginBottom: '80px' }}>
               {/* Logo e descrição */}
               <div>
                 <div className="flex items-center gap-3 mb-4">
