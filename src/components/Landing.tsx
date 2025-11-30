@@ -517,10 +517,9 @@ export function HomeDeslogada() {
             </div>
 
             {/* Prompt Card - ATUALIZADO COM ESPAÇAMENTOS */}
-            <div className="w-full max-w-[900px]" style={{ marginBottom: '24px' }}>
+            <div className="w-full max-w-[900px] mb-6">
               <div 
-                className="bg-midnight-surface/80 backdrop-blur-sm border border-obsidian-border rounded-3xl shadow-2xl w-full flex flex-col"
-                style={{ padding: '24px', gap: '24px' }}
+                className="bg-midnight-surface/80 backdrop-blur-sm border border-obsidian-border rounded-3xl shadow-2xl w-full flex flex-col p-6 gap-6"
               >
                 <textarea
                   placeholder="Faça sua pergunta..."
@@ -607,7 +606,7 @@ export function HomeDeslogada() {
       </section>
 
       {/* Como Funciona */}
-      <section className="relative z-10 flex flex-col items-center justify-center" style={{ paddingTop: '160px', paddingBottom: '192px' }}>
+      <section className="relative z-10 py-40 md:py-48 flex flex-col items-center justify-center">
         <style>{`
           @media (max-width: 767px) {
             .como-funciona-container {
@@ -631,7 +630,7 @@ export function HomeDeslogada() {
         <div className="como-funciona-container w-full flex flex-col items-center justify-center">
           <div className="w-full max-w-[1400px] flex flex-col items-center">
             
-            <div className="w-full flex flex-col items-center" style={{ marginBottom: '40px' }}>
+            <div className="w-full flex flex-col items-center mb-10">
               <h2 className="text-starlight-text text-center w-full">
                 Como funciona
               </h2>
@@ -838,7 +837,7 @@ export function HomeDeslogada() {
       </section>
 
       {/* Planos */}
-      <section className="relative z-10 flex flex-col items-center justify-center" style={{ paddingTop: '160px', paddingBottom: '192px' }}>
+      <section className="relative z-10 py-40 md:py-48 flex flex-col items-center justify-center">
         <style>{`
           @media (max-width: 767px) {
             .planos-container {
@@ -862,7 +861,7 @@ export function HomeDeslogada() {
         <div className="planos-container w-full flex flex-col items-center justify-center">
           <div className="w-full max-w-[1400px] flex flex-col items-center">
             
-            <div className="w-full flex flex-col items-center" style={{ marginBottom: '40px' }}>
+            <div className="w-full flex flex-col items-center mb-10">
               <h2 className="text-starlight-text text-center w-full">
                 Planos de créditos
               </h2>
