@@ -537,7 +537,7 @@ export function HomeDeslogada() {
                   <Button
                     size="lg"
                     disabled
-                    className="w-full sm:w-auto sm:min-w-[50%] bg-mystic-indigo hover:bg-mystic-indigo-dark text-starlight-text h-14 md:h-16 text-lg md:text-xl disabled:opacity-60 px-8 whitespace-nowrap"
+                    className="w-full sm:w-auto sm:min-w-[50%] bg-mystic-indigo hover:bg-mystic-indigo-dark text-starlight-text h-14 md:h-16 text-lg md:text-xl disabled:opacity-60 whitespace-nowrap"
                   >
                     ✨ Consultar o Oráculo
                   </Button>
@@ -565,7 +565,7 @@ export function HomeDeslogada() {
             <div className="flex flex-col sm:flex-row gap-5 justify-center items-center w-full max-w-[600px]" style={{ marginBottom: '40px' }}>
               <Button 
                 size="lg" 
-                className="w-full sm:flex-1 bg-mystic-indigo hover:bg-mystic-indigo-dark text-starlight-text h-14 md:h-16 text-base md:text-lg px-8"
+                className="w-full sm:flex-1 bg-mystic-indigo hover:bg-mystic-indigo-dark text-starlight-text h-14 md:h-16 text-base md:text-lg"
                 onClick={() => setShowLoginModal(true)}
               >
                 Entrar | Criar conta
@@ -574,7 +574,7 @@ export function HomeDeslogada() {
                 size="lg"
                 variant="outline"
                 onClick={() => setShowHowItWorksModal(true)}
-                className="w-full sm:flex-1 border-obsidian-border text-moonlight-text hover:bg-midnight-surface hover:text-starlight-text h-14 md:h-16 text-base md:text-lg px-8"
+                className="w-full sm:flex-1 border-obsidian-border text-moonlight-text hover:bg-midnight-surface hover:text-starlight-text h-14 md:h-16 text-base md:text-lg"
               >
                 Como funciona
               </Button>

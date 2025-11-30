@@ -69,7 +69,7 @@ export function Admin() {
     <div className="min-h-screen bg-night-sky">
       <Header isLoggedIn={true} credits={100} />
 
-      <div className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className="max-w-[1600px] mx-auto">
         <div className="flex items-center justify-between mb-8">
           <div>
             <h1 className="text-starlight-text mb-2">Área Administrativa</h1>
