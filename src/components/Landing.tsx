@@ -632,7 +632,7 @@ export function HomeDeslogada() {
           <div className="w-full max-w-[1400px] flex flex-col items-center">
             
             <div className="w-full flex flex-col items-center" style={{ marginBottom: '40px' }}>
-              <h2 className="text-starlight-text text-center w-full" style={{ marginBottom: '32px' }}>
+              <h2 className="text-starlight-text text-center w-full">
                 Como funciona
               </h2>
               <p className="text-moonlight-text text-center w-full max-w-[800px]">
@@ -863,7 +863,7 @@ export function HomeDeslogada() {
           <div className="w-full max-w-[1400px] flex flex-col items-center">
             
             <div className="w-full flex flex-col items-center" style={{ marginBottom: '40px' }}>
-              <h2 className="text-starlight-text text-center w-full" style={{ marginBottom: '32px' }}>
+              <h2 className="text-starlight-text text-center w-full">
                 Planos de créditos
               </h2>
               <p className="text-moonlight-text text-center w-full max-w-[800px]">
@@ -1583,7 +1583,7 @@ export function HomeDeslogada() {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-12" style={{ marginBottom: '80px' }}>
               {/* Logo e descrição */}
               <div>
-                <div className="flex items-center gap-3 mb-4">
+                <div className="flex items-center gap-3" style={{ marginBottom: '16px' }}>
                   <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-mystic-indigo to-oracle-ember flex items-center justify-center">
                     <Sparkles className="w-5 h-5 text-starlight-text" />
                   </div>
@@ -1596,7 +1596,7 @@ export function HomeDeslogada() {
 
               {/* Links - Serviços */}
               <div>
-                <h3 className="text-base text-starlight-text mb-4">Serviços</h3>
+                <h3 className="text-base text-starlight-text" style={{ marginBottom: '16px' }}>Serviços</h3>
                 <ul className="space-y-3">
                   <li>
                     <button 
@@ -1635,7 +1635,7 @@ export function HomeDeslogada() {
 
               {/* Links - Informações */}
               <div>
-                <h3 className="text-base text-starlight-text mb-4">Informações</h3>
+                <h3 className="text-base text-starlight-text" style={{ marginBottom: '16px' }}>Informações</h3>
                 <ul className="space-y-3">
                   <li>
                     <button 
