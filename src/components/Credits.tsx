@@ -114,7 +114,7 @@ export function Credits() {
                 </p>
               </div>
 
-              <div className="space-y-3 mb-8 flex-1">
+              <div className="space-y-3 flex-1">
                 {plan.features.map((feature, index) => (
                   <div key={index} className="flex items-start gap-2">
                     <Check className="w-5 h-5 text-verdant-success flex-shrink-0 mt-0.5" />

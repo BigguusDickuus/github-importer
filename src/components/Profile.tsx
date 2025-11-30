@@ -41,7 +41,7 @@ export function Profile() {
                 Segurança
               </TabsTrigger>
             </TabsList>
-            <TabsList className="w-full grid grid-cols-2 gap-2 bg-transparent mt-2">
+            <TabsList className="w-full grid grid-cols-2 gap-2 bg-transparent">
               <TabsTrigger
                 value="notifications"
                 className="data-[state=active]:bg-mystic-indigo data-[state=active]:text-starlight-text"
@@ -343,7 +343,7 @@ function BillingSection() {
                 </div>
                 <div className="text-right">
                   <p className="text-starlight-text">{purchase.amount}</p>
-                  <div className="flex items-center gap-1 justify-end mt-1">
+                  <div className="flex items-center gap-1 justify-end">
                     <Check className="w-3 h-3 text-verdant-success" />
                     <span className="text-xs text-verdant-success">Concluído</span>
                   </div>
