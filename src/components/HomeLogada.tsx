@@ -468,8 +468,8 @@ export function HomeLogada() {
                       style={{ padding: '48px' }}
                     >
                       {plan.badge && (
-                        <div className="absolute -top-4 left-1/2 -translate-x-1/2">
-                          <div 
+                        <div className="absolute -top-4" style={{ left: '50%', transform: 'translateX(-50%)' }}>
+                          <div
                             className="bg-oracle-ember rounded-full text-sm md:text-base text-starlight-text shadow-lg whitespace-nowrap"
                             style={{ padding: '8px 20px' }}
                           >
