@@ -36,28 +36,26 @@ export function ConfirmationModal({
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} title={title} size="sm">
-      <div style={{ marginTop: "16px" }}>
-        <p className="text-moonlight-text" style={{ marginBottom: "24px" }}>
+      <div className="mt-4">
+        <p className="text-moonlight-text mb-6">
           {message}
         </p>
 
         {/* Campo de senha (se necessário) */}
         {requirePassword && (
-          <div style={{ marginBottom: "24px" }}>
+          <div className="mb-6">
             <div className="relative">
               <input
                 type={showPassword ? "text" : "password"}
                 value={password}
                 onChange={(e) => onPasswordChange?.(e.target.value)}
                 placeholder="Insira sua senha para confirmar"
-                className="w-full bg-night-sky border border-obsidian-border rounded-lg text-starlight-text placeholder-moonlight-text focus:outline-none focus:border-mystic-indigo transition-colors"
-                style={{ padding: "12px 44px 12px 16px" }}
+                className="w-full bg-night-sky border border-obsidian-border rounded-lg text-starlight-text placeholder-moonlight-text focus:outline-none focus:border-mystic-indigo transition-colors py-3 pr-[44px] pl-4"
               />
               <button
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-moonlight-text hover:text-starlight-text transition-colors"
-                style={{ padding: "8px" }}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-moonlight-text hover:text-starlight-text transition-colors p-2"
               >
                 {showPassword ? (
                   <EyeOff className="w-5 h-5" />
@@ -67,7 +65,7 @@ export function ConfirmationModal({
               </button>
             </div>
             {passwordError && (
-              <p className="text-blood-moon-error text-sm" style={{ marginTop: "6px" }}>
+              <p className="text-blood-moon-error text-sm mt-[6px]">
                 Senha inválida
               </p>
             )}
@@ -78,19 +76,17 @@ export function ConfirmationModal({
           <Button
             variant="outline"
             onClick={onClose}
-            className="flex-1"
-            style={{ height: "44px" }}
+            className="flex-1 h-touch"
           >
             {cancelText}
           </Button>
           <Button
             onClick={onConfirm}
-            className={`flex-1 ${
+            className={`flex-1 h-touch ${
               variant === "danger"
                 ? "bg-blood-moon-error hover:bg-blood-moon-error/80 border-blood-moon-error"
                 : ""
             }`}
-            style={{ height: "44px" }}
             disabled={requirePassword && !password}
           >
             {confirmText}
