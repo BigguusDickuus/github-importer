@@ -435,32 +435,21 @@ export function HomeDeslogada() {
         return;
       }
 
-      // Atualiza o profile com os dados adicionais
-      const { error: updateError } = await supabase
+      // Garante que o profile existe e atualiza com os dados adicionais
+      const { data: profileRow, error: upsertError } = await supabase
         .from("profiles")
-        .update({
+        .upsert({
+          id: data.user.id,
+          email: signupEmail,
           birthday: signupBirthDate, // já vem em YYYY-MM-DD do input type="date"
           cpf: cleanCpf,
           phone: cleanPhone,
         })
-        .eq("id", data.user.id);
-
-      if (updateError) {
-        console.error("Erro no UPDATE de profiles:", updateError);
-        alert("Erro ao salvar os dados, tente novamente mais tarde");
-        await supabase.auth.signOut();
-        return;
-      }
-
-      // Confirma que o profile existe
-      const { data: profileRow, error: profileError } = await supabase
-        .from("profiles")
         .select("id")
-        .eq("id", data.user.id)
         .maybeSingle();
 
-      if (profileError || !profileRow) {
-        console.error("Profile não encontrado após signup:", profileError, profileRow);
+      if (upsertError || !profileRow) {
+        console.error("Erro ao criar/atualizar profile após signup:", upsertError, profileRow);
         alert("Erro ao salvar os dados, tente novamente mais tarde");
         await supabase.auth.signOut();
         return;
