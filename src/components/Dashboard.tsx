@@ -37,7 +37,7 @@ export function Dashboard() {
             <div>
               <h3 className="mb-2 text-moonlight-text">Seus créditos</h3>
               <div className="flex items-baseline gap-3">
-                <span className="text-5xl text-starlight-text">{userCredits}</span>
+                <span className="text-starlight-text">{userCredits}</span>
                 <span className="text-moonlight-text">
                   consultas disponíveis
                 </span>

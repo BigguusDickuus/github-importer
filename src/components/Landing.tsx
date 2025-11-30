@@ -491,10 +491,11 @@ export function HomeDeslogada() {
             
             <div style={{ marginBottom: '40px' }}>
               <h1 
-                className="mb-10 text-starlight-text tracking-tight text-center w-full"
+                className="text-starlight-text tracking-tight text-center w-full"
                 style={{ 
                   fontSize: '2.5rem',
-                  lineHeight: '1.1'
+                  lineHeight: '1.1',
+                  marginBottom: '40px'
                 }}
               >
                 <style>{`
@@ -507,11 +508,11 @@ export function HomeDeslogada() {
                 <span className="hero-title" style={{ fontSize: '2.5rem' }}>Tarot Online</span>
               </h1>
 
-              <p className="mb-8 text-moonlight-text text-center w-full max-w-[800px]">
+              <p className="text-moonlight-text text-center w-full max-w-[800px]" style={{ marginBottom: '32px' }}>
                 Consultas de Tarot, Tarot Cigano e Cartomancia Clássica disponíveis 24/7
               </p>
 
-              <p className="mb-24 text-oracle-ember text-center w-full max-w-[700px]" style={{ marginLeft: 'auto', marginRight: 'auto' }}>
+              <p className="text-oracle-ember text-center w-full max-w-[700px]" style={{ marginBottom: '96px', marginLeft: 'auto', marginRight: 'auto' }}>
                 Interpretações profundas e personalizadas para suas perguntas
               </p>
             </div>
