@@ -405,11 +405,10 @@ export function HomeLogada() {
           <div className="w-full max-w-[1400px] flex flex-col items-center">
             
             <div className="w-full flex flex-col items-center mb-10">
-              <h2 className="mb-8 text-4xl md:text-6xl text-starlight-text text-center w-full">
+              <h2 className="text-starlight-text text-center w-full">
                 Planos de créditos
               </h2>
-              
-              <p className="text-lg md:text-2xl text-moonlight-text text-center w-full max-w-[800px]">
+              <p className="text-moonlight-text text-center w-full max-w-[800px]">
                 Escolha o plano ideal para suas consultas
               </p>
             </div>
@@ -458,56 +457,59 @@ export function HomeLogada() {
                   {plans.map((plan, index) => (
                     <div
                       key={index}
-                      className={`bg-midnight-surface/80 backdrop-blur-sm border rounded-3xl transition-all duration-300 relative flex flex-col p-12 ${
+                      className={`bg-midnight-surface/80 backdrop-blur-sm border rounded-3xl transition-all duration-300 relative flex flex-col ${
                         plan.highlight
                           ? "border-mystic-indigo shadow-xl shadow-mystic-indigo/20 md:scale-105"
                           : "border-obsidian-border hover:border-mystic-indigo/30 hover:shadow-lg"
                       }`}
+                      style={{ padding: '48px' }}
                     >
                       {plan.badge && (
                         <div className="absolute -top-4" style={{ left: '50%', transform: 'translateX(-50%)' }}>
-                          <div 
-                            className="bg-oracle-ember rounded-full text-sm md:text-base text-starlight-text shadow-lg whitespace-nowrap py-2 px-5"
+                          <div
+                            className="bg-oracle-ember rounded-full text-starlight-text shadow-lg whitespace-nowrap"
+                            style={{ padding: '8px 20px' }}
                           >
                             {plan.badge}
                           </div>
                         </div>
                       )}
                       
-                      <div className="text-center w-full mb-8 mt-2">
-                        <h3 className="text-3xl text-starlight-text mb-4">
+                      <div className="text-center w-full" style={{ marginBottom: '32px', marginTop: '8px' }}>
+                        <h3 className="text-starlight-text" style={{ marginBottom: '16px' }}>
                           {plan.name}
                         </h3>
-                        <p className="text-lg text-moonlight-text">
+                        <p className="text-moonlight-text">
                           {plan.description}
                         </p>
                       </div>
 
-                      <div className="text-center w-full mb-8">
-                        <div className="flex justify-center mb-4">
-                          <span className={`text-6xl text-mystic-indigo ${plan.highlight ? 'font-bold' : ''}`}>
+                      <div className="text-center w-full" style={{ marginBottom: '32px' }}>
+                        <div className="flex justify-center" style={{ marginBottom: '16px' }}>
+                          <span className="text-mystic-indigo" style={{ fontSize: '3rem', fontWeight: plan.highlight ? 700 : 400 }}>
                             {plan.price}
                           </span>
                         </div>
-                        <p className="text-lg text-moonlight-text mb-4">
-                          <span className="text-4xl text-starlight-text">{plan.credits}</span> consultas
+                        <p className="text-moonlight-text" style={{ marginBottom: '16px' }}>
+                          <span className="text-starlight-text" style={{ fontSize: '2rem' }}>{plan.credits}</span> consultas
                         </p>
                         <p className="text-base text-moonlight-text/70">
                           {plan.pricePerCredit}
                         </p>
                       </div>
 
-                      <div className="text-center w-full flex justify-center mb-8 min-h-[56px] items-center">
+                      <div className="text-center w-full flex justify-center" style={{ marginBottom: '32px', minHeight: '56px', alignItems: 'center' }}>
                         {plan.savings && (
                           <span 
-                            className="inline-block rounded-full bg-verdant-success/10 border border-verdant-success/30 text-base text-verdant-success py-2 px-4"
+                            className="inline-block rounded-full bg-verdant-success/10 border border-verdant-success/30 text-base text-verdant-success"
+                            style={{ padding: '8px 16px' }}
                           >
                             {plan.savings}
                           </span>
                         )}
                       </div>
 
-                      <div className="mt-auto">
+                      <div style={{ marginTop: 'auto' }}>
                         <Button
                           className={`w-full h-16 text-lg ${
                             plan.highlight
