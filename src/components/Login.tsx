@@ -75,6 +75,7 @@ export function Login() {
       if (!data.user) {
         console.error("SignUp retornou sem user:", data);
         alert("Erro ao salvar os dados, tente novamente mais tarde");
+        await supabase.auth.signOut();
         setLoading(false);
         return;
       }
@@ -92,6 +93,7 @@ export function Login() {
       if (updateError) {
         console.error("Erro no UPDATE de profiles:", updateError);
         alert("Erro ao salvar os dados, tente novamente mais tarde");
+        await supabase.auth.signOut();
         setLoading(false);
         return;
       }
@@ -106,6 +108,7 @@ export function Login() {
       if (profileError || !profileRow) {
         console.error("Profile não encontrado após signup:", profileError, profileRow);
         alert("Erro ao salvar os dados, tente novamente mais tarde");
+        await supabase.auth.signOut();
         setLoading(false);
         return;
       }
@@ -119,6 +122,7 @@ export function Login() {
     } catch (error: any) {
       console.error("Erro inesperado no signup:", error);
       alert("Erro ao salvar os dados, tente novamente mais tarde");
+      await supabase.auth.signOut();
       setLoading(false);
     }
   };
