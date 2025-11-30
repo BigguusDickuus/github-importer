@@ -44,7 +44,11 @@ export function Login() {
 
       if (checkError) {
         console.error("Erro ao verificar CPF existente:", checkError);
-        alert("Erro ao salvar os dados, tente novamente mais tarde");
+        toast({
+          title: "Erro ao verificar CPF",
+          description: "Tente novamente mais tarde.",
+          variant: "destructive",
+        });
         setLoading(false);
         return;
       }
@@ -59,70 +63,46 @@ export function Login() {
         return;
       }
 
-      // Sign up with Supabase Auth (trigger cria o profile automaticamente)
-      const { data, error: signUpError } = await supabase.auth.signUp({
+      // Sign up with Supabase Auth - trigger cria o profile automaticamente com os metadados
+      const { error: signUpError } = await supabase.auth.signUp({
         email,
         password,
+        options: {
+          data: {
+            birthday: convertBirthdayToISO(birthday),
+            cpf: cleanCpf,
+            phone: removeNonDigits(phone),
+          },
+        },
       });
 
       if (signUpError) {
         console.error("Erro no signUp:", signUpError);
-        alert("Erro ao criar conta: " + signUpError.message);
-        setLoading(false);
-        return;
-      }
-
-      if (!data.user) {
-        console.error("SignUp retornou sem user:", data);
-        alert("Erro ao salvar os dados, tente novamente mais tarde");
-        await supabase.auth.signOut();
-        setLoading(false);
-        return;
-      }
-
-      // Atualiza o profile com os dados adicionais
-      const { error: updateError } = await supabase
-        .from("profiles")
-        .update({
-          birthday: convertBirthdayToISO(birthday),
-          cpf: cleanCpf,
-          phone: removeNonDigits(phone),
-        })
-        .eq("id", data.user.id);
-
-      if (updateError) {
-        console.error("Erro no UPDATE de profiles:", updateError);
-        alert("Erro ao salvar os dados, tente novamente mais tarde");
-        await supabase.auth.signOut();
-        setLoading(false);
-        return;
-      }
-
-      // Garante que o profile realmente existe
-      const { data: profileRow, error: profileError } = await supabase
-        .from("profiles")
-        .select("id")
-        .eq("id", data.user.id)
-        .maybeSingle();
-
-      if (profileError || !profileRow) {
-        console.error("Profile não encontrado após signup:", profileError, profileRow);
-        alert("Erro ao salvar os dados, tente novamente mais tarde");
-        await supabase.auth.signOut();
+        toast({
+          title: "Erro ao criar conta",
+          description: signUpError.message,
+          variant: "destructive",
+        });
         setLoading(false);
         return;
       }
 
       toast({
-        title: "Conta criada com sucesso!",
-        description: "Você já está logado.",
+        title: "Conta criada!",
+        description: "Verifique seu e-mail para confirmar o cadastro e acessar a plataforma.",
+        duration: 6000,
       });
 
-      navigate("/dashboard");
+      // Volta para o modo login após sucesso
+      setIsLogin(true);
+      setLoading(false);
     } catch (error: any) {
       console.error("Erro inesperado no signup:", error);
-      alert("Erro ao salvar os dados, tente novamente mais tarde");
-      await supabase.auth.signOut();
+      toast({
+        title: "Erro inesperado",
+        description: "Tente novamente mais tarde.",
+        variant: "destructive",
+      });
       setLoading(false);
     }
   };
