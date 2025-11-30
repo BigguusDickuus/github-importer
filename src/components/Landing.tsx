@@ -608,7 +608,7 @@ export function HomeDeslogada() {
       </section>
 
       {/* Como Funciona */}
-      <section className="relative z-10 py-40 md:py-48 flex flex-col items-center justify-center">
+      <section className="relative z-10 flex flex-col items-center justify-center" style={{ paddingTop: '160px', paddingBottom: '192px' }}>
         <style>{`
           @media (max-width: 767px) {
             .como-funciona-container {
@@ -633,11 +633,10 @@ export function HomeDeslogada() {
           <div className="w-full max-w-[1400px] flex flex-col items-center">
             
             <div className="w-full flex flex-col items-center" style={{ marginBottom: '40px' }}>
-              <h2 className="mb-8 text-4xl md:text-6xl text-starlight-text text-center w-full">
+              <h2 className="text-starlight-text text-center w-full" style={{ marginBottom: '32px' }}>
                 Como funciona
               </h2>
-              
-              <p className="text-lg md:text-2xl text-moonlight-text text-center w-full max-w-[800px]">
+              <p className="text-moonlight-text text-center w-full max-w-[800px]">
                 Três passos simples para acessar a <span className="text-mystic-indigo">sabedoria ancestral</span>
               </p>
             </div>
@@ -699,10 +698,10 @@ export function HomeDeslogada() {
                       >
                         <feature.icon className="w-8 h-8 text-mystic-indigo" />
                       </div>
-                      <h3 className="text-2xl text-starlight-text text-center w-full" style={{ marginBottom: '16px' }}>
+                      <h3 className="text-starlight-text text-center w-full" style={{ marginBottom: '16px' }}>
                         {feature.title}
                       </h3>
-                      <p className="text-base text-moonlight-text leading-relaxed text-center w-full">
+                      <p className="text-moonlight-text text-center w-full">
                         {feature.description}
                       </p>
                     </div>
@@ -840,7 +839,7 @@ export function HomeDeslogada() {
       </section>
 
       {/* Planos */}
-      <section className="relative z-10 py-40 md:py-48 flex flex-col items-center justify-center">
+      <section className="relative z-10 flex flex-col items-center justify-center" style={{ paddingTop: '160px', paddingBottom: '192px' }}>
         <style>{`
           @media (max-width: 767px) {
             .planos-container {
@@ -865,11 +864,10 @@ export function HomeDeslogada() {
           <div className="w-full max-w-[1400px] flex flex-col items-center">
             
             <div className="w-full flex flex-col items-center" style={{ marginBottom: '40px' }}>
-              <h2 className="mb-8 text-4xl md:text-6xl text-starlight-text text-center w-full">
+              <h2 className="text-starlight-text text-center w-full" style={{ marginBottom: '32px' }}>
                 Planos de créditos
               </h2>
-              
-              <p className="text-lg md:text-2xl text-moonlight-text text-center w-full max-w-[800px]">
+              <p className="text-moonlight-text text-center w-full max-w-[800px]">
                 Escolha o plano ideal para suas consultas
               </p>
             </div>
@@ -933,7 +931,7 @@ export function HomeDeslogada() {
                       {plan.badge && (
                         <div className="absolute -top-4 left-1/2 -translate-x-1/2">
                           <div 
-                            className="bg-oracle-ember rounded-full text-sm md:text-base text-starlight-text shadow-lg whitespace-nowrap"
+                            className="bg-oracle-ember rounded-full text-starlight-text shadow-lg whitespace-nowrap"
                             style={{ padding: '8px 20px' }}
                           >
                             {plan.badge}
@@ -942,22 +940,22 @@ export function HomeDeslogada() {
                       )}
                       
                       <div className="text-center w-full" style={{ marginBottom: '32px', marginTop: '8px' }}>
-                        <h3 className="text-3xl text-starlight-text" style={{ marginBottom: '16px' }}>
+                        <h3 className="text-starlight-text" style={{ marginBottom: '16px' }}>
                           {plan.name}
                         </h3>
-                        <p className="text-lg text-moonlight-text">
+                        <p className="text-moonlight-text">
                           {plan.description}
                         </p>
                       </div>
 
                       <div className="text-center w-full" style={{ marginBottom: '32px' }}>
                         <div className="flex justify-center" style={{ marginBottom: '16px' }}>
-                          <span className={`text-6xl text-mystic-indigo ${plan.highlight ? 'font-bold' : ''}`}>
+                          <span className="text-mystic-indigo" style={{ fontSize: '3rem', fontWeight: plan.highlight ? 700 : 400 }}>
                             {plan.price}
                           </span>
                         </div>
-                        <p className="text-lg text-moonlight-text" style={{ marginBottom: '16px' }}>
-                          <span className="text-4xl text-starlight-text">{plan.credits}</span> consultas
+                        <p className="text-moonlight-text" style={{ marginBottom: '16px' }}>
+                          <span className="text-starlight-text" style={{ fontSize: '2rem' }}>{plan.credits}</span> consultas
                         </p>
                         <p className="text-base text-moonlight-text/70">
                           {plan.pricePerCredit}
@@ -1677,7 +1675,7 @@ export function HomeDeslogada() {
             </div>
 
             {/* Copyright */}
-            <div className="pt-8">
+            <div>
               <small className="block text-center text-moonlight-text/70">
                 © 2024 Tarot Online. Todos os direitos reservados.
               </small>
