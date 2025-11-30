@@ -16,7 +16,7 @@ export function Profile() {
     <div className="min-h-screen bg-night-sky">
       <Header isLoggedIn={true} credits={12} />
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 md:py-12">
+      <main className="max-w-7xl mx-auto">
         <div className="mb-8">
           <h1 className="text-starlight-text mb-2">Meu Perfil</h1>
           <p className="text-moonlight-text">Gerencie suas informações e preferências</p>
@@ -41,7 +41,7 @@ export function Profile() {
                 Segurança
               </TabsTrigger>
             </TabsList>
-            <TabsList className="w-full grid grid-cols-2 gap-2 bg-transparent mt-2">
+            <TabsList className="w-full grid grid-cols-2 gap-2 bg-transparent">
               <TabsTrigger
                 value="notifications"
                 className="data-[state=active]:bg-mystic-indigo data-[state=active]:text-starlight-text"
@@ -316,7 +316,7 @@ function BillingSection() {
       <div className="space-y-6">
         <div className="bg-gradient-to-br from-mystic-indigo to-mystic-indigo-dark rounded-xl p-6">
           <p className="text-starlight-text/80 mb-2">Saldo Atual</p>
-          <p className="text-4xl text-starlight-text mb-1">12</p>
+          <p className="text-starlight-text mb-1">12</p>
           <p className="text-starlight-text/80 mb-4">créditos disponíveis</p>
           <Button
             size="sm"
@@ -343,7 +343,7 @@ function BillingSection() {
                 </div>
                 <div className="text-right">
                   <p className="text-starlight-text">{purchase.amount}</p>
-                  <div className="flex items-center gap-1 justify-end mt-1">
+                  <div className="flex items-center gap-1 justify-end">
                     <Check className="w-3 h-3 text-verdant-success" />
                     <span className="text-xs text-verdant-success">Concluído</span>
                   </div>

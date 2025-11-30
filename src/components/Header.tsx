@@ -174,6 +174,7 @@ export function Header({ isLoggedIn = false, credits = 15, onBuyCredits, onLogin
                       variant="outline" 
                       size="sm" 
                       onClick={onLoginClick}
+                      className="text-starlight-text"
                       style={{ height: '44px', paddingLeft: '24px', paddingRight: '24px' }}
                     >
                       Login / Criar conta
@@ -278,10 +279,15 @@ export function Header({ isLoggedIn = false, credits = 15, onBuyCredits, onLogin
                     </Button>
                   </>
                 ) : (
-                  <Button variant="outline" className="w-full" onClick={() => {
-                    setMobileMenuOpen(false);
-                    onLoginClick?.();
-                  }} style={{ height: '44px' }}>
+                  <Button 
+                    variant="outline" 
+                    className="w-full text-starlight-text" 
+                    onClick={() => {
+                      setMobileMenuOpen(false);
+                      onLoginClick?.();
+                    }} 
+                    style={{ height: '44px' }}
+                  >
                     Login / Criar conta
                   </Button>
                 )}

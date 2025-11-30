@@ -54,7 +54,7 @@ export function OracleSelectionModal({
       />
       
       {/* Modal */}
-      <div className="fixed inset-0 z-50 flex items-center justify-center pointer-events-none" style={{ padding: '16px' }}>
+      <div className="fixed inset-0 z-50 flex items-center justify-center pointer-events-none p-4">
         <div className="relative pointer-events-auto w-full max-w-2xl">
           {/* Botão X - Fora do modal, canto superior direito */}
           <button
@@ -79,22 +79,21 @@ export function OracleSelectionModal({
           </button>
 
           <div 
-            className="bg-midnight-surface border border-obsidian-border rounded-3xl shadow-2xl max-h-[85vh] overflow-y-auto"
-            style={{ padding: '32px 24px' }}
+            className="bg-midnight-surface border border-obsidian-border rounded-3xl shadow-2xl max-h-[85vh] overflow-y-auto py-8 px-6"
             onClick={(e) => e.stopPropagation()}
           >
-            <div style={{ marginBottom: '24px' }}>
+            <div className="mb-6">
               <h2 className="text-2xl md:text-3xl text-starlight-text text-center">Selecione seu Oráculo</h2>
             </div>
 
-            <p className="text-base text-moonlight-text/80 text-center" style={{ marginBottom: '32px' }}>
+            <p className="text-base text-moonlight-text/80 text-center mb-8">
               Escolha um ou mais oráculos para sua consulta:
             </p>
 
             {/* Oracle Options List */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+            <div className="flex flex-col gap-4">
               {/* Tarot Option */}
-              <div className="bg-night-sky/50 border border-obsidian-border rounded-2xl transition-all hover:border-mystic-indigo/50" style={{ padding: '20px' }}>
+              <div className="bg-night-sky/50 border border-obsidian-border rounded-2xl transition-all hover:border-mystic-indigo/50 p-5">
                 <label className="flex items-center gap-4 cursor-pointer">
                   <input
                     type="checkbox"
@@ -103,26 +102,25 @@ export function OracleSelectionModal({
                     className="w-5 h-5 rounded border-2 border-mystic-indigo/50 bg-transparent checked:bg-mystic-indigo checked:border-mystic-indigo focus:ring-2 focus:ring-mystic-indigo/50 cursor-pointer accent-mystic-indigo"
                     style={{ flexShrink: 0 }}
                   />
-                  <div style={{ flex: 1 }}>
-                    <div className="flex items-center justify-between" style={{ marginBottom: '8px' }}>
+                  <div className="flex-1">
+                    <div className="flex items-center justify-between mb-2">
                       <h3 className="text-lg text-starlight-text">Tarot</h3>
                       <span className="text-sm text-mystic-indigo">1 crédito</span>
                     </div>
-                    <p className="text-sm text-moonlight-text/70" style={{ marginBottom: '12px' }}>
+                    <p className="text-sm text-moonlight-text/70 mb-3">
                       Leitura tradicional com arcanos maiores e menores
                     </p>
                     
                     {/* Dropdown appears when checked */}
                     {selectedOracles.tarot && (
-                      <div style={{ marginTop: '12px' }}>
-                        <label className="block text-sm text-moonlight-text/80" style={{ marginBottom: '8px' }}>
+                      <div className="mt-3">
+                        <label className="block text-sm text-moonlight-text/80 mb-2">
                           Escolha o método:
                         </label>
                         <select
                           value={selectedMethods.tarot}
                           onChange={(e) => onMethodChange('tarot', e.target.value)}
-                          className="w-full bg-night-sky border border-obsidian-border rounded-xl text-sm text-starlight-text focus:outline-none focus:border-mystic-indigo transition-colors"
-                          style={{ padding: '10px 16px' }}
+                          className="w-full bg-night-sky border border-obsidian-border rounded-xl text-sm text-starlight-text focus:outline-none focus:border-mystic-indigo transition-colors py-[10px] px-4"
                         >
                           <option value="">Selecione um método</option>
                           <option value="carta_dia">Carta do Dia - Check-in rápido, energia do dia</option>
@@ -141,35 +139,33 @@ export function OracleSelectionModal({
               </div>
 
               {/* Lenormand Option */}
-              <div className="bg-night-sky/50 border border-obsidian-border rounded-2xl transition-all hover:border-mystic-indigo/50" style={{ padding: '20px' }}>
+              <div className="bg-night-sky/50 border border-obsidian-border rounded-2xl transition-all hover:border-mystic-indigo/50 p-5">
                 <label className="flex items-center gap-4 cursor-pointer">
                   <input
                     type="checkbox"
                     checked={selectedOracles.lenormand}
                     onChange={() => onOracleToggle('lenormand')}
-                    className="w-5 h-5 rounded border-2 border-mystic-indigo/50 bg-transparent checked:bg-mystic-indigo checked:border-mystic-indigo focus:ring-2 focus:ring-mystic-indigo/50 cursor-pointer accent-mystic-indigo"
-                    style={{ flexShrink: 0 }}
+                    className="w-5 h-5 rounded border-2 border-mystic-indigo/50 bg-transparent checked:bg-mystic-indigo checked:border-mystic-indigo focus:ring-2 focus:ring-mystic-indigo/50 cursor-pointer accent-mystic-indigo flex-shrink-0"
                   />
-                  <div style={{ flex: 1 }}>
-                    <div className="flex items-center justify-between" style={{ marginBottom: '8px' }}>
+                  <div className="flex-1">
+                    <div className="flex items-center justify-between mb-2">
                       <h3 className="text-lg text-starlight-text">Lenormand (Baralho Cigano)</h3>
                       <span className="text-sm text-mystic-indigo">1 crédito</span>
                     </div>
-                    <p className="text-sm text-moonlight-text/70" style={{ marginBottom: '12px' }}>
+                    <p className="text-sm text-moonlight-text/70 mb-3">
                       Cartomancia cigana com 36 cartas simbólicas
                     </p>
                     
                     {/* Dropdown appears when checked */}
                     {selectedOracles.lenormand && (
-                      <div style={{ marginTop: '12px' }}>
-                        <label className="block text-sm text-moonlight-text/80" style={{ marginBottom: '8px' }}>
+                      <div className="mt-3">
+                        <label className="block text-sm text-moonlight-text/80 mb-2">
                           Escolha o método:
                         </label>
                         <select
                           value={selectedMethods.lenormand}
                           onChange={(e) => onMethodChange('lenormand', e.target.value)}
-                          className="w-full bg-night-sky border border-obsidian-border rounded-xl text-sm text-starlight-text focus:outline-none focus:border-mystic-indigo transition-colors"
-                          style={{ padding: '10px 16px' }}
+                          className="w-full bg-night-sky border border-obsidian-border rounded-xl text-sm text-starlight-text focus:outline-none focus:border-mystic-indigo transition-colors py-[10px] px-4"
                         >
                           <option value="">Selecione um método</option>
                           <option value="carta_dia">Carta do Dia - Recado rápido e direto</option>
@@ -186,35 +182,33 @@ export function OracleSelectionModal({
               </div>
 
               {/* Cartomancia Option */}
-              <div className="bg-night-sky/50 border border-obsidian-border rounded-2xl transition-all hover:border-mystic-indigo/50" style={{ padding: '20px' }}>
+              <div className="bg-night-sky/50 border border-obsidian-border rounded-2xl transition-all hover:border-mystic-indigo/50 p-5">
                 <label className="flex items-center gap-4 cursor-pointer">
                   <input
                     type="checkbox"
                     checked={selectedOracles.cartomancia}
                     onChange={() => onOracleToggle('cartomancia')}
-                    className="w-5 h-5 rounded border-2 border-mystic-indigo/50 bg-transparent checked:bg-mystic-indigo checked:border-mystic-indigo focus:ring-2 focus:ring-mystic-indigo/50 cursor-pointer accent-mystic-indigo"
-                    style={{ flexShrink: 0 }}
+                    className="w-5 h-5 rounded border-2 border-mystic-indigo/50 bg-transparent checked:bg-mystic-indigo checked:border-mystic-indigo focus:ring-2 focus:ring-mystic-indigo/50 cursor-pointer accent-mystic-indigo flex-shrink-0"
                   />
-                  <div style={{ flex: 1 }}>
-                    <div className="flex items-center justify-between" style={{ marginBottom: '8px' }}>
+                  <div className="flex-1">
+                    <div className="flex items-center justify-between mb-2">
                       <h3 className="text-lg text-starlight-text">Cartomancia Clássica</h3>
                       <span className="text-sm text-mystic-indigo">1 crédito</span>
                     </div>
-                    <p className="text-sm text-moonlight-text/70" style={{ marginBottom: '12px' }}>
+                    <p className="text-sm text-moonlight-text/70 mb-3">
                       Leitura com baralho tradicional de 52 cartas
                     </p>
                     
                     {/* Dropdown appears when checked */}
                     {selectedOracles.cartomancia && (
-                      <div style={{ marginTop: '12px' }}>
-                        <label className="block text-sm text-moonlight-text/80" style={{ marginBottom: '8px' }}>
+                      <div className="mt-3">
+                        <label className="block text-sm text-moonlight-text/80 mb-2">
                           Escolha o método:
                         </label>
                         <select
                           value={selectedMethods.cartomancia}
                           onChange={(e) => onMethodChange('cartomancia', e.target.value)}
-                          className="w-full bg-night-sky border border-obsidian-border rounded-xl text-sm text-starlight-text focus:outline-none focus:border-mystic-indigo transition-colors"
-                          style={{ padding: '10px 16px' }}
+                          className="w-full bg-night-sky border border-obsidian-border rounded-xl text-sm text-starlight-text focus:outline-none focus:border-mystic-indigo transition-colors py-[10px] px-4"
                         >
                           <option value="">Selecione um método</option>
                           <option value="carta_dia">Carta do Dia - Insight rápido, clima do dia</option>
@@ -232,7 +226,7 @@ export function OracleSelectionModal({
             </div>
 
             {/* Proceed Button */}
-            <div style={{ marginTop: '32px', paddingTop: '24px', borderTop: '1px solid var(--color-obsidian-border)' }}>
+            <div className="mt-8 pt-6 border-t border-obsidian-border">
               <Button
                 size="lg"
                 className="w-full bg-mystic-indigo hover:bg-mystic-indigo-dark text-starlight-text h-12 disabled:opacity-50 disabled:cursor-not-allowed"
@@ -245,13 +239,13 @@ export function OracleSelectionModal({
               </Button>
               
               {getSelectedCreditsCount() === 0 && (
-                <p className="text-sm text-moonlight-text/60 text-center" style={{ marginTop: '12px' }}>
+                <p className="text-sm text-moonlight-text/60 text-center mt-3">
                   Selecione pelo menos um oráculo
                 </p>
               )}
               
               {!canProceed() && getSelectedCreditsCount() > 0 && (
-                <p className="text-sm text-oracle-ember text-center" style={{ marginTop: '12px' }}>
+                <p className="text-sm text-oracle-ember text-center mt-3">
                   Selecione um método para cada oráculo escolhido
                 </p>
               )}

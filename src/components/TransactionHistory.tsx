@@ -99,7 +99,7 @@ export function TransactionHistory() {
       <Header isLoggedIn={true} onBuyCredits={() => setShowPaymentModal(true)} />
 
       {/* Main Content */}
-      <main className="relative z-10" style={{ marginTop: 'calc(80px + 48px)' }}>
+      <main className="relative z-10 mt-[calc(80px+48px)]">
         <style>{`
           .history-page-wrapper {
             width: 100%;
@@ -141,8 +141,8 @@ export function TransactionHistory() {
         <div className="history-page-wrapper">
           <div className="history-content-wrapper">
             {/* Header - Fixed */}
-            <div className="text-center" style={{ marginBottom: '24px' }}>
-              <h1 className="text-3xl md:text-4xl text-starlight-text" style={{ marginBottom: '16px' }}>
+            <div className="text-center mb-6">
+              <h1 className="text-starlight-text mb-4">
                 Histórico de Transações
               </h1>
               <p className="text-lg text-moonlight-text">
@@ -151,7 +151,7 @@ export function TransactionHistory() {
             </div>
 
             {/* Info bar */}
-            <div className="flex items-center justify-between" style={{ marginBottom: '24px' }}>
+            <div className="flex items-center justify-between mb-6">
               <div className="text-sm text-moonlight-text">
                 {transactions.length} {transactions.length === 1 ? 'transação' : 'transações'}
               </div>
@@ -159,15 +159,14 @@ export function TransactionHistory() {
 
             {/* Controls Bar - Fixed (Dropdown + Link + Pagination) */}
             {transactions.length > 0 && (
-              <div className="flex flex-row items-center justify-between flex-nowrap" style={{ marginBottom: '24px', gap: '8px' }}>
+              <div className="flex flex-row items-center justify-between flex-nowrap mb-6 gap-2">
                 {/* Dropdown */}
                 <div className="flex items-center gap-2 flex-shrink-0" style={{ minWidth: '120px' }}>
                   <span className="text-sm text-moonlight-text hidden sm:inline">Exibir:</span>
                   <select
                     value={itemsPerPage}
                     onChange={(e) => handleItemsPerPageChange(Number(e.target.value))}
-                    className="bg-midnight-surface border border-obsidian-border rounded-lg text-starlight-text focus:outline-none focus:border-mystic-indigo text-sm"
-                    style={{ padding: '8px 12px' }}
+                    className="bg-midnight-surface border border-obsidian-border rounded-lg text-starlight-text focus:outline-none focus:border-mystic-indigo text-sm py-2 px-3"
                   >
                     <option value={20}>20</option>
                     <option value={50}>50</option>
@@ -193,7 +192,7 @@ export function TransactionHistory() {
                 </div>
 
                 {/* Pagination - Right */}
-                <div className="flex items-center flex-shrink-0" style={{ gap: '8px', minWidth: '120px', justifyContent: 'flex-end' }}>
+                <div className="flex items-center flex-shrink-0 gap-2" style={{ minWidth: '120px', justifyContent: 'flex-end' }}>
                   {itemsPerPage !== -1 ? (
                     totalPages > 1 ? (
                       <>
@@ -202,8 +201,7 @@ export function TransactionHistory() {
                           size="sm"
                           onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
                           disabled={currentPage === 1}
-                          className="border-obsidian-border"
-                          style={{ padding: '8px' }}
+                          className="border-obsidian-border p-2"
                         >
                           <ChevronLeft className="w-4 h-4" />
                         </Button>
@@ -216,8 +214,7 @@ export function TransactionHistory() {
                           size="sm"
                           onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
                           disabled={currentPage === totalPages}
-                          className="border-obsidian-border"
-                          style={{ padding: '8px' }}
+                          className="border-obsidian-border p-2"
                         >
                           <ChevronRight className="w-4 h-4" />
                         </Button>
@@ -234,14 +231,14 @@ export function TransactionHistory() {
             )}
 
             {/* Desktop: Table View */}
-            <div className="hidden md:block bg-midnight-surface/80 backdrop-blur-sm border border-obsidian-border rounded-2xl overflow-hidden" style={{ padding: '24px', marginBottom: '32px' }}>
+            <div className="hidden md:block bg-midnight-surface/80 backdrop-blur-sm border border-obsidian-border rounded-2xl overflow-hidden p-6 mb-8">
               <table className="w-full">
                 <thead>
                   <tr className="border-b border-obsidian-border">
-                    <th className="text-left text-sm text-moonlight-text" style={{ padding: '16px' }}>Data</th>
-                    <th className="text-left text-sm text-moonlight-text" style={{ padding: '16px' }}>Horário</th>
-                    <th className="text-left text-sm text-moonlight-text" style={{ padding: '16px' }}>Valor</th>
-                    <th className="text-left text-sm text-moonlight-text" style={{ padding: '16px' }}>Pacote</th>
+                    <th className="text-left text-sm text-moonlight-text p-4">Data</th>
+                    <th className="text-left text-sm text-moonlight-text p-4">Horário</th>
+                    <th className="text-left text-sm text-moonlight-text p-4">Valor</th>
+                    <th className="text-left text-sm text-moonlight-text p-4">Pacote</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -250,23 +247,23 @@ export function TransactionHistory() {
                       key={transaction.id}
                       className="border-b border-obsidian-border last:border-0 hover:bg-night-sky/50 transition-colors"
                     >
-                      <td style={{ padding: '16px' }}>
+                      <td className="p-4">
                         <div className="text-starlight-text">
                           {new Date(transaction.date).toLocaleDateString('pt-BR')}
                         </div>
                       </td>
-                      <td style={{ padding: '16px' }}>
+                      <td className="p-4">
                         <div className="text-moonlight-text">
                           {transaction.time}
                         </div>
                       </td>
-                      <td style={{ padding: '16px' }}>
+                      <td className="p-4">
                         <div className="text-starlight-text">
                           {transaction.amount}
                         </div>
                       </td>
-                      <td style={{ padding: '16px' }}>
-                        <div className="inline-flex items-center rounded-full bg-mystic-indigo/10 border border-mystic-indigo/30" style={{ padding: '6px 12px', gap: '8px' }}>
+                      <td className="p-4">
+                        <div className="inline-flex items-center rounded-full bg-mystic-indigo/10 border border-mystic-indigo/30 py-[6px] px-3 gap-2">
                           <CreditCard className="w-3 h-3 text-mystic-indigo" />
                           <span className="text-xs text-mystic-indigo">{transaction.package}</span>
                         </div>
@@ -278,15 +275,14 @@ export function TransactionHistory() {
             </div>
 
             {/* Mobile: Card View */}
-            <div className="md:hidden" style={{ marginBottom: '32px' }}>
+            <div className="md:hidden mb-8">
               {paginatedTransactions.map((transaction, index) => (
                 <div
                   key={transaction.id}
-                  className="bg-midnight-surface/80 backdrop-blur-sm border border-obsidian-border rounded-xl"
-                  style={{ padding: '20px', marginBottom: index < paginatedTransactions.length - 1 ? '16px' : '0' }}
+                  className={`bg-midnight-surface/80 backdrop-blur-sm border border-obsidian-border rounded-xl p-5 ${index < paginatedTransactions.length - 1 ? 'mb-4' : ''}`}
                 >
-                  <div className="flex items-start justify-between" style={{ marginBottom: '12px' }}>
-                    <div className="inline-flex items-center rounded-full bg-mystic-indigo/10 border border-mystic-indigo/30" style={{ padding: '6px 12px', gap: '8px' }}>
+                  <div className="flex items-start justify-between mb-3">
+                    <div className="inline-flex items-center rounded-full bg-mystic-indigo/10 border border-mystic-indigo/30 py-[6px] px-3 gap-2">
                       <CreditCard className="w-3 h-3 text-mystic-indigo" />
                       <span className="text-xs text-mystic-indigo">{transaction.package}</span>
                     </div>
@@ -309,9 +305,9 @@ export function TransactionHistory() {
 
             {/* Empty State */}
             {transactions.length === 0 && (
-              <div className="bg-midnight-surface/80 backdrop-blur-sm border border-obsidian-border rounded-2xl text-center" style={{ padding: '48px 24px' }}>
-                <CreditCard className="w-12 h-12 text-moonlight-text/50 mx-auto" style={{ marginBottom: '16px' }} />
-                <h3 className="text-starlight-text" style={{ marginBottom: '8px' }}>
+              <div className="bg-midnight-surface/80 backdrop-blur-sm border border-obsidian-border rounded-2xl text-center py-12 px-6">
+                <CreditCard className="w-12 h-12 text-moonlight-text/50 mx-auto mb-4" />
+                <h3 className="text-starlight-text mb-2">
                   Nenhuma transação encontrada
                 </h3>
                 <p className="text-moonlight-text text-sm">
@@ -324,12 +320,12 @@ export function TransactionHistory() {
       </main>
 
       {/* Footer */}
-      <footer className="relative z-10 border-t border-obsidian-border bg-midnight-surface/80 backdrop-blur-sm" style={{ marginTop: '80px', padding: '48px 24px' }}>
+      <footer className="relative z-10 border-t border-obsidian-border bg-midnight-surface/80 backdrop-blur-sm mt-20 py-12 px-6">
         <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
           <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-8">
             {/* Logo e descrição */}
             <div className="flex-1">
-              <h3 className="text-xl text-starlight-text" style={{ marginBottom: '8px' }}>Tarot Online</h3>
+              <h3 className="text-starlight-text mb-2">Tarot Online</h3>
               <p className="text-sm text-moonlight-text">
                 Tarot, tarot cigano e cartomancia clássica para guiar sua jornada
               </p>
@@ -338,7 +334,7 @@ export function TransactionHistory() {
             {/* Links */}
             <div className="flex flex-col md:flex-row gap-6 md:gap-12">
               <div>
-                <h4 className="text-sm text-starlight-text" style={{ marginBottom: '12px' }}>Navegação</h4>
+                <h4 className="text-sm text-starlight-text mb-3">Navegação</h4>
                 <ul className="space-y-2">
                   <li>
                     <Link to="/dashboard" className="text-sm text-moonlight-text/70 hover:text-mystic-indigo transition-colors">
@@ -359,7 +355,7 @@ export function TransactionHistory() {
               </div>
               
               <div>
-                <h4 className="text-sm text-starlight-text" style={{ marginBottom: '12px' }}>Informações</h4>
+                <h4 className="text-sm text-starlight-text mb-3">Informações</h4>
                 <ul className="space-y-2">
                   <li>
                     <a href="#" className="text-sm text-moonlight-text/70 hover:text-mystic-indigo transition-colors">
@@ -382,7 +378,7 @@ export function TransactionHistory() {
           </div>
 
           {/* Copyright */}
-          <div className="border-t border-obsidian-border text-center" style={{ marginTop: '32px', paddingTop: '24px' }}>
+          <div className="border-t border-obsidian-border text-center mt-8 pt-6">
             <p className="text-sm text-moonlight-text/50">
               © 2025 Tarot Online. Todos os direitos reservados.
             </p>
