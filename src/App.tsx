@@ -8,7 +8,6 @@ import { Credits } from "./components/Credits";
 import { Profile } from "./components/Profile";
 import { Admin } from "./components/Admin";
 import { Login } from "./components/Login";
-import { Toaster } from "@/components/ui/toaster";
 
 export default function App() {
   return (
@@ -25,7 +24,6 @@ export default function App() {
         {/* Catch-all route - redirects any unmatched routes to landing */}
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
-      <Toaster />
     </Router>
   );
 }
