@@ -5,6 +5,8 @@ import { Sparkles, User, DollarSign, Check, ChevronLeft, ChevronRight } from "lu
 import { CardsIcon } from "./icons/CardsIcon";
 import { Modal } from "./Modal";
 import { Link, useNavigate } from "react-router-dom";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "@/hooks/use-toast";
 
 export function HomeDeslogada() {
   const navigate = useNavigate();
@@ -368,19 +370,115 @@ export function HomeDeslogada() {
   };
 
   // Handler de cadastro
-  const handleSignup = () => {
-    if (validateSignupForm()) {
-      // TODO: implementar lógica real de cadastro
-      // Por enquanto, redireciona para a home logada
-      navigate('/dashboard');
-    } else {
+  const handleSignup = async () => {
+    if (!validateSignupForm()) {
       setShakeModal(true);
       setTimeout(() => {
         setShakeModal(false);
       }, 600);
+      return;
+    }
+
+    try {
+      const cleanCpf = signupCPF.replace(/\D/g, "");
+      const cleanPhone = signupPhone.replace(/\D/g, "");
+
+      // Verifica se email ou CPF já existem
+      const { data: existingProfiles, error: checkError } = await supabase
+        .from("profiles")
+        .select("email, cpf")
+        .or(`email.eq.${signupEmail},cpf.eq.${cleanCpf}`);
+
+      if (checkError) {
+        console.error("Erro ao verificar email/CPF existentes:", checkError);
+        alert("Erro ao salvar os dados, tente novamente mais tarde");
+        return;
+      }
+
+      if (existingProfiles && existingProfiles.length > 0) {
+        const existingEmail = existingProfiles.some((p) => p.email === signupEmail);
+        const existingCpf = existingProfiles.some((p) => p.cpf === cleanCpf);
+
+        let errorMessage = "";
+        if (existingEmail && existingCpf) {
+          errorMessage = "CPF e email já cadastrados";
+        } else if (existingEmail) {
+          errorMessage = "Email já cadastrado";
+        } else if (existingCpf) {
+          errorMessage = "CPF já cadastrado";
+        }
+
+        toast({
+          title: "Conta já existe",
+          description: errorMessage,
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // Cria o usuário no Auth (trigger insere em profiles)
+      const { data, error: signUpError } = await supabase.auth.signUp({
+        email: signupEmail,
+        password: signupPassword,
+      });
+
+      if (signUpError) {
+        console.error("Erro no signUp:", signUpError);
+        alert("Erro ao criar conta: " + signUpError.message);
+        return;
+      }
+
+      if (!data.user) {
+        console.error("SignUp retornou sem user:", data);
+        alert("Erro ao salvar os dados, tente novamente mais tarde");
+        await supabase.auth.signOut();
+        return;
+      }
+
+      // Atualiza o profile com os dados adicionais
+      const { error: updateError } = await supabase
+        .from("profiles")
+        .update({
+          birthday: signupBirthDate, // já vem em YYYY-MM-DD do input type="date"
+          cpf: cleanCpf,
+          phone: cleanPhone,
+        })
+        .eq("id", data.user.id);
+
+      if (updateError) {
+        console.error("Erro no UPDATE de profiles:", updateError);
+        alert("Erro ao salvar os dados, tente novamente mais tarde");
+        await supabase.auth.signOut();
+        return;
+      }
+
+      // Confirma que o profile existe
+      const { data: profileRow, error: profileError } = await supabase
+        .from("profiles")
+        .select("id")
+        .eq("id", data.user.id)
+        .maybeSingle();
+
+      if (profileError || !profileRow) {
+        console.error("Profile não encontrado após signup:", profileError, profileRow);
+        alert("Erro ao salvar os dados, tente novamente mais tarde");
+        await supabase.auth.signOut();
+        return;
+      }
+
+      toast({
+        title: "Conta criada com sucesso!",
+        description: "Você já está logado.",
+      });
+
+      setShowSignupModal(false);
+      navigate("/dashboard");
+    } catch (error) {
+      console.error("Erro inesperado no signup:", error);
+      alert("Erro ao salvar os dados, tente novamente mais tarde");
+      await supabase.auth.signOut();
     }
   };
-
   // Verificar se todos os campos estão preenchidos e válidos
   const isSignupFormValid = () => {
     return (
