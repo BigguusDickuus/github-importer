@@ -43,6 +43,7 @@ export function Login() {
         .eq("cpf", cleanCpf);
 
       if (checkError) {
+        console.error("Erro ao verificar CPF existente:", checkError);
         alert("Erro ao salvar os dados, tente novamente mais tarde");
         setLoading(false);
         return;
@@ -58,25 +59,27 @@ export function Login() {
         return;
       }
 
-      // Sign up with Supabase Auth (trigger creates profile automatically)
+      // Sign up with Supabase Auth (trigger cria o profile automaticamente)
       const { data, error: signUpError } = await supabase.auth.signUp({
         email,
         password,
       });
 
       if (signUpError) {
+        console.error("Erro no signUp:", signUpError);
         alert("Erro ao criar conta: " + signUpError.message);
         setLoading(false);
         return;
       }
 
       if (!data.user) {
+        console.error("SignUp retornou sem user:", data);
         alert("Erro ao salvar os dados, tente novamente mais tarde");
         setLoading(false);
         return;
       }
 
-      // Update profile with additional data
+      // Atualiza o profile com os dados adicionais
       const { error: updateError } = await supabase
         .from("profiles")
         .update({
@@ -87,6 +90,21 @@ export function Login() {
         .eq("id", data.user.id);
 
       if (updateError) {
+        console.error("Erro no UPDATE de profiles:", updateError);
+        alert("Erro ao salvar os dados, tente novamente mais tarde");
+        setLoading(false);
+        return;
+      }
+
+      // Garante que o profile realmente existe
+      const { data: profileRow, error: profileError } = await supabase
+        .from("profiles")
+        .select("id")
+        .eq("id", data.user.id)
+        .maybeSingle();
+
+      if (profileError || !profileRow) {
+        console.error("Profile não encontrado após signup:", profileError, profileRow);
         alert("Erro ao salvar os dados, tente novamente mais tarde");
         setLoading(false);
         return;
@@ -99,11 +117,11 @@ export function Login() {
 
       navigate("/dashboard");
     } catch (error: any) {
+      console.error("Erro inesperado no signup:", error);
       alert("Erro ao salvar os dados, tente novamente mais tarde");
       setLoading(false);
     }
   };
-
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
