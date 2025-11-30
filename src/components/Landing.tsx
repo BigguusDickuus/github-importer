@@ -460,7 +460,7 @@ export function HomeDeslogada() {
       <Header isLoggedIn={false} onLoginClick={() => setShowLoginModal(true)} />
 
       {/* Hero Section */}
-      <section className="hero-section relative z-10 pb-40 md:pb-56 flex flex-col items-center justify-center" style={{ marginTop: 'calc(64px + 24px + 40px)' }}>
+      <section className="hero-section relative z-10 flex flex-col items-center justify-center" style={{ marginTop: 'calc(64px + 24px + 40px)' }}>
         <style>{`
           @media (min-width: 768px) {
             .hero-section {
@@ -489,7 +489,7 @@ export function HomeDeslogada() {
         <div className="hero-section-container w-full flex flex-col items-center justify-center">
           <div className="w-full max-w-[1200px] flex flex-col items-center">
             
-            <div style={{ marginBottom: '40px' }}>
+            <div className="mb-10">
               <h1 
                 className="text-starlight-text tracking-tight text-center w-full"
                 style={{ 
