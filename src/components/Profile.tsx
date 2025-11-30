@@ -316,7 +316,7 @@ function BillingSection() {
       <div className="space-y-6">
         <div className="bg-gradient-to-br from-mystic-indigo to-mystic-indigo-dark rounded-xl p-6">
           <p className="text-starlight-text/80 mb-2">Saldo Atual</p>
-          <p className="text-4xl text-starlight-text mb-1">12</p>
+          <p className="text-starlight-text mb-1">12</p>
           <p className="text-starlight-text/80 mb-4">créditos disponíveis</p>
           <Button
             size="sm"

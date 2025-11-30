@@ -142,7 +142,7 @@ export function TransactionHistory() {
           <div className="history-content-wrapper">
             {/* Header - Fixed */}
             <div className="text-center" style={{ marginBottom: '24px' }}>
-              <h1 className="text-3xl md:text-4xl text-starlight-text" style={{ marginBottom: '16px' }}>
+              <h1 className="text-starlight-text" style={{ marginBottom: '16px' }}>
                 Histórico de Transações
               </h1>
               <p className="text-lg text-moonlight-text">
@@ -329,7 +329,7 @@ export function TransactionHistory() {
           <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-8">
             {/* Logo e descrição */}
             <div className="flex-1">
-              <h3 className="text-xl text-starlight-text" style={{ marginBottom: '8px' }}>Tarot Online</h3>
+              <h3 className="text-starlight-text" style={{ marginBottom: '8px' }}>Tarot Online</h3>
               <p className="text-sm text-moonlight-text">
                 Tarot, tarot cigano e cartomancia clássica para guiar sua jornada
               </p>
