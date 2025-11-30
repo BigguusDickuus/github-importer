@@ -16,6 +16,7 @@ export function HomeDeslogada() {
   const [showSignupModal, setShowSignupModal] = useState(false);
   const [loginError, setLoginError] = useState(false);
   const [shakeModal, setShakeModal] = useState(false);
+  const [showEmailConfirmationMessage, setShowEmailConfirmationMessage] = useState(false);
   const howItWorksRef = useRef<HTMLDivElement>(null);
   const plansRef = useRef<HTMLDivElement>(null);
   const [activeFeatureIndex, setActiveFeatureIndex] = useState(0);
@@ -448,6 +449,7 @@ export function HomeDeslogada() {
       });
 
       setShowSignupModal(false);
+      setShowEmailConfirmationMessage(true);
     } catch (error) {
       console.error("Erro inesperado no signup:", error);
       alert("Erro ao criar conta, tente novamente mais tarde");
@@ -530,6 +532,25 @@ export function HomeDeslogada() {
       </div>
 
       <Header isLoggedIn={false} onLoginClick={() => setShowLoginModal(true)} />
+
+      {/* Banner de confirmação de email */}
+      {showEmailConfirmationMessage && (
+        <div className="fixed top-[64px] md:top-[80px] left-0 right-0 bg-oracle-ember/90 backdrop-blur-sm z-50 border-b border-oracle-ember">
+          <div className="max-w-4xl mx-auto px-4 py-4 flex items-center justify-between gap-4">
+            <div className="flex-1">
+              <p className="text-starlight-text font-semibold text-sm md:text-base">
+                ✉️ Conta criada! Verifique seu e-mail para confirmar o cadastro e acessar a plataforma.
+              </p>
+            </div>
+            <button
+              onClick={() => setShowEmailConfirmationMessage(false)}
+              className="text-starlight-text hover:text-moonlight-text transition-colors text-xl font-bold px-2"
+            >
+              ×
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Hero Section */}
       <section className="hero-section relative z-10 flex flex-col items-center justify-center" style={{ marginTop: 'calc(64px + 24px + 40px)' }}>
