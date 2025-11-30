@@ -416,10 +416,17 @@ export function HomeDeslogada() {
         return;
       }
 
-      // Cria o usuário no Auth (trigger insere em profiles)
+      // Cria o usuário no Auth passando os metadados (trigger do Supabase cria/preenche o profile automaticamente)
       const { data, error: signUpError } = await supabase.auth.signUp({
         email: signupEmail,
         password: signupPassword,
+        options: {
+          data: {
+            birthday: signupBirthDate, // já vem em YYYY-MM-DD do input type="date"
+            cpf: cleanCpf,
+            phone: cleanPhone,
+          }
+        }
       });
 
       if (signUpError) {
@@ -430,59 +437,20 @@ export function HomeDeslogada() {
 
       if (!data.user) {
         console.error("SignUp retornou sem user:", data);
-        alert("Erro ao salvar os dados, tente novamente mais tarde");
-        await supabase.auth.signOut();
+        alert("Erro ao criar conta, tente novamente mais tarde");
         return;
       }
 
-      // Aguarda um pouco para garantir que o trigger criou o profile básico
-      await new Promise((resolve) => setTimeout(resolve, 500));
-
-      // Tenta atualizar o profile existente com os dados adicionais (com pequena estratégia de retry)
-      let profileUpdated: any = null;
-      let lastUpdateError: any = null;
-
-      for (let attempt = 1; attempt <= 2; attempt++) {
-        const { data: updatedProfile, error: updateError } = await supabase
-          .from("profiles")
-          .update({
-            birthday: signupBirthDate, // já vem em YYYY-MM-DD do input type="date"
-            cpf: cleanCpf,
-            phone: cleanPhone,
-          })
-          .eq("id", data.user.id)
-          .select("id, email, birthday, cpf, phone")
-          .maybeSingle();
-
-        console.log("Tentativa de update do profile", attempt, { updatedProfile, updateError });
-
-        if (!updateError && updatedProfile) {
-          profileUpdated = updatedProfile;
-          break;
-        }
-
-        lastUpdateError = updateError;
-        await new Promise((resolve) => setTimeout(resolve, 300));
-      }
-
-      if (!profileUpdated) {
-        console.error("Falha ao atualizar profile após signup:", lastUpdateError);
-        alert("Erro ao salvar os dados, tente novamente mais tarde");
-        await supabase.auth.signOut();
-        return;
-      }
-
+      // Sucesso: mostra mensagem sobre confirmação de e-mail
       toast({
         title: "Conta criada com sucesso!",
-        description: "Você já está logado.",
+        description: "Verifique seu e-mail para confirmar o cadastro e acessar a plataforma.",
       });
 
       setShowSignupModal(false);
-      navigate("/dashboard");
     } catch (error) {
       console.error("Erro inesperado no signup:", error);
-      alert("Erro ao salvar os dados, tente novamente mais tarde");
-      await supabase.auth.signOut();
+      alert("Erro ao criar conta, tente novamente mais tarde");
     }
   };
   // Verificar se todos os campos estão preenchidos e válidos
