@@ -4,15 +4,108 @@ import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
 import { Sparkles } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "@/hooks/use-toast";
 
 export function Login() {
   const [isLogin, setIsLogin] = useState(true);
+  const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
-  const handleSubmit = (e: React.FormEvent) => {
+  // Form states
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [name, setName] = useState("");
+  const [birthday, setBirthday] = useState("");
+  const [cpf, setCpf] = useState("");
+  const [phone, setPhone] = useState("");
+
+  const convertBirthdayToISO = (birthday: string): string => {
+    const [day, month, year] = birthday.split("/");
+    return `${year}-${month}-${day}`;
+  };
+
+  const removeNonDigits = (value: string): string => {
+    return value.replace(/\D/g, "");
+  };
+
+  const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
-    // In a real app, this would handle authentication
-    navigate("/dashboard");
+    setLoading(true);
+
+    try {
+      // Sign up with Supabase Auth
+      const { data, error: signUpError } = await supabase.auth.signUp({
+        email,
+        password,
+      });
+
+      if (signUpError) throw signUpError;
+      if (!data.user) throw new Error("Erro ao criar usuário");
+
+      // Insert profile data
+      const { error: profileError } = await supabase.from("profiles").insert({
+        id: data.user.id,
+        email,
+        birthday: convertBirthdayToISO(birthday),
+        cpf: removeNonDigits(cpf),
+        phone: removeNonDigits(phone),
+      });
+
+      if (profileError) throw profileError;
+
+      toast({
+        title: "Conta criada com sucesso!",
+        description: "Você já está logado.",
+      });
+
+      navigate("/dashboard");
+    } catch (error: any) {
+      toast({
+        title: "Erro ao criar conta",
+        description: error.message || "Ocorreu um erro. Tente novamente.",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSignIn = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+
+    try {
+      const { error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+
+      if (error) throw error;
+
+      toast({
+        title: "Login realizado!",
+        description: "Bem-vindo de volta.",
+      });
+
+      navigate("/dashboard");
+    } catch (error: any) {
+      toast({
+        title: "Erro ao fazer login",
+        description: error.message || "Email ou senha incorretos.",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSubmit = (e: React.FormEvent) => {
+    if (isLogin) {
+      handleSignIn(e);
+    } else {
+      handleSignUp(e);
+    }
   };
 
   return (
@@ -47,17 +140,63 @@ export function Login() {
 
           <form onSubmit={handleSubmit} className="space-y-4">
             {!isLogin && (
-              <div>
-                <Label htmlFor="name" className="text-moonlight-text mb-2 block">
-                  Nome completo
-                </Label>
-                <Input
-                  id="name"
-                  placeholder="Seu nome"
-                  required
-                  className="bg-night-sky border-obsidian-border text-starlight-text"
-                />
-              </div>
+              <>
+                <div>
+                  <Label htmlFor="name" className="text-moonlight-text mb-2 block">
+                    Nome completo
+                  </Label>
+                  <Input
+                    id="name"
+                    placeholder="Seu nome"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    required
+                    className="bg-night-sky border-obsidian-border text-starlight-text"
+                  />
+                </div>
+
+                <div>
+                  <Label htmlFor="birthday" className="text-moonlight-text mb-2 block">
+                    Data de nascimento
+                  </Label>
+                  <Input
+                    id="birthday"
+                    placeholder="DD/MM/AAAA"
+                    value={birthday}
+                    onChange={(e) => setBirthday(e.target.value)}
+                    required
+                    className="bg-night-sky border-obsidian-border text-starlight-text"
+                  />
+                </div>
+
+                <div>
+                  <Label htmlFor="cpf" className="text-moonlight-text mb-2 block">
+                    CPF
+                  </Label>
+                  <Input
+                    id="cpf"
+                    placeholder="000.000.000-00"
+                    value={cpf}
+                    onChange={(e) => setCpf(e.target.value)}
+                    required
+                    className="bg-night-sky border-obsidian-border text-starlight-text"
+                  />
+                </div>
+
+                <div>
+                  <Label htmlFor="phone" className="text-moonlight-text mb-2 block">
+                    Telefone
+                  </Label>
+                  <Input
+                    id="phone"
+                    placeholder="(00) 00000-0000"
+                    value={phone}
+                    onChange={(e) => setPhone(e.target.value)}
+                    required
+                    className="bg-night-sky border-obsidian-border text-starlight-text"
+                  />
+                </div>
+              </>
             )}
 
             <div>
@@ -68,6 +207,8 @@ export function Login() {
                 id="email"
                 type="email"
                 placeholder="seu@email.com"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
                 required
                 className="bg-night-sky border-obsidian-border text-starlight-text"
               />
@@ -81,6 +222,8 @@ export function Login() {
                 id="password"
                 type="password"
                 placeholder="••••••••"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
                 required
                 className="bg-night-sky border-obsidian-border text-starlight-text"
               />
@@ -99,9 +242,10 @@ export function Login() {
 
             <Button
               type="submit"
+              disabled={loading}
               className="w-full bg-mystic-indigo hover:bg-mystic-indigo-dark text-starlight-text"
             >
-              {isLogin ? "Entrar" : "Criar conta"}
+              {loading ? "Carregando..." : isLogin ? "Entrar" : "Criar conta"}
             </Button>
           </form>
 
