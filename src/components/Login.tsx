@@ -36,55 +36,61 @@ export function Login() {
     try {
       const cleanCpf = removeNonDigits(cpf);
 
-      // Check if email or CPF already exists
+      // Check if CPF already exists
       const { data: existingProfiles, error: checkError } = await supabase
         .from("profiles")
-        .select("email, cpf")
-        .or(`email.eq.${email},cpf.eq.${cleanCpf}`);
+        .select("cpf")
+        .eq("cpf", cleanCpf);
 
-      if (checkError) throw checkError;
+      if (checkError) {
+        alert("Erro ao salvar os dados, tente novamente mais tarde");
+        setLoading(false);
+        return;
+      }
 
       if (existingProfiles && existingProfiles.length > 0) {
-        const existingEmail = existingProfiles.some(p => p.email === email);
-        const existingCpf = existingProfiles.some(p => p.cpf === cleanCpf);
-
-        let errorMessage = "";
-        if (existingEmail && existingCpf) {
-          errorMessage = "Email e CPF já cadastrados";
-        } else if (existingEmail) {
-          errorMessage = "Email já cadastrado";
-        } else if (existingCpf) {
-          errorMessage = "CPF já cadastrado";
-        }
-
         toast({
           title: "Conta já existe",
-          description: errorMessage,
+          description: "CPF já cadastrado",
           variant: "destructive",
         });
         setLoading(false);
         return;
       }
 
-      // Sign up with Supabase Auth
+      // Sign up with Supabase Auth (trigger creates profile automatically)
       const { data, error: signUpError } = await supabase.auth.signUp({
         email,
         password,
       });
 
-      if (signUpError) throw signUpError;
-      if (!data.user) throw new Error("Erro ao criar usuário");
+      if (signUpError) {
+        alert("Erro ao criar conta: " + signUpError.message);
+        setLoading(false);
+        return;
+      }
 
-      // Insert profile data
-      const { error: profileError } = await supabase.from("profiles").insert({
-        id: data.user.id,
-        email,
-        birthday: convertBirthdayToISO(birthday),
-        cpf: cleanCpf,
-        phone: removeNonDigits(phone),
-      });
+      if (!data.user) {
+        alert("Erro ao salvar os dados, tente novamente mais tarde");
+        setLoading(false);
+        return;
+      }
 
-      if (profileError) throw profileError;
+      // Update profile with additional data
+      const { error: updateError } = await supabase
+        .from("profiles")
+        .update({
+          birthday: convertBirthdayToISO(birthday),
+          cpf: cleanCpf,
+          phone: removeNonDigits(phone),
+        })
+        .eq("id", data.user.id);
+
+      if (updateError) {
+        alert("Erro ao salvar os dados, tente novamente mais tarde");
+        setLoading(false);
+        return;
+      }
 
       toast({
         title: "Conta criada com sucesso!",
@@ -93,12 +99,7 @@ export function Login() {
 
       navigate("/dashboard");
     } catch (error: any) {
-      toast({
-        title: "Erro ao criar conta",
-        description: error.message || "Ocorreu um erro. Tente novamente.",
-        variant: "destructive",
-      });
-    } finally {
+      alert("Erro ao salvar os dados, tente novamente mais tarde");
       setLoading(false);
     }
   };
