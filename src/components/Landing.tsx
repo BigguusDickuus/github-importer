@@ -460,7 +460,7 @@ export function HomeDeslogada() {
       <Header isLoggedIn={false} onLoginClick={() => setShowLoginModal(true)} />
 
       {/* Hero Section */}
-      <section className="hero-section relative z-10 pb-40 md:pb-56 flex flex-col items-center justify-center" style={{ marginTop: 'calc(64px + 24px + 40px)' }}>
+      <section className="hero-section relative z-10 pt-24 pb-40 md:pt-40 md:pb-56 flex flex-col items-center justify-center" style={{ marginTop: 'calc(64px + 24px + 40px)' }}>
         <style>{`
           @media (min-width: 768px) {
             .hero-section {
@@ -494,7 +494,8 @@ export function HomeDeslogada() {
                 className="text-starlight-text tracking-tight text-center w-full"
                 style={{ 
                   fontSize: '2.5rem',
-                  lineHeight: '1.1'
+                  lineHeight: '1.1',
+                  marginBottom: '40px'
                 }}
               >
                 <style>{`
@@ -507,11 +508,11 @@ export function HomeDeslogada() {
                 <span className="hero-title" style={{ fontSize: '2.5rem' }}>Tarot Online</span>
               </h1>
 
-              <p className="text-moonlight-text text-center w-full max-w-[800px]">
+              <p className="text-xl md:text-2xl text-moonlight-text text-center w-full max-w-[800px]" style={{ marginBottom: '32px' }}>
                 Consultas de Tarot, Tarot Cigano e Cartomancia Clássica disponíveis 24/7
               </p>
 
-              <p className="text-oracle-ember text-center w-full max-w-[700px]" style={{ marginLeft: 'auto', marginRight: 'auto' }}>
+              <p className="text-lg md:text-xl text-oracle-ember text-center w-full max-w-[700px]" style={{ marginBottom: '96px' }}>
                 Interpretações profundas e personalizadas para suas perguntas
               </p>
             </div>
@@ -536,7 +537,7 @@ export function HomeDeslogada() {
                   <Button
                     size="lg"
                     disabled
-                    className="w-full sm:w-auto sm:min-w-[50%] bg-mystic-indigo hover:bg-mystic-indigo-dark text-starlight-text h-14 md:h-16 text-lg md:text-xl disabled:opacity-60 whitespace-nowrap"
+                    className="w-full sm:w-auto sm:min-w-[50%] bg-mystic-indigo hover:bg-mystic-indigo-dark text-starlight-text h-14 md:h-16 text-lg md:text-xl disabled:opacity-60 px-8 whitespace-nowrap"
                   >
                     ✨ Consultar o Oráculo
                   </Button>
@@ -564,7 +565,7 @@ export function HomeDeslogada() {
             <div className="flex flex-col sm:flex-row gap-5 justify-center items-center w-full max-w-[600px]" style={{ marginBottom: '40px' }}>
               <Button 
                 size="lg" 
-                className="w-full sm:flex-1 bg-mystic-indigo hover:bg-mystic-indigo-dark text-starlight-text h-14 md:h-16 text-base md:text-lg"
+                className="w-full sm:flex-1 bg-mystic-indigo hover:bg-mystic-indigo-dark text-starlight-text h-14 md:h-16 text-base md:text-lg px-8"
                 onClick={() => setShowLoginModal(true)}
               >
                 Entrar | Criar conta
@@ -573,7 +574,7 @@ export function HomeDeslogada() {
                 size="lg"
                 variant="outline"
                 onClick={() => setShowHowItWorksModal(true)}
-                className="w-full sm:flex-1 border-obsidian-border text-moonlight-text hover:bg-midnight-surface hover:text-starlight-text h-14 md:h-16 text-base md:text-lg"
+                className="w-full sm:flex-1 border-obsidian-border text-moonlight-text hover:bg-midnight-surface hover:text-starlight-text h-14 md:h-16 text-base md:text-lg px-8"
               >
                 Como funciona
               </Button>
@@ -607,7 +608,7 @@ export function HomeDeslogada() {
       </section>
 
       {/* Como Funciona */}
-      <section className="relative z-10 flex flex-col items-center justify-center" style={{ paddingTop: '160px', paddingBottom: '192px' }}>
+      <section className="relative z-10 py-40 md:py-48 flex flex-col items-center justify-center">
         <style>{`
           @media (max-width: 767px) {
             .como-funciona-container {
@@ -632,10 +633,10 @@ export function HomeDeslogada() {
           <div className="w-full max-w-[1400px] flex flex-col items-center">
             
             <div className="w-full flex flex-col items-center" style={{ marginBottom: '40px' }}>
-              <h2 className="text-starlight-text text-center w-full">
+              <h2 className="text-4xl md:text-6xl text-starlight-text text-center w-full" style={{ marginBottom: '32px' }}>
                 Como funciona
               </h2>
-              <p className="text-moonlight-text text-center w-full max-w-[800px]">
+              <p className="text-lg md:text-2xl text-moonlight-text text-center w-full max-w-[800px]">
                 Três passos simples para acessar a <span className="text-mystic-indigo">sabedoria ancestral</span>
               </p>
             </div>
@@ -697,10 +698,10 @@ export function HomeDeslogada() {
                       >
                         <feature.icon className="w-8 h-8 text-mystic-indigo" />
                       </div>
-                      <h3 className="text-starlight-text text-center w-full" style={{ marginBottom: '16px' }}>
+                      <h3 className="text-2xl text-starlight-text text-center w-full" style={{ marginBottom: '16px' }}>
                         {feature.title}
                       </h3>
-                      <p className="text-moonlight-text text-center w-full">
+                      <p className="text-base text-moonlight-text leading-relaxed text-center w-full">
                         {feature.description}
                       </p>
                     </div>
@@ -838,7 +839,7 @@ export function HomeDeslogada() {
       </section>
 
       {/* Planos */}
-      <section className="relative z-10 flex flex-col items-center justify-center" style={{ paddingTop: '160px', paddingBottom: '192px' }}>
+      <section className="relative z-10 py-40 md:py-48 flex flex-col items-center justify-center">
         <style>{`
           @media (max-width: 767px) {
             .planos-container {
@@ -863,10 +864,10 @@ export function HomeDeslogada() {
           <div className="w-full max-w-[1400px] flex flex-col items-center">
             
             <div className="w-full flex flex-col items-center" style={{ marginBottom: '40px' }}>
-              <h2 className="text-starlight-text text-center w-full">
+              <h2 className="text-4xl md:text-6xl text-starlight-text text-center w-full" style={{ marginBottom: '32px' }}>
                 Planos de créditos
               </h2>
-              <p className="text-moonlight-text text-center w-full max-w-[800px]">
+              <p className="text-lg md:text-2xl text-moonlight-text text-center w-full max-w-[800px]">
                 Escolha o plano ideal para suas consultas
               </p>
             </div>
@@ -930,7 +931,7 @@ export function HomeDeslogada() {
                       {plan.badge && (
                         <div className="absolute -top-4 left-1/2 -translate-x-1/2">
                           <div 
-                            className="bg-oracle-ember rounded-full text-starlight-text shadow-lg whitespace-nowrap"
+                            className="bg-oracle-ember rounded-full text-sm md:text-base text-starlight-text shadow-lg whitespace-nowrap"
                             style={{ padding: '8px 20px' }}
                           >
                             {plan.badge}
@@ -939,22 +940,22 @@ export function HomeDeslogada() {
                       )}
                       
                       <div className="text-center w-full" style={{ marginBottom: '32px', marginTop: '8px' }}>
-                        <h3 className="text-starlight-text" style={{ marginBottom: '16px' }}>
+                        <h3 className="text-3xl text-starlight-text" style={{ marginBottom: '16px' }}>
                           {plan.name}
                         </h3>
-                        <p className="text-moonlight-text">
+                        <p className="text-lg text-moonlight-text">
                           {plan.description}
                         </p>
                       </div>
 
                       <div className="text-center w-full" style={{ marginBottom: '32px' }}>
                         <div className="flex justify-center" style={{ marginBottom: '16px' }}>
-                          <span className="text-mystic-indigo" style={{ fontSize: '3rem', fontWeight: plan.highlight ? 700 : 400 }}>
+                          <span className={`text-6xl text-mystic-indigo ${plan.highlight ? 'font-bold' : ''}`}>
                             {plan.price}
                           </span>
                         </div>
-                        <p className="text-moonlight-text" style={{ marginBottom: '16px' }}>
-                          <span className="text-starlight-text" style={{ fontSize: '2rem' }}>{plan.credits}</span> consultas
+                        <p className="text-lg text-moonlight-text" style={{ marginBottom: '16px' }}>
+                          <span className="text-4xl text-starlight-text">{plan.credits}</span> consultas
                         </p>
                         <p className="text-base text-moonlight-text/70">
                           {plan.pricePerCredit}
