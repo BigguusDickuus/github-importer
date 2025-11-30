@@ -2,65 +2,102 @@ import type { Config } from "tailwindcss";
 
 export default {
   darkMode: ["class"],
-  content: [
-    "./index.html",
-    "./src/**/*.{js,ts,jsx,tsx}",
-  ],
+  content: ["./pages/**/*.{ts,tsx}", "./components/**/*.{ts,tsx}", "./app/**/*.{ts,tsx}", "./src/**/*.{ts,tsx}"],
+  prefix: "",
   theme: {
+    container: {
+      center: true,
+      padding: "2rem",
+      screens: {
+        "2xl": "1400px",
+      },
+    },
     extend: {
+      fontFamily: {
+        sans: ['Space Grotesk', 'ui-sans-serif', 'system-ui', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'Helvetica Neue', 'Arial', 'Noto Sans', 'sans-serif'],
+      },
       colors: {
-        'night-sky': '#050816',
-        'midnight-surface': '#101322',
-        'mystic-indigo': '#6366F1',
-        'mystic-indigo-dark': '#4F46E5',
-        'oracle-ember': '#F97316',
-        'starlight-text': '#F9FAFB',
-        'moonlight-text': '#9CA3AF',
-        'obsidian-border': '#1F2933',
-        'verdant-success': '#22C55E',
-        'solar-warning': '#FACC15',
-        'blood-moon-error': '#EF4444',
-        background: '#050816',
-        foreground: '#F9FAFB',
+        border: "hsl(var(--border))",
+        input: "hsl(var(--input))",
+        ring: "hsl(var(--ring))",
+        background: "hsl(var(--background))",
+        foreground: "hsl(var(--foreground))",
         primary: {
-          DEFAULT: '#6366F1',
-          foreground: '#F9FAFB',
+          DEFAULT: "hsl(var(--primary))",
+          foreground: "hsl(var(--primary-foreground))",
         },
         secondary: {
-          DEFAULT: '#101322',
-          foreground: '#F9FAFB',
+          DEFAULT: "hsl(var(--secondary))",
+          foreground: "hsl(var(--secondary-foreground))",
         },
         destructive: {
-          DEFAULT: '#EF4444',
-          foreground: '#F9FAFB',
+          DEFAULT: "hsl(var(--destructive))",
+          foreground: "hsl(var(--destructive-foreground))",
         },
         muted: {
-          DEFAULT: '#1F2933',
-          foreground: '#9CA3AF',
+          DEFAULT: "hsl(var(--muted))",
+          foreground: "hsl(var(--muted-foreground))",
         },
         accent: {
-          DEFAULT: '#1F2933',
-          foreground: '#F9FAFB',
-        },
-        card: {
-          DEFAULT: '#101322',
-          foreground: '#F9FAFB',
+          DEFAULT: "hsl(var(--accent))",
+          foreground: "hsl(var(--accent-foreground))",
         },
         popover: {
-          DEFAULT: '#101322',
-          foreground: '#F9FAFB',
+          DEFAULT: "hsl(var(--popover))",
+          foreground: "hsl(var(--popover-foreground))",
         },
-        border: '#1F2933',
-        input: '#1F2933',
-        ring: '#6366F1',
+        card: {
+          DEFAULT: "hsl(var(--card))",
+          foreground: "hsl(var(--card-foreground))",
+        },
+        sidebar: {
+          DEFAULT: "hsl(var(--sidebar-background))",
+          foreground: "hsl(var(--sidebar-foreground))",
+          primary: "hsl(var(--sidebar-primary))",
+          "primary-foreground": "hsl(var(--sidebar-primary-foreground))",
+          accent: "hsl(var(--sidebar-accent))",
+          "accent-foreground": "hsl(var(--sidebar-accent-foreground))",
+          border: "hsl(var(--sidebar-border))",
+          ring: "hsl(var(--sidebar-ring))",
+        },
+        "night-sky": "hsl(var(--night-sky))",
+        "midnight-surface": "hsl(var(--midnight-surface))",
+        "mystic-indigo": "hsl(var(--mystic-indigo))",
+        "mystic-indigo-dark": "hsl(var(--mystic-indigo-dark))",
+        "oracle-ember": "hsl(var(--oracle-ember))",
+        "starlight-text": "hsl(var(--starlight-text))",
+        "moonlight-text": "hsl(var(--moonlight-text))",
+        "obsidian-border": "hsl(var(--obsidian-border))",
+        "verdant-success": "hsl(var(--verdant-success))",
+        "solar-warning": "hsl(var(--solar-warning))",
+        "blood-moon-error": "hsl(var(--blood-moon-error))",
       },
       borderRadius: {
-        lg: '0.5rem',
-        md: '0.375rem',
-        sm: '0.25rem',
+        lg: "var(--radius)",
+        md: "calc(var(--radius) - 2px)",
+        sm: "calc(var(--radius) - 4px)",
       },
-      fontFamily: {
-        sans: ['Space Grotesk', 'system-ui', '-apple-system', 'sans-serif'],
+      keyframes: {
+        "accordion-down": {
+          from: {
+            height: "0",
+          },
+          to: {
+            height: "var(--radix-accordion-content-height)",
+          },
+        },
+        "accordion-up": {
+          from: {
+            height: "var(--radix-accordion-content-height)",
+          },
+          to: {
+            height: "0",
+          },
+        },
+      },
+      animation: {
+        "accordion-down": "accordion-down 0.2s ease-out",
+        "accordion-up": "accordion-up 0.2s ease-out",
       },
     },
   },

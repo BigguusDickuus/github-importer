@@ -5,8 +5,6 @@ import { Sparkles, User, DollarSign, Check, ChevronLeft, ChevronRight } from "lu
 import { CardsIcon } from "./icons/CardsIcon";
 import { Modal } from "./Modal";
 import { Link, useNavigate } from "react-router-dom";
-import { supabase } from "@/integrations/supabase/client";
-import { toast } from "@/hooks/use-toast";
 
 export function HomeDeslogada() {
   const navigate = useNavigate();
@@ -16,7 +14,6 @@ export function HomeDeslogada() {
   const [showSignupModal, setShowSignupModal] = useState(false);
   const [loginError, setLoginError] = useState(false);
   const [shakeModal, setShakeModal] = useState(false);
-  const [showEmailConfirmationMessage, setShowEmailConfirmationMessage] = useState(false);
   const howItWorksRef = useRef<HTMLDivElement>(null);
   const plansRef = useRef<HTMLDivElement>(null);
   const [activeFeatureIndex, setActiveFeatureIndex] = useState(0);
@@ -371,90 +368,19 @@ export function HomeDeslogada() {
   };
 
   // Handler de cadastro
-  const handleSignup = async () => {
-    if (!validateSignupForm()) {
+  const handleSignup = () => {
+    if (validateSignupForm()) {
+      // TODO: implementar lógica real de cadastro
+      // Por enquanto, redireciona para a home logada
+      navigate('/dashboard');
+    } else {
       setShakeModal(true);
       setTimeout(() => {
         setShakeModal(false);
       }, 600);
-      return;
-    }
-
-    try {
-      const cleanCpf = signupCPF.replace(/\D/g, "");
-      const cleanPhone = signupPhone.replace(/\D/g, "");
-
-      // Verifica se email ou CPF já existem
-      const { data: existingProfiles, error: checkError } = await supabase
-        .from("profiles")
-        .select("email, cpf")
-        .or(`email.eq.${signupEmail},cpf.eq.${cleanCpf}`);
-
-      if (checkError) {
-        console.error("Erro ao verificar email/CPF existentes:", checkError);
-        alert("Erro ao salvar os dados, tente novamente mais tarde");
-        return;
-      }
-
-      if (existingProfiles && existingProfiles.length > 0) {
-        const existingEmail = existingProfiles.some((p) => p.email === signupEmail);
-        const existingCpf = existingProfiles.some((p) => p.cpf === cleanCpf);
-
-        let errorMessage = "";
-        if (existingEmail && existingCpf) {
-          errorMessage = "CPF e email já cadastrados";
-        } else if (existingEmail) {
-          errorMessage = "Email já cadastrado";
-        } else if (existingCpf) {
-          errorMessage = "CPF já cadastrado";
-        }
-
-        toast({
-          title: "Conta já existe",
-          description: errorMessage,
-          variant: "destructive",
-        });
-        return;
-      }
-
-      // Cria o usuário no Auth passando os metadados (trigger do Supabase cria/preenche o profile automaticamente)
-      const { data, error: signUpError } = await supabase.auth.signUp({
-        email: signupEmail,
-        password: signupPassword,
-        options: {
-          data: {
-            birthday: signupBirthDate, // já vem em YYYY-MM-DD do input type="date"
-            cpf: cleanCpf,
-            phone: cleanPhone,
-          }
-        }
-      });
-
-      if (signUpError) {
-        console.error("Erro no signUp:", signUpError);
-        alert("Erro ao criar conta: " + signUpError.message);
-        return;
-      }
-
-      if (!data.user) {
-        console.error("SignUp retornou sem user:", data);
-        alert("Erro ao criar conta, tente novamente mais tarde");
-        return;
-      }
-
-      // Sucesso: mostra mensagem sobre confirmação de e-mail
-      toast({
-        title: "Conta criada com sucesso!",
-        description: "Verifique seu e-mail para confirmar o cadastro e acessar a plataforma.",
-      });
-
-      setShowSignupModal(false);
-      setShowEmailConfirmationMessage(true);
-    } catch (error) {
-      console.error("Erro inesperado no signup:", error);
-      alert("Erro ao criar conta, tente novamente mais tarde");
     }
   };
+
   // Verificar se todos os campos estão preenchidos e válidos
   const isSignupFormValid = () => {
     return (
@@ -533,27 +459,8 @@ export function HomeDeslogada() {
 
       <Header isLoggedIn={false} onLoginClick={() => setShowLoginModal(true)} />
 
-      {/* Banner de confirmação de email */}
-      {showEmailConfirmationMessage && (
-        <div className="fixed top-[64px] md:top-[80px] left-0 right-0 bg-oracle-ember/90 backdrop-blur-sm z-50 border-b border-oracle-ember">
-          <div className="max-w-4xl mx-auto px-4 py-4 flex items-center justify-between gap-4">
-            <div className="flex-1">
-              <p className="text-starlight-text font-semibold text-sm md:text-base">
-                ✉️ Conta criada! Verifique seu e-mail para confirmar o cadastro e acessar a plataforma.
-              </p>
-            </div>
-            <button
-              onClick={() => setShowEmailConfirmationMessage(false)}
-              className="text-starlight-text hover:text-moonlight-text transition-colors text-xl font-bold px-2"
-            >
-              ×
-            </button>
-          </div>
-        </div>
-      )}
-
       {/* Hero Section */}
-      <section className="hero-section relative z-10 flex flex-col items-center justify-center" style={{ marginTop: 'calc(64px + 24px + 40px)' }}>
+      <section className="hero-section relative z-10 pb-40 md:pb-56 flex flex-col items-center justify-center" style={{ marginTop: 'calc(64px + 24px + 40px)' }}>
         <style>{`
           @media (min-width: 768px) {
             .hero-section {
@@ -582,7 +489,7 @@ export function HomeDeslogada() {
         <div className="hero-section-container w-full flex flex-col items-center justify-center">
           <div className="w-full max-w-[1200px] flex flex-col items-center">
             
-            <div className="mb-10">
+            <div style={{ marginBottom: '40px' }}>
               <h1 
                 className="text-starlight-text tracking-tight text-center w-full"
                 style={{ 
@@ -610,9 +517,10 @@ export function HomeDeslogada() {
             </div>
 
             {/* Prompt Card - ATUALIZADO COM ESPAÇAMENTOS */}
-            <div className="w-full max-w-[900px] mb-6">
+            <div className="w-full max-w-[900px]" style={{ marginBottom: '24px' }}>
               <div 
-                className="bg-midnight-surface/80 backdrop-blur-sm border border-obsidian-border rounded-3xl shadow-2xl w-full flex flex-col p-6 gap-6"
+                className="bg-midnight-surface/80 backdrop-blur-sm border border-obsidian-border rounded-3xl shadow-2xl w-full flex flex-col"
+                style={{ padding: '24px', gap: '24px' }}
               >
                 <textarea
                   placeholder="Faça sua pergunta..."
@@ -699,7 +607,7 @@ export function HomeDeslogada() {
       </section>
 
       {/* Como Funciona */}
-      <section className="relative z-10 flex flex-col items-center justify-center">
+      <section className="relative z-10 flex flex-col items-center justify-center" style={{ paddingTop: '160px', paddingBottom: '192px' }}>
         <style>{`
           @media (max-width: 767px) {
             .como-funciona-container {
@@ -723,7 +631,7 @@ export function HomeDeslogada() {
         <div className="como-funciona-container w-full flex flex-col items-center justify-center">
           <div className="w-full max-w-[1400px] flex flex-col items-center">
             
-            <div className="w-full flex flex-col items-center mb-10">
+            <div className="w-full flex flex-col items-center" style={{ marginBottom: '40px' }}>
               <h2 className="text-starlight-text text-center w-full">
                 Como funciona
               </h2>
@@ -930,7 +838,7 @@ export function HomeDeslogada() {
       </section>
 
       {/* Planos */}
-      <section className="relative z-10 flex flex-col items-center justify-center">
+      <section className="relative z-10 flex flex-col items-center justify-center" style={{ paddingTop: '160px', paddingBottom: '192px' }}>
         <style>{`
           @media (max-width: 767px) {
             .planos-container {
@@ -954,7 +862,7 @@ export function HomeDeslogada() {
         <div className="planos-container w-full flex flex-col items-center justify-center">
           <div className="w-full max-w-[1400px] flex flex-col items-center">
             
-            <div className="w-full flex flex-col items-center mb-10">
+            <div className="w-full flex flex-col items-center" style={{ marginBottom: '40px' }}>
               <h2 className="text-starlight-text text-center w-full">
                 Planos de créditos
               </h2>
@@ -1020,8 +928,8 @@ export function HomeDeslogada() {
                       style={{ padding: '48px' }}
                     >
                       {plan.badge && (
-                        <div className="absolute -top-4" style={{ left: '50%', transform: 'translateX(-50%)' }}>
-                          <div
+                        <div className="absolute -top-4 left-1/2 -translate-x-1/2">
+                          <div 
                             className="bg-oracle-ember rounded-full text-starlight-text shadow-lg whitespace-nowrap"
                             style={{ padding: '8px 20px' }}
                           >
