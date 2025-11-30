@@ -435,21 +435,21 @@ export function HomeDeslogada() {
         return;
       }
 
-      // Garante que o profile existe e atualiza com os dados adicionais
-      const { data: profileRow, error: upsertError } = await supabase
+      // Aguarda um pouco para garantir que o trigger criou o profile básico
+      await new Promise((resolve) => setTimeout(resolve, 500));
+
+      // Atualiza o profile existente com os dados adicionais
+      const { error: updateError } = await supabase
         .from("profiles")
-        .upsert({
-          id: data.user.id,
-          email: signupEmail,
+        .update({
           birthday: signupBirthDate, // já vem em YYYY-MM-DD do input type="date"
           cpf: cleanCpf,
           phone: cleanPhone,
         })
-        .select("id")
-        .maybeSingle();
+        .eq("id", data.user.id);
 
-      if (upsertError || !profileRow) {
-        console.error("Erro ao criar/atualizar profile após signup:", upsertError, profileRow);
+      if (updateError) {
+        console.error("Erro ao atualizar profile após signup:", updateError);
         alert("Erro ao salvar os dados, tente novamente mais tarde");
         await supabase.auth.signOut();
         return;
