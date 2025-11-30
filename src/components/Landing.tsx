@@ -606,7 +606,7 @@ export function HomeDeslogada() {
       </section>
 
       {/* Como Funciona */}
-      <section className="relative z-10 py-40 md:py-48 flex flex-col items-center justify-center">
+      <section className="relative z-10 flex flex-col items-center justify-center">
         <style>{`
           @media (max-width: 767px) {
             .como-funciona-container {
@@ -837,7 +837,7 @@ export function HomeDeslogada() {
       </section>
 
       {/* Planos */}
-      <section className="relative z-10 py-40 md:py-48 flex flex-col items-center justify-center">
+      <section className="relative z-10 flex flex-col items-center justify-center">
         <style>{`
           @media (max-width: 767px) {
             .planos-container {
