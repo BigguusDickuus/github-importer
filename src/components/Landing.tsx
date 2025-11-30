@@ -460,11 +460,7 @@ export function HomeDeslogada() {
       <Header isLoggedIn={false} onLoginClick={() => setShowLoginModal(true)} />
 
       {/* Hero Section */}
-      <section 
-        className="relative z-10 pt-24 pb-40 md:pt-40 md:pb-56 flex flex-col items-center justify-center" 
-        style={{ marginTop: 'calc(64px + 24px + 40px)' }}
-      >
-
+      <section className="hero-section relative z-10 pb-40 md:pb-56 flex flex-col items-center justify-center" style={{ marginTop: 'calc(64px + 24px + 40px)' }}>
         <style>{`
           @media (min-width: 768px) {
             .hero-section {
@@ -490,15 +486,16 @@ export function HomeDeslogada() {
             }
           }
         `}</style>
-        
         <div className="hero-section-container w-full flex flex-col items-center justify-center">
           <div className="w-full max-w-[1200px] flex flex-col items-center">
             
-            {/* Títulos */}
             <div style={{ marginBottom: '40px' }}>
               <h1 
                 className="text-starlight-text tracking-tight text-center w-full"
-                style={{ fontSize: '2.5rem', lineHeight: '1.1', marginBottom: '40px' }}
+                style={{ 
+                  fontSize: '2.5rem',
+                  lineHeight: '1.1'
+                }}
               >
                 <style>{`
                   @media (min-width: 768px) {
@@ -510,22 +507,16 @@ export function HomeDeslogada() {
                 <span className="hero-title" style={{ fontSize: '2.5rem' }}>Tarot Online</span>
               </h1>
 
-              <p 
-                className="text-xl md:text-2xl text-moonlight-text text-center w-full max-w-[800px]"
-                style={{ marginBottom: '32px' }}
-              >
+              <p className="text-moonlight-text text-center w-full max-w-[800px]">
                 Consultas de Tarot, Tarot Cigano e Cartomancia Clássica disponíveis 24/7
               </p>
 
-              <p 
-                className="text-lg md:text-xl text-oracle-ember text-center w-full max-w-[700px]"
-                style={{ marginBottom: '96px' }}
-              >
+              <p className="text-oracle-ember text-center w-full max-w-[700px]" style={{ marginLeft: 'auto', marginRight: 'auto' }}>
                 Interpretações profundas e personalizadas para suas perguntas
               </p>
             </div>
 
-            {/* Card de Prompt */}
+            {/* Prompt Card - ATUALIZADO COM ESPAÇAMENTOS */}
             <div className="w-full max-w-[900px]" style={{ marginBottom: '24px' }}>
               <div 
                 className="bg-midnight-surface/80 backdrop-blur-sm border border-obsidian-border rounded-3xl shadow-2xl w-full flex flex-col"
@@ -533,6 +524,8 @@ export function HomeDeslogada() {
               >
                 <textarea
                   placeholder="Faça sua pergunta..."
+                  value={question}
+                  onChange={(e) => setQuestion(e.target.value)}
                   disabled
                   rows={6}
                   className="w-full bg-night-sky/50 border border-obsidian-border rounded-2xl text-lg md:text-xl text-starlight-text placeholder:text-moonlight-text/60 focus:outline-none focus:border-mystic-indigo transition-colors resize-none disabled:opacity-60 disabled:cursor-not-allowed"
@@ -543,7 +536,7 @@ export function HomeDeslogada() {
                   <Button
                     size="lg"
                     disabled
-                    className="w-full sm:w-auto sm:min-w-[50%] bg-mystic-indigo hover:bg-mystic-indigo-dark text-starlight-text h-14 md:h-16 text-lg md:text-xl disabled:opacity-60 px-8 whitespace-nowrap"
+                    className="w-full sm:w-auto sm:min-w-[50%] bg-mystic-indigo hover:bg-mystic-indigo-dark text-starlight-text h-14 md:h-16 text-lg md:text-xl disabled:opacity-60 whitespace-nowrap"
                   >
                     ✨ Consultar o Oráculo
                   </Button>
@@ -551,7 +544,7 @@ export function HomeDeslogada() {
               </div>
             </div>
 
-            {/* Warning */}
+            {/* Warning Message */}
             <div className="w-full max-w-[900px]" style={{ marginBottom: '24px' }}>
               <div 
                 className="flex items-center justify-center gap-4 bg-solar-warning/10 border border-solar-warning/30 rounded-2xl w-full"
@@ -564,32 +557,280 @@ export function HomeDeslogada() {
               </div>
             </div>
 
-            {/* Info */}
-            <p 
-              className="text-base md:text-lg text-moonlight-text/80 text-center w-full" 
-              style={{ marginBottom: '24px' }}
-            >
+            <p className="text-base md:text-lg text-moonlight-text/80 text-center w-full" style={{ marginBottom: '24px' }}>
               1 crédito por oráculo selecionado • Sem limites de temas
             </p>
 
-            {/* Botões */}
-            <div 
-              className="flex flex-col sm:flex-row gap-5 justify-center items-center w-full max-w-[600px]" 
-              style={{ marginBottom: '40px' }}
-            >
+            <div className="flex flex-col sm:flex-row gap-5 justify-center items-center w-full max-w-[600px]" style={{ marginBottom: '40px' }}>
               <Button 
                 size="lg" 
-                className="w-full sm:flex-1 bg-mystic-indigo hover:bg-mystic-indigo-dark text-starlight-text h-14 md:h-16 text-base md:text-lg px-8"
+                className="w-full sm:flex-1 bg-mystic-indigo hover:bg-mystic-indigo-dark text-starlight-text h-14 md:h-16 text-base md:text-lg"
+                onClick={() => setShowLoginModal(true)}
               >
                 Entrar | Criar conta
               </Button>
               <Button
                 size="lg"
                 variant="outline"
-                className="w-full sm:flex-1 border-obsidian-border text-moonlight-text hover:bg-midnight-surface hover:text-starlight-text h-14 md:h-16 text-base md:text-lg px-8"
+                onClick={() => setShowHowItWorksModal(true)}
+                className="w-full sm:flex-1 border-obsidian-border text-moonlight-text hover:bg-midnight-surface hover:text-starlight-text h-14 md:h-16 text-base md:text-lg"
               >
                 Como funciona
               </Button>
+            </div>
+
+            {/* DEV ONLY - Remover em produção */}
+            <Button 
+              size="sm"
+              variant="outline"
+              className="border-oracle-ember text-oracle-ember hover:bg-oracle-ember/10"
+              asChild
+            >
+              <Link to="/dashboard">🔧 Ver Home Logada (DEV)</Link>
+            </Button>
+
+            {/* DEV ONLY - Testar erro de login */}
+            <Button 
+              size="sm"
+              variant="outline"
+              className="border-solar-warning text-solar-warning hover:bg-solar-warning/10"
+              onClick={() => {
+                setShowLoginModal(true);
+                setTimeout(() => simulateLoginError(), 100);
+              }}
+            >
+              🧪 Testar Erro de Login (DEV)
+            </Button>
+
+          </div>
+        </div>
+      </section>
+
+      {/* Como Funciona */}
+      <section className="relative z-10 flex flex-col items-center justify-center" style={{ paddingTop: '160px', paddingBottom: '192px' }}>
+        <style>{`
+          @media (max-width: 767px) {
+            .como-funciona-container {
+              padding-left: 5% !important;
+              padding-right: 5% !important;
+            }
+          }
+          @media (min-width: 768px) and (max-width: 922px) {
+            .como-funciona-container {
+              padding-left: 5% !important;
+              padding-right: 5% !important;
+            }
+          }
+          @media (min-width: 923px) {
+            .como-funciona-container {
+              padding-left: 64px !important;
+              padding-right: 64px !important;
+            }
+          }
+        `}</style>
+        <div className="como-funciona-container w-full flex flex-col items-center justify-center">
+          <div className="w-full max-w-[1400px] flex flex-col items-center">
+            
+            <div className="w-full flex flex-col items-center" style={{ marginBottom: '40px' }}>
+              <h2 className="text-starlight-text text-center w-full">
+                Como funciona
+              </h2>
+              <p className="text-moonlight-text text-center w-full max-w-[800px]">
+                Três passos simples para acessar a <span className="text-mystic-indigo">sabedoria ancestral</span>
+              </p>
+            </div>
+
+            {/* Desktop: Grid | Mobile/Intermediate: Carousel */}
+            <style>{`
+              @media (max-width: 922px) {
+                .features-carousel {
+                  display: flex !important;
+                  overflow-x: auto !important;
+                  scroll-snap-type: x mandatory !important;
+                  gap: 20px !important;
+                  padding: 0 20px !important;
+                  scrollbar-width: none !important;
+                  -ms-overflow-style: none !important;
+                }
+                .features-carousel::-webkit-scrollbar {
+                  display: none !important;
+                }
+                .features-carousel > div {
+                  flex: 0 0 85% !important;
+                  scroll-snap-align: center !important;
+                  scroll-snap-stop: always !important;
+                }
+                .carousel-container-spacing {
+                  margin-bottom: 16px !important;
+                }
+              }
+              @media (min-width: 923px) {
+                .features-carousel {
+                  display: grid !important;
+                  grid-template-columns: repeat(3, 1fr) !important;
+                  gap: 48px !important;
+                }
+                .carousel-container-spacing {
+                  margin-bottom: 40px !important;
+                }
+              }
+              @media (min-width: 923px) {
+                .carousel-arrows {
+                  display: none !important;
+                }
+              }
+            `}</style>
+            
+            {/* Container com position relative para as setas absolutas */}
+            <div className="carousel-container-spacing" style={{ width: '100%', display: 'flex', justifyContent: 'center' }}>
+              <div style={{ width: '100%', maxWidth: '1200px', position: 'relative' }}>
+                <div className="features-carousel w-full" ref={howItWorksRef}>
+                  {features.map((feature, index) => (
+                    <div
+                      key={index}
+                      className="bg-midnight-surface/80 backdrop-blur-sm border border-obsidian-border rounded-3xl hover:border-mystic-indigo/50 transition-all duration-300 hover:shadow-lg hover:shadow-mystic-indigo/10 flex flex-col items-center"
+                      style={{ padding: '32px' }}
+                    >
+                      <div 
+                        className="rounded-full bg-mystic-indigo/10 border border-mystic-indigo/30 flex items-center justify-center"
+                        style={{ width: '72px', height: '72px', marginBottom: '24px' }}
+                      >
+                        <feature.icon className="w-8 h-8 text-mystic-indigo" />
+                      </div>
+                      <h3 className="text-starlight-text text-center w-full" style={{ marginBottom: '16px' }}>
+                        {feature.title}
+                      </h3>
+                      <p className="text-moonlight-text text-center w-full">
+                        {feature.description}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Left Arrow - calc para posicionar a 2% da viewport */}
+                <button
+                  onClick={() => scrollToFeature(activeFeatureIndex - 1)}
+                  disabled={activeFeatureIndex === 0}
+                  className="carousel-arrows"
+                  aria-label="Anterior"
+                  style={{ 
+                    position: 'absolute',
+                    left: 'calc((100vw - 100%) / -2 + 2vw)',
+                    top: '50%',
+                    transform: 'translateY(-50%)',
+                    width: '48px',
+                    height: '96px',
+                    padding: 0,
+                    margin: 0,
+                    border: 'none',
+                    background: 'transparent',
+                    zIndex: 50,
+                    cursor: activeFeatureIndex === 0 ? 'not-allowed' : 'pointer',
+                    opacity: activeFeatureIndex === 0 ? 0 : 1,
+                    color: '#E2E8F0',
+                    transition: 'all 0.3s',
+                    pointerEvents: activeFeatureIndex === 0 ? 'none' : 'auto'
+                  }}
+                  onMouseEnter={(e) => {
+                    if (activeFeatureIndex !== 0) {
+                      e.currentTarget.style.color = '#6366F1';
+                    }
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.color = '#E2E8F0';
+                  }}
+                >
+                  <svg 
+                    xmlns="http://www.w3.org/2000/svg" 
+                    width="48" 
+                    height="96" 
+                    viewBox="0 0 24 48" 
+                    fill="none" 
+                    stroke="currentColor" 
+                    strokeWidth="2.5" 
+                    strokeLinecap="round" 
+                    strokeLinejoin="round"
+                    style={{ width: '48px', height: '96px', filter: 'drop-shadow(0 10px 15px rgba(0, 0, 0, 0.3))', pointerEvents: 'none' }}
+                  >
+                    <polyline points="15 6 9 24 15 42" />
+                  </svg>
+                </button>
+
+                {/* Right Arrow - calc para posicionar a 2% da viewport */}
+                <button
+                  onClick={() => scrollToFeature(activeFeatureIndex + 1)}
+                  disabled={activeFeatureIndex === features.length - 1}
+                  className="carousel-arrows"
+                  aria-label="Próximo"
+                  style={{ 
+                    position: 'absolute',
+                    right: 'calc((100vw - 100%) / -2 + 2vw)',
+                    top: '50%',
+                    transform: 'translateY(-50%)',
+                    width: '48px',
+                    height: '96px',
+                    padding: 0,
+                    margin: 0,
+                    border: 'none',
+                    background: 'transparent',
+                    zIndex: 50,
+                    cursor: activeFeatureIndex === features.length - 1 ? 'not-allowed' : 'pointer',
+                    opacity: activeFeatureIndex === features.length - 1 ? 0 : 1,
+                    color: '#E2E8F0',
+                    transition: 'all 0.3s',
+                    pointerEvents: activeFeatureIndex === features.length - 1 ? 'none' : 'auto'
+                  }}
+                  onMouseEnter={(e) => {
+                    if (activeFeatureIndex !== features.length - 1) {
+                      e.currentTarget.style.color = '#6366F1';
+                    }
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.color = '#E2E8F0';
+                  }}
+                >
+                  <svg 
+                    xmlns="http://www.w3.org/2000/svg" 
+                    width="48" 
+                    height="96" 
+                    viewBox="0 0 24 48" 
+                    fill="none" 
+                    stroke="currentColor" 
+                    strokeWidth="2.5" 
+                    strokeLinecap="round" 
+                    strokeLinejoin="round"
+                    style={{ width: '48px', height: '96px', filter: 'drop-shadow(0 10px 15px rgba(0, 0, 0, 0.3))', pointerEvents: 'none' }}
+                  >
+                    <polyline points="9 6 15 24 9 42" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+
+            {/* Navigation Arrows & Indicators - Only visible on mobile/intermediate */}
+            <style>{`
+              @media (min-width: 923px) {
+                .carousel-nav {
+                  display: none !important;
+                }
+              }
+            `}</style>
+            <div className="carousel-nav flex flex-col items-center gap-6 w-full" style={{ marginTop: '16px', marginBottom: '40px' }}>
+              {/* Indicators (dots) */}
+              <div className="flex justify-center gap-2">
+                {features.map((_, index) => (
+                  <button
+                    key={index}
+                    onClick={() => scrollToFeature(index)}
+                    className={`rounded-full transition-all duration-300 ${
+                      activeFeatureIndex === index 
+                        ? 'bg-mystic-indigo w-8 h-2' 
+                        : 'bg-moonlight-text/30 w-2 h-2 hover:bg-moonlight-text/50'
+                    }`}
+                    aria-label={`Ir para slide ${index + 1}`}
+                  />
+                ))}
+              </div>
             </div>
 
           </div>
