@@ -1,66 +1,51 @@
-@import "tailwindcss";
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
 @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap');
 
-@theme {
-  /* Paleta Noite Cósmica */
-  --color-night-sky: #050816;
-  --color-midnight-surface: #101322;
-  --color-mystic-indigo: #6366F1;
-  --color-mystic-indigo-dark: #4F46E5;
-  --color-oracle-ember: #F97316;
-  --color-starlight-text: #F9FAFB;
-  --color-moonlight-text: #9CA3AF;
-  --color-obsidian-border: #1F2933;
-  --color-verdant-success: #22C55E;
-  --color-solar-warning: #FACC15;
-  --color-blood-moon-error: #EF4444;
+@layer base {
+  :root {
+    --background: 222.2 84% 4.9%;
+    --foreground: 210 40% 98%;
+    --card: 222.2 84% 4.9%;
+    --card-foreground: 210 40% 98%;
+    --popover: 222.2 84% 4.9%;
+    --popover-foreground: 210 40% 98%;
+    --primary: 245 58% 61%;
+    --primary-foreground: 210 40% 98%;
+    --secondary: 217.2 32.6% 17.5%;
+    --secondary-foreground: 210 40% 98%;
+    --muted: 217.2 32.6% 17.5%;
+    --muted-foreground: 215 20.2% 65.1%;
+    --accent: 217.2 32.6% 17.5%;
+    --accent-foreground: 210 40% 98%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 217.2 32.6% 17.5%;
+    --input: 217.2 32.6% 17.5%;
+    --ring: 245 58% 61%;
+    --radius: 0.5rem;
+  }
+}
 
-  /* Spacing for touch targets */
-  --spacing-touch: 44px;
+@layer base {
+  * {
+    @apply border-border;
+  }
   
-  /* Theme variables for shadcn/ui */
-  --color-background: #050816;
-  --color-foreground: #F9FAFB;
-  --color-primary: #6366F1;
-  --color-primary-foreground: #F9FAFB;
-  --color-secondary: #101322;
-  --color-secondary-foreground: #F9FAFB;
-  --color-accent: #1F2933;
-  --color-accent-foreground: #F9FAFB;
-  --color-destructive: #EF4444;
-  --color-destructive-foreground: #F9FAFB;
-  --color-muted: #1F2933;
-  --color-muted-foreground: #9CA3AF;
-  --color-card: #101322;
-  --color-card-foreground: #F9FAFB;
-  --color-popover: #101322;
-  --color-popover-foreground: #F9FAFB;
-  --color-border: #1F2933;
-  --color-input: #1F2933;
-  --color-ring: #6366F1;
+  body {
+    @apply bg-night-sky text-starlight-text;
+    font-family: 'Space Grotesk', system-ui, -apple-system, sans-serif;
+  }
 }
 
-* {
-  margin: 0;
-  padding: 0;
-  box-sizing: border-box;
-}
-
-body {
-  font-family: 'Space Grotesk', system-ui, -apple-system, sans-serif;
-  background-color: #050816;
-  color: #F9FAFB;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-}
-
-/* Custom Scrollbar - Firefox */
+/* Custom Scrollbar */
 * {
   scrollbar-width: thin;
   scrollbar-color: #6366F1 #101322;
 }
 
-/* Custom Scrollbar - Webkit (Chrome, Safari, Edge) */
 *::-webkit-scrollbar {
   width: 10px;
   height: 10px;
@@ -79,10 +64,6 @@ body {
 
 *::-webkit-scrollbar-thumb:hover {
   background: #4F46E5;
-}
-
-*::-webkit-scrollbar-corner {
-  background: #101322;
 }
 
 h1 {
