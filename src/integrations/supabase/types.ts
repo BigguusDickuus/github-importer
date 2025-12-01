@@ -14,6 +14,65 @@ export type Database = {
   }
   public: {
     Tables: {
+      credit_balances: {
+        Row: {
+          balance: number
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          balance?: number
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          balance?: number
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      credit_transactions: {
+        Row: {
+          created_at: string | null
+          credits_change: number
+          description: string | null
+          id: string
+          metadata: Json | null
+          reading_id: string | null
+          tx_type: Database["public"]["Enums"]["credit_transaction_type"]
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          credits_change: number
+          description?: string | null
+          id?: string
+          metadata?: Json | null
+          reading_id?: string | null
+          tx_type: Database["public"]["Enums"]["credit_transaction_type"]
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          credits_change?: number
+          description?: string | null
+          id?: string
+          metadata?: Json | null
+          reading_id?: string | null
+          tx_type?: Database["public"]["Enums"]["credit_transaction_type"]
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "credit_transactions_reading_id_fkey"
+            columns: ["reading_id"]
+            isOneToOne: false
+            referencedRelation: "readings"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           birthday: string | null
@@ -44,15 +103,102 @@ export type Database = {
         }
         Relationships: []
       }
+      readings: {
+        Row: {
+          completed_at: string | null
+          completion_tokens: number | null
+          created_at: string | null
+          id: string
+          model: string | null
+          oracle_types: Database["public"]["Enums"]["oracle_type"][]
+          oracles: Json
+          prompt_tokens: number | null
+          question: string
+          response: string | null
+          status: Database["public"]["Enums"]["reading_status"] | null
+          total_credits_cost: number
+          user_id: string
+        }
+        Insert: {
+          completed_at?: string | null
+          completion_tokens?: number | null
+          created_at?: string | null
+          id?: string
+          model?: string | null
+          oracle_types: Database["public"]["Enums"]["oracle_type"][]
+          oracles: Json
+          prompt_tokens?: number | null
+          question: string
+          response?: string | null
+          status?: Database["public"]["Enums"]["reading_status"] | null
+          total_credits_cost: number
+          user_id: string
+        }
+        Update: {
+          completed_at?: string | null
+          completion_tokens?: number | null
+          created_at?: string | null
+          id?: string
+          model?: string | null
+          oracle_types?: Database["public"]["Enums"]["oracle_type"][]
+          oracles?: Json
+          prompt_tokens?: number | null
+          question?: string
+          response?: string | null
+          status?: Database["public"]["Enums"]["reading_status"] | null
+          total_credits_cost?: number
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      check_credits_for_oracles: {
+        Args: { _oracle_types: Database["public"]["Enums"]["oracle_type"][] }
+        Returns: {
+          current_balance: number
+          has_enough: boolean
+          required: number
+        }[]
+      }
+      create_reading: {
+        Args: {
+          _oracle_types: Database["public"]["Enums"]["oracle_type"][]
+          _oracles: Json
+          _question: string
+        }
+        Returns: string
+      }
+      get_current_balance: {
+        Args: never
+        Returns: {
+          balance: number
+        }[]
+      }
+      get_recent_readings: {
+        Args: { _limit?: number }
+        Returns: {
+          created_at: string
+          id: string
+          oracle_types: Database["public"]["Enums"]["oracle_type"][]
+          oracles: Json
+          question: string
+          response: string
+        }[]
+      }
+      grant_signup_bonus: { Args: never; Returns: undefined }
     }
     Enums: {
-      [_ in never]: never
+      credit_transaction_type:
+        | "signup_bonus"
+        | "purchase"
+        | "reading"
+        | "manual_adjustment"
+      oracle_type: "tarot" | "lenormand" | "cartomancy"
+      reading_status: "pending" | "completed" | "error"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -179,6 +325,15 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      credit_transaction_type: [
+        "signup_bonus",
+        "purchase",
+        "reading",
+        "manual_adjustment",
+      ],
+      oracle_type: ["tarot", "lenormand", "cartomancy"],
+      reading_status: ["pending", "completed", "error"],
+    },
   },
 } as const

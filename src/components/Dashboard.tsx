@@ -2,14 +2,63 @@ import { useState } from "react";
 import { Link } from "react-router-dom";
 import { Header } from "./Header";
 import { Button } from "./ui/button";
-import { Sparkles, CreditCard } from "lucide-react";
+import { Sparkles, CreditCard, Zap } from "lucide-react";
 import { Modal } from "./Modal";
 import { OracleSelectionModal } from "./OracleSelectionModal";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 
 export function Dashboard() {
   const [question, setQuestion] = useState("");
   const [showOracleModal, setShowOracleModal] = useState(false);
+  const [testLoading, setTestLoading] = useState(false);
+  const [testResult, setTestResult] = useState<any>(null);
   const userCredits = 12;
+
+  const demoConfirmReadingPayload = {
+    question: "Como posso melhorar minha vida profissional nos próximos meses?",
+    oracleTypes: ["tarot"],
+    oracles: [
+      {
+        oracle_type: "tarot",
+        spread_code: "tarot_3_situation_advice_tendency",
+        spread_name: "3 Cartas: Situação / Conselho / Tendência",
+        positions: [
+          {
+            index: 1,
+            role: "situation",
+            label: "Situação",
+            card: {
+              code: "major_06_lovers",
+              name: "VI - Os Enamorados",
+              reversed: false,
+            },
+          },
+          {
+            index: 2,
+            role: "advice",
+            label: "Conselho",
+            card: {
+              code: "major_01_magician",
+              name: "I - O Mago",
+              reversed: false,
+            },
+          },
+          {
+            index: 3,
+            role: "tendency",
+            label: "Tendência",
+            card: {
+              code: "major_19_sun",
+              name: "XIX - O Sol",
+              reversed: false,
+            },
+          },
+        ],
+      },
+    ],
+    useHistory: true,
+  };
 
   const suggestions = [
     "Amor",
@@ -23,6 +72,40 @@ export function Dashboard() {
   const handleAsk = () => {
     if (question.trim()) {
       setShowOracleModal(true);
+    }
+  };
+
+  const handleTestReading = async () => {
+    const { data: { session } } = await supabase.auth.getSession();
+    
+    if (!session) {
+      toast.error("Você precisa estar logado para testar a leitura");
+      return;
+    }
+
+    setTestLoading(true);
+    setTestResult(null);
+
+    try {
+      const { data, error } = await supabase.functions.invoke("confirm-reading", {
+        body: demoConfirmReadingPayload,
+      });
+
+      if (error) {
+        console.error("Erro ao chamar confirm-reading:", error);
+        toast.error(`Erro: ${error.message}`);
+        setTestResult({ error: error.message });
+      } else {
+        console.log("Sucesso ao chamar confirm-reading:", data);
+        toast.success("Leitura criada com sucesso!");
+        setTestResult(data);
+      }
+    } catch (err: any) {
+      console.error("Erro inesperado:", err);
+      toast.error(`Erro inesperado: ${err.message}`);
+      setTestResult({ error: err.message });
+    } finally {
+      setTestLoading(false);
     }
   };
 
@@ -86,6 +169,29 @@ export function Dashboard() {
             <p className="mt-4 text-sm text-moonlight-text text-center">
               1 crédito será consumido por cada oráculo selecionado
             </p>
+
+            {/* Botão de Teste */}
+            <div className="mt-6 pt-6 border-t border-obsidian-border">
+              <Button
+                size="lg"
+                onClick={handleTestReading}
+                disabled={testLoading}
+                variant="outline"
+                className="w-full"
+              >
+                <Zap className="w-5 h-5 mr-2" />
+                {testLoading ? "Testando..." : "Testar leitura (tarot demo)"}
+              </Button>
+
+              {testResult && (
+                <div className="mt-4 p-4 bg-midnight-surface border border-obsidian-border rounded-xl">
+                  <p className="text-sm text-moonlight-text mb-2">Resultado do teste:</p>
+                  <pre className="text-xs text-starlight-text overflow-auto max-h-96">
+                    {JSON.stringify(testResult, null, 2)}
+                  </pre>
+                </div>
+              )}
+            </div>
           </div>
         </div>
 
