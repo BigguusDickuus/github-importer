@@ -1,13 +1,9 @@
+typescript;
 import type { Config } from "tailwindcss";
 
 export default {
   darkMode: ["class"],
-  content: [
-    "./pages/**/*.{ts,tsx}",
-    "./components/**/*.{ts,tsx}",
-    "./app/**/*.{ts,tsx}",
-    "./src/**/*.{ts,tsx}",
-  ],
+  content: ["./pages/*/.{ts,tsx}", "./components/*/.{ts,tsx}", "./app/*/.{ts,tsx}", "./src/*/.{ts,tsx}"],
   theme: {
     container: {
       center: true,
@@ -20,8 +16,10 @@ export default {
       colors: {
         "night-sky": "#050816",
         "midnight-surface": "#101322",
-        "mystic-indigo": "#6366F1",
-        "mystic-indigo-dark": "#4F46E5",
+        "mystic-indigo": {
+          DEFAULT: "#6366F1",
+          dark: "#4F46E5",
+        },
         "oracle-ember": "#F97316",
         "starlight-text": "#F9FAFB",
         "moonlight-text": "#9CA3AF",
@@ -64,19 +62,7 @@ export default {
         },
       },
       spacing: {
-        '1': '4px',
-        '2': '8px',
-        '3': '12px',
-        '4': '16px',
-        '5': '20px',
-        '6': '24px',
-        '8': '32px',
-        '10': '40px',
-        '12': '48px',
-        '16': '64px',
-        '20': '80px',
-        '24': '96px',
-        'touch': '44px',
+        touch: "44px",
       },
       fontFamily: {
         sans: ["Space Grotesk", "system-ui", "sans-serif"],
