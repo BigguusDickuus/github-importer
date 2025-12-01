@@ -1,3 +1,4 @@
+css
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -30,22 +31,28 @@
 }
 
 @layer base {
-  * {
-    @apply border-border;
+{
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
   }
   
   body {
-    @apply bg-night-sky text-starlight-text;
+    background-color: #050816;
+    color: #F9FAFB;
     font-family: 'Space Grotesk', system-ui, -apple-system, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
   }
 }
 
-/* Custom Scrollbar */
-* {
+/* Custom Scrollbar - Firefox */
+{
   scrollbar-width: thin;
   scrollbar-color: #6366F1 #101322;
 }
 
+/* Custom Scrollbar - Webkit */
 *::-webkit-scrollbar {
   width: 10px;
   height: 10px;
@@ -64,6 +71,10 @@
 
 *::-webkit-scrollbar-thumb:hover {
   background: #4F46E5;
+}
+
+*::-webkit-scrollbar-corner {
+  background: #101322;
 }
 
 h1 {
