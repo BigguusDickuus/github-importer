@@ -14,13 +14,11 @@ export default {
     },
     extend: {
       colors: {
-        // Paleta Noite Cósmica (cores diretas hex)
+        // Paleta Noite Cósmica
         "night-sky": "#050816",
         "midnight-surface": "#101322",
-        "mystic-indigo": {
-          DEFAULT: "#6366F1",
-          dark: "#4F46E5",
-        },
+        "mystic-indigo": "#6366F1",
+        "mystic-indigo-dark": "#4F46E5",
         "oracle-ember": "#F97316",
         "starlight-text": "#F9FAFB",
         "moonlight-text": "#9CA3AF",
@@ -29,7 +27,7 @@ export default {
         "solar-warning": "#FACC15",
         "blood-moon-error": "#EF4444",
 
-        // Shadcn colors (sobrescrevendo com nossas cores)
+        // Shadcn colors
         border: "#1F2933",
         input: "#1F2933",
         ring: "#6366F1",
@@ -63,9 +61,6 @@ export default {
           DEFAULT: "#101322",
           foreground: "#F9FAFB",
         },
-      },
-      spacing: {
-        touch: "44px",
       },
       fontFamily: {
         sans: ["Space Grotesk", "system-ui", "-apple-system", "sans-serif"],
