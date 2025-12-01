@@ -5,83 +5,49 @@
 @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap');
 
 @layer base {
-  :root {
-    --night-sky: #050816;
-    --midnight-surface: #101322;
-    --mystic-indigo: #6366F1;
-    --mystic-indigo-dark: #4F46E5;
-    --oracle-ember: #F97316;
-    --starlight-text: #F9FAFB;
-    --moonlight-text: #9CA3AF;
-    --obsidian-border: #1F2933;
-    --verdant-success: #22C55E;
-    --solar-warning: #FACC15;
-    --blood-moon-error: #EF4444;
-    
-    --background: #050816;
-    --foreground: #F9FAFB;
-    --primary: #6366F1;
-    --primary-foreground: #F9FAFB;
-    --secondary: #101322;
-    --secondary-foreground: #F9FAFB;
-    --destructive: #EF4444;
-    --destructive-foreground: #F9FAFB;
-    --muted: #1F2933;
-    --muted-foreground: #9CA3AF;
-    --accent: #1F2933;
-    --accent-foreground: #F9FAFB;
-    --card: #101322;
-    --card-foreground: #F9FAFB;
-    --popover: #101322;
-    --popover-foreground: #F9FAFB;
-    --border: #1F2933;
-    --input: #1F2933;
-    --ring: #6366F1;
-    --radius: 0.5rem;
-  }
-
 {
     margin: 0;
     padding: 0;
     box-sizing: border-box;
-    border-color: var(--obsidian-border);
   }
 
   body {
     font-family: 'Space Grotesk', system-ui, -apple-system, sans-serif;
-    background-color: var(--night-sky);
-    color: var(--starlight-text);
+    background-color: #050816;
+    color: #F9FAFB;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
   }
 
+  /* Custom Scrollbar - Firefox */
 {
     scrollbar-width: thin;
-    scrollbar-color: var(--mystic-indigo) var(--midnight-surface);
+    scrollbar-color: #6366F1 #101322;
   }
 
+  /* Custom Scrollbar - Webkit */
   *::-webkit-scrollbar {
     width: 10px;
     height: 10px;
   }
 
   *::-webkit-scrollbar-track {
-    background: var(--midnight-surface);
+    background: #101322;
     border-radius: 10px;
   }
 
   *::-webkit-scrollbar-thumb {
-    background: var(--mystic-indigo);
+    background: #6366F1;
     border-radius: 10px;
-    border: 2px solid var(--midnight-surface);
+    border: 2px solid #101322;
   }
 
   *::-webkit-scrollbar-thumb:hover {
-    background: var(--mystic-indigo-dark);
+    background: #4F46E5;
   }
 
   *::-webkit-scrollbar-corner {
-    background: var(--midnight-surface);
+    background: #101322;
   }
 
   h1 {
@@ -120,7 +86,15 @@
 }
 
 @media (max-width: 768px) {
-  h1 { font-size: 2rem; }
-  h2 { font-size: 1.75rem; }
-  h3 { font-size: 1.25rem; }
+  h1 {
+    font-size: 2rem;
+  }
+  
+  h2 {
+    font-size: 1.75rem;
+  }
+  
+  h3 {
+    font-size: 1.25rem;
+  }
 }
