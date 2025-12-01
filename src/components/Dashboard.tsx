@@ -6,7 +6,6 @@ import { Sparkles, CreditCard, Zap } from "lucide-react";
 import { Modal } from "./Modal";
 import { OracleSelectionModal } from "./OracleSelectionModal";
 import { supabase } from "@/integrations/supabase/client";
-import { toast } from "sonner";
 
 export function Dashboard() {
   const [question, setQuestion] = useState("");
@@ -79,7 +78,7 @@ export function Dashboard() {
     const { data: { session } } = await supabase.auth.getSession();
     
     if (!session) {
-      toast.error("Você precisa estar logado para testar a leitura");
+      setTestResult({ error: "Você precisa estar logado para testar a leitura" });
       return;
     }
 
@@ -93,16 +92,13 @@ export function Dashboard() {
 
       if (error) {
         console.error("Erro ao chamar confirm-reading:", error);
-        toast.error(`Erro: ${error.message}`);
         setTestResult({ error: error.message });
       } else {
         console.log("Sucesso ao chamar confirm-reading:", data);
-        toast.success("Leitura criada com sucesso!");
         setTestResult(data);
       }
     } catch (err: any) {
       console.error("Erro inesperado:", err);
-      toast.error(`Erro inesperado: ${err.message}`);
       setTestResult({ error: err.message });
     } finally {
       setTestLoading(false);
