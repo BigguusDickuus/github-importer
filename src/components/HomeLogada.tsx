@@ -2,9 +2,10 @@ import { useState, useRef, useEffect } from "react";
 import { Header } from "./Header";
 import { Button } from "./ui/button";
 import { Link } from "react-router-dom";
-import { Sparkles } from "lucide-react";
+import { Sparkles, Zap } from "lucide-react";
 import { OracleSelectionModal } from "./OracleSelectionModal";
 import { CardSelectionModal } from "./CardSelectionModal";
+import { supabase } from "@/integrations/supabase/client";
 
 export function HomeLogada() {
   const [question, setQuestion] = useState("");
@@ -15,6 +16,10 @@ export function HomeLogada() {
   
   // Simular créditos - TODO: pegar do backend/context
   const [credits, setCredits] = useState(0);
+
+  // Test reading state
+  const [testLoading, setTestLoading] = useState(false);
+  const [testResult, setTestResult] = useState<any>(null);
 
   // Plans carousel ref and state
   const plansRef = useRef<HTMLDivElement>(null);
@@ -153,6 +158,90 @@ export function HomeLogada() {
   };
 
   const isConsultButtonDisabled = credits === 0 || question.trim() === '';
+
+  const demoConfirmReadingPayload = {
+    question: "Como posso melhorar minha vida profissional nos próximos meses?",
+    oracleTypes: ["tarot"],
+    oracles: [
+      {
+        oracle_type: "tarot",
+        spread_code: "tarot_3_situation_advice_tendency",
+        spread_name: "3 Cartas: Situação / Conselho / Tendência",
+        positions: [
+          {
+            index: 1,
+            role: "situation",
+            label: "Situação",
+            card: {
+              code: "major_06_lovers",
+              name: "VI - Os Enamorados",
+              reversed: false,
+            },
+          },
+          {
+            index: 2,
+            role: "advice",
+            label: "Conselho",
+            card: {
+              code: "major_01_magician",
+              name: "I - O Mago",
+              reversed: false,
+            },
+          },
+          {
+            index: 3,
+            role: "tendency",
+            label: "Tendência",
+            card: {
+              code: "major_19_sun",
+              name: "XIX - O Sol",
+              reversed: false,
+            },
+          },
+        ],
+      },
+    ],
+    useHistory: true,
+  };
+
+  const handleDemoConfirmReading = async () => {
+    const { data: { session } } = await supabase.auth.getSession();
+    
+    if (!session) {
+      setTestResult({ error: "❌ Você precisa estar logado para testar a leitura" });
+      return;
+    }
+
+    setTestLoading(true);
+    setTestResult(null);
+
+    try {
+      const { data, error } = await supabase.functions.invoke("confirm-reading", {
+        body: demoConfirmReadingPayload,
+      });
+
+      if (error) {
+        console.error("Erro ao chamar confirm-reading:", error);
+        setTestResult({ 
+          error: `❌ Erro: ${error.message || error.toString()}` 
+        });
+      } else {
+        console.log("Sucesso ao chamar confirm-reading:", data);
+        setTestResult({ 
+          success: true,
+          readingId: data?.readingId || data?.reading_id || 'N/A',
+          response: data?.response || data?.text || 'Sem resposta retornada'
+        });
+      }
+    } catch (err: any) {
+      console.error("Erro inesperado:", err);
+      setTestResult({ 
+        error: `❌ Erro inesperado: ${err.message || err.toString()}` 
+      });
+    } finally {
+      setTestLoading(false);
+    }
+  };
 
   // Scroll to initial position in plans carousel (index 1 - Explorador)
   useEffect(() => {
@@ -373,6 +462,52 @@ export function HomeLogada() {
               >
                 🔧 DEBUG: Alternar Créditos ({credits === 0 ? '0 → 5' : '5 → 0'})
               </Button>
+            </div>
+
+            {/* TEST BUTTON - Testar Edge Function */}
+            <div className="w-full max-w-[900px] mb-10">
+              <div className="bg-midnight-surface/80 backdrop-blur-sm border border-mystic-indigo/30 rounded-2xl p-6">
+                <h3 className="text-starlight-text text-lg font-semibold mb-4 text-center">
+                  🧪 Teste da Edge Function (confirm-reading)
+                </h3>
+                
+                <Button
+                  size="lg"
+                  onClick={handleDemoConfirmReading}
+                  disabled={testLoading}
+                  className="w-full bg-mystic-indigo hover:bg-mystic-indigo-dark text-starlight-text h-14 text-lg disabled:opacity-50"
+                >
+                  <Zap className="mr-2" />
+                  {testLoading ? "⏳ Carregando..." : "⚡ Testar leitura (tarot demo)"}
+                </Button>
+
+                {testResult && (
+                  <div className="mt-6">
+                    {testResult.error ? (
+                      <div className="p-4 bg-blood-moon-error/10 border border-blood-moon-error rounded-xl">
+                        <p className="text-blood-moon-error font-semibold mb-2">Erro na chamada:</p>
+                        <p className="text-starlight-text text-sm">{testResult.error}</p>
+                      </div>
+                    ) : (
+                      <div className="p-4 bg-verdant-success/10 border border-verdant-success rounded-xl">
+                        <p className="text-verdant-success font-semibold mb-3">✅ Leitura criada com sucesso!</p>
+                        
+                        <div className="mb-4">
+                          <p className="text-moonlight-text text-xs mb-1">Reading ID:</p>
+                          <p className="text-starlight-text font-mono text-sm break-all">{testResult.readingId}</p>
+                        </div>
+
+                        <div>
+                          <p className="text-moonlight-text text-xs mb-2">Resposta do GPT:</p>
+                          <div className="bg-night-sky border border-obsidian-border rounded-lg p-4 max-h-96 overflow-y-auto">
+                            <p className="text-starlight-text text-sm whitespace-pre-wrap">{testResult.response}</p>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
             </div>
 
           </div>
