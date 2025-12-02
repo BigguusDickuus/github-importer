@@ -862,10 +862,7 @@ export function HomeDeslogada() {
       </section>
 
       {/* Planos */}
-      <section
-        className="relative z-10 flex flex-col items-center justify-center"
-        style={{ paddingTop: "160px", paddingBottom: "192px" }}
-      >
+      <section className="relative z-10 flex flex-col items-center justify-center">
         <style>{`
           @media (max-width: 767px) {
             .planos-container {
