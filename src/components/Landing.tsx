@@ -5,8 +5,6 @@ import { Sparkles, User, DollarSign, Check, ChevronLeft, ChevronRight } from "lu
 import { CardsIcon } from "./icons/CardsIcon";
 import { Modal } from "./Modal";
 import { Link, useNavigate } from "react-router-dom";
-import { supabase } from "@/integrations/supabase/client";
-import { toast } from "@/hooks/use-toast";
 
 export function HomeDeslogada() {
   const navigate = useNavigate();
@@ -16,7 +14,6 @@ export function HomeDeslogada() {
   const [showSignupModal, setShowSignupModal] = useState(false);
   const [loginError, setLoginError] = useState(false);
   const [shakeModal, setShakeModal] = useState(false);
-  const [showEmailConfirmationMessage, setShowEmailConfirmationMessage] = useState(false);
   const howItWorksRef = useRef<HTMLDivElement>(null);
   const plansRef = useRef<HTMLDivElement>(null);
   const [activeFeatureIndex, setActiveFeatureIndex] = useState(0);
@@ -64,7 +61,7 @@ export function HomeDeslogada() {
           }
         }
       }, 500);
-      
+
       // Segundo timeout para forçar novamente caso o primeiro falhe
       setTimeout(() => {
         if (plansRef.current) {
@@ -88,7 +85,7 @@ export function HomeDeslogada() {
 
     const handleScroll = () => {
       if (window.innerWidth > 922) return;
-      
+
       const scrollLeft = carousel.scrollLeft;
       const cardWidth = carousel.children[0]?.clientWidth || 0;
       const gap = 20;
@@ -96,8 +93,8 @@ export function HomeDeslogada() {
       setActiveFeatureIndex(index);
     };
 
-    carousel.addEventListener('scroll', handleScroll);
-    return () => carousel.removeEventListener('scroll', handleScroll);
+    carousel.addEventListener("scroll", handleScroll);
+    return () => carousel.removeEventListener("scroll", handleScroll);
   }, []);
 
   // Detect scroll position for plans carousel
@@ -107,7 +104,7 @@ export function HomeDeslogada() {
 
     const handleScroll = () => {
       if (window.innerWidth > 922) return;
-      
+
       const scrollLeft = carousel.scrollLeft;
       const cardWidth = carousel.children[0]?.clientWidth || 0;
       const gap = 20;
@@ -115,8 +112,8 @@ export function HomeDeslogada() {
       setActivePlanIndex(index);
     };
 
-    carousel.addEventListener('scroll', handleScroll);
-    return () => carousel.removeEventListener('scroll', handleScroll);
+    carousel.addEventListener("scroll", handleScroll);
+    return () => carousel.removeEventListener("scroll", handleScroll);
   }, []);
 
   const scrollToFeature = (index: number) => {
@@ -157,29 +154,29 @@ export function HomeDeslogada() {
 
   // Máscara de CPF
   const formatCPF = (value: string) => {
-    const numbers = value.replace(/\D/g, '');
+    const numbers = value.replace(/\D/g, "");
     if (numbers.length <= 11) {
-      return numbers.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4');
+      return numbers.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, "$1.$2.$3-$4");
     }
     return value;
   };
 
   // Máscara de Telefone
   const formatPhone = (value: string) => {
-    const numbers = value.replace(/\D/g, '');
+    const numbers = value.replace(/\D/g, "");
     if (numbers.length <= 11) {
       if (numbers.length <= 10) {
-        return numbers.replace(/(\d{2})(\d{4})(\d{4})/, '($1) $2-$3');
+        return numbers.replace(/(\d{2})(\d{4})(\d{4})/, "($1) $2-$3");
       }
-      return numbers.replace(/(\d{2})(\d{5})(\d{4})/, '($1) $2-$3');
+      return numbers.replace(/(\d{2})(\d{5})(\d{4})/, "($1) $2-$3");
     }
     return value;
   };
 
   // Validação de CPF com dígitos verificadores
   const validateCPF = (cpf: string) => {
-    const numbers = cpf.replace(/\D/g, '');
-    
+    const numbers = cpf.replace(/\D/g, "");
+
     if (numbers.length !== 11) {
       return false;
     }
@@ -216,8 +213,8 @@ export function HomeDeslogada() {
 
   // Validação de telefone
   const validatePhone = (phone: string) => {
-    const numbers = phone.replace(/\D/g, '');
-    
+    const numbers = phone.replace(/\D/g, "");
+
     // Verifica se tem 10 ou 11 dígitos
     if (numbers.length !== 10 && numbers.length !== 11) {
       return false;
@@ -238,7 +235,7 @@ export function HomeDeslogada() {
 
   // Validação de email
   const validateEmail = (email: string) => {
-    return email.includes('@') && email.includes('.') && email.length > 5;
+    return email.includes("@") && email.includes(".") && email.length > 5;
   };
 
   // Validação de senha com requisitos
@@ -247,13 +244,13 @@ export function HomeDeslogada() {
     const hasUpperCase = /[A-Z]/.test(password);
     const hasLowerCase = /[a-z]/.test(password);
     const hasSpecialChar = /[!@#$%^&*(),.?":{}|<>]/.test(password);
-    
+
     return {
       isValid: hasMinLength && hasUpperCase && hasLowerCase && hasSpecialChar,
       hasMinLength,
       hasUpperCase,
       hasLowerCase,
-      hasSpecialChar
+      hasSpecialChar,
     };
   };
 
@@ -261,15 +258,15 @@ export function HomeDeslogada() {
   const handleCPFChange = (value: string) => {
     const formatted = formatCPF(value);
     setSignupCPF(formatted);
-    
+
     if (value.length > 0) {
       if (!validateCPF(formatted)) {
-        setCpfError('CPF inválido');
+        setCpfError("CPF inválido");
       } else {
-        setCpfError('');
+        setCpfError("");
       }
     } else {
-      setCpfError('');
+      setCpfError("");
     }
   };
 
@@ -277,15 +274,15 @@ export function HomeDeslogada() {
   const handlePhoneChange = (value: string) => {
     const formatted = formatPhone(value);
     setSignupPhone(formatted);
-    
+
     if (value.length > 0) {
       if (!validatePhone(formatted)) {
-        setPhoneError('Telefone inválido');
+        setPhoneError("Telefone inválido");
       } else {
-        setPhoneError('');
+        setPhoneError("");
       }
     } else {
-      setPhoneError('');
+      setPhoneError("");
     }
   };
 
@@ -295,166 +292,95 @@ export function HomeDeslogada() {
 
     // Validar email
     if (!signupEmail) {
-      setEmailError('Email é obrigatório');
+      setEmailError("Email é obrigatório");
       isValid = false;
     } else if (!validateEmail(signupEmail)) {
-      setEmailError('Email inválido');
+      setEmailError("Email inválido");
       isValid = false;
     } else {
-      setEmailError('');
+      setEmailError("");
     }
 
     // Validar senha
     if (!signupPassword) {
-      setPasswordError('Senha é obrigatória');
+      setPasswordError("Senha é obrigatória");
       isValid = false;
     } else {
       const validation = validatePassword(signupPassword);
       if (!validation.isValid) {
-        setPasswordError('Senha não atende aos requisitos');
+        setPasswordError("Senha não atende aos requisitos");
         isValid = false;
       } else {
-        setPasswordError('');
+        setPasswordError("");
       }
     }
 
     // Validar confirmação de senha
     if (!signupPasswordConfirm) {
-      setPasswordConfirmError('Confirmação de senha é obrigatória');
+      setPasswordConfirmError("Confirmação de senha é obrigatória");
       isValid = false;
     } else if (signupPassword !== signupPasswordConfirm) {
-      setPasswordConfirmError('As senhas não coincidem');
+      setPasswordConfirmError("As senhas não coincidem");
       isValid = false;
     } else {
-      setPasswordConfirmError('');
+      setPasswordConfirmError("");
     }
 
     // Validar data de nascimento
     if (!signupBirthDate) {
-      setBirthDateError('Data de nascimento é obrigatória');
+      setBirthDateError("Data de nascimento é obrigatória");
       isValid = false;
     } else {
       const birthDate = new Date(signupBirthDate);
       const today = new Date();
       const age = today.getFullYear() - birthDate.getFullYear();
       if (age < 18) {
-        setBirthDateError('Você deve ter pelo menos 18 anos');
+        setBirthDateError("Você deve ter pelo menos 18 anos");
         isValid = false;
       } else {
-        setBirthDateError('');
+        setBirthDateError("");
       }
     }
 
     // Validar CPF
     if (!signupCPF) {
-      setCpfError('CPF é obrigatório');
+      setCpfError("CPF é obrigatório");
       isValid = false;
     } else if (!validateCPF(signupCPF)) {
-      setCpfError('CPF inválido');
+      setCpfError("CPF inválido");
       isValid = false;
     } else {
-      setCpfError('');
+      setCpfError("");
     }
 
     // Validar telefone
     if (!signupPhone) {
-      setPhoneError('Telefone é obrigatório');
+      setPhoneError("Telefone é obrigatório");
       isValid = false;
     } else if (!validatePhone(signupPhone)) {
-      setPhoneError('Telefone inválido');
+      setPhoneError("Telefone inválido");
       isValid = false;
     } else {
-      setPhoneError('');
+      setPhoneError("");
     }
 
     return isValid;
   };
 
   // Handler de cadastro
-  const handleSignup = async () => {
-    if (!validateSignupForm()) {
+  const handleSignup = () => {
+    if (validateSignupForm()) {
+      // TODO: implementar lógica real de cadastro
+      // Por enquanto, redireciona para a home logada
+      navigate("/dashboard");
+    } else {
       setShakeModal(true);
       setTimeout(() => {
         setShakeModal(false);
       }, 600);
-      return;
-    }
-
-    try {
-      const cleanCpf = signupCPF.replace(/\D/g, "");
-      const cleanPhone = signupPhone.replace(/\D/g, "");
-
-      // Verifica se email ou CPF já existem
-      const { data: existingProfiles, error: checkError } = await supabase
-        .from("profiles")
-        .select("email, cpf")
-        .or(`email.eq.${signupEmail},cpf.eq.${cleanCpf}`);
-
-      if (checkError) {
-        console.error("Erro ao verificar email/CPF existentes:", checkError);
-        alert("Erro ao salvar os dados, tente novamente mais tarde");
-        return;
-      }
-
-      if (existingProfiles && existingProfiles.length > 0) {
-        const existingEmail = existingProfiles.some((p) => p.email === signupEmail);
-        const existingCpf = existingProfiles.some((p) => p.cpf === cleanCpf);
-
-        let errorMessage = "";
-        if (existingEmail && existingCpf) {
-          errorMessage = "CPF e email já cadastrados";
-        } else if (existingEmail) {
-          errorMessage = "Email já cadastrado";
-        } else if (existingCpf) {
-          errorMessage = "CPF já cadastrado";
-        }
-
-        toast({
-          title: "Conta já existe",
-          description: errorMessage,
-          variant: "destructive",
-        });
-        return;
-      }
-
-      // Cria o usuário no Auth passando os metadados (trigger do Supabase cria/preenche o profile automaticamente)
-      const { data, error: signUpError } = await supabase.auth.signUp({
-        email: signupEmail,
-        password: signupPassword,
-        options: {
-          data: {
-            birthday: signupBirthDate, // já vem em YYYY-MM-DD do input type="date"
-            cpf: cleanCpf,
-            phone: cleanPhone,
-          }
-        }
-      });
-
-      if (signUpError) {
-        console.error("Erro no signUp:", signUpError);
-        alert("Erro ao criar conta: " + signUpError.message);
-        return;
-      }
-
-      if (!data.user) {
-        console.error("SignUp retornou sem user:", data);
-        alert("Erro ao criar conta, tente novamente mais tarde");
-        return;
-      }
-
-      // Sucesso: mostra mensagem sobre confirmação de e-mail
-      toast({
-        title: "Conta criada com sucesso!",
-        description: "Verifique seu e-mail para confirmar o cadastro e acessar a plataforma.",
-      });
-
-      setShowSignupModal(false);
-      setShowEmailConfirmationMessage(true);
-    } catch (error) {
-      console.error("Erro inesperado no signup:", error);
-      alert("Erro ao criar conta, tente novamente mais tarde");
     }
   };
+
   // Verificar se todos os campos estão preenchidos e válidos
   const isSignupFormValid = () => {
     return (
@@ -478,7 +404,8 @@ export function HomeDeslogada() {
       title: "1. Crie sua conta",
       description: (
         <>
-          Registre-se rapidamente e <span className="text-oracle-ember">ganhe 3 créditos</span> iniciais para começar suas consultas.
+          Registre-se rapidamente e <span className="text-oracle-ember">ganhe 3 créditos</span> iniciais para começar
+          suas consultas.
         </>
       ),
     },
@@ -533,27 +460,11 @@ export function HomeDeslogada() {
 
       <Header isLoggedIn={false} onLoginClick={() => setShowLoginModal(true)} />
 
-      {/* Banner de confirmação de email */}
-      {showEmailConfirmationMessage && (
-        <div className="fixed top-[64px] md:top-[80px] left-0 right-0 bg-oracle-ember/90 backdrop-blur-sm z-50 border-b border-oracle-ember">
-          <div className="max-w-4xl mx-auto px-4 py-4 flex items-center justify-between gap-4">
-            <div className="flex-1">
-              <p className="text-starlight-text font-semibold text-sm md:text-base">
-                ✉️ Conta criada! Verifique seu e-mail para confirmar o cadastro e acessar a plataforma.
-              </p>
-            </div>
-            <button
-              onClick={() => setShowEmailConfirmationMessage(false)}
-              className="text-starlight-text hover:text-moonlight-text transition-colors text-xl font-bold px-2"
-            >
-              ×
-            </button>
-          </div>
-        </div>
-      )}
-
       {/* Hero Section */}
-      <section className="hero-section relative z-10 flex flex-col items-center justify-center" style={{ marginTop: 'calc(64px + 24px + 40px)' }}>
+      <section
+        className="hero-section relative z-10 pt-24 pb-40 md:pt-40 md:pb-56 flex flex-col items-center justify-center"
+        style={{ marginTop: "calc(64px + 24px + 40px)" }}
+      >
         <style>{`
           @media (min-width: 768px) {
             .hero-section {
@@ -581,13 +492,12 @@ export function HomeDeslogada() {
         `}</style>
         <div className="hero-section-container w-full flex flex-col items-center justify-center">
           <div className="w-full max-w-[1200px] flex flex-col items-center">
-            
-            <div className="mb-10">
-              <h1 
-                className="text-starlight-text tracking-tight text-center w-full"
-                style={{ 
-                  fontSize: '2.5rem',
-                  lineHeight: '1.1'
+            <div style={{ marginBottom: "40px" }}>
+              <h1
+                className="mb-10 text-starlight-text tracking-tight text-center w-full"
+                style={{
+                  fontSize: "2.5rem",
+                  lineHeight: "1.1",
                 }}
               >
                 <style>{`
@@ -597,22 +507,25 @@ export function HomeDeslogada() {
                     }
                   }
                 `}</style>
-                <span className="hero-title" style={{ fontSize: '2.5rem' }}>Tarot Online</span>
+                <span className="hero-title" style={{ fontSize: "2.5rem" }}>
+                  Tarot Online
+                </span>
               </h1>
 
-              <p className="text-moonlight-text text-center w-full max-w-[800px]">
+              <p className="mb-8 text-xl md:text-2xl text-moonlight-text text-center w-full max-w-[800px]">
                 Consultas de Tarot, Tarot Cigano e Cartomancia Clássica disponíveis 24/7
               </p>
 
-              <p className="text-oracle-ember text-center w-full max-w-[700px]" style={{ marginLeft: 'auto', marginRight: 'auto' }}>
+              <p className="mb-24 text-lg md:text-xl text-oracle-ember text-center w-full max-w-[700px]">
                 Interpretações profundas e personalizadas para suas perguntas
               </p>
             </div>
 
             {/* Prompt Card - ATUALIZADO COM ESPAÇAMENTOS */}
-            <div className="w-full max-w-[900px] mb-6">
-              <div 
-                className="bg-midnight-surface/80 backdrop-blur-sm border border-obsidian-border rounded-3xl shadow-2xl w-full flex flex-col p-6 gap-6"
+            <div className="w-full max-w-[900px]" style={{ marginBottom: "24px" }}>
+              <div
+                className="bg-midnight-surface/80 backdrop-blur-sm border border-obsidian-border rounded-3xl shadow-2xl w-full flex flex-col"
+                style={{ padding: "24px", gap: "24px" }}
               >
                 <textarea
                   placeholder="Faça sua pergunta..."
@@ -621,14 +534,14 @@ export function HomeDeslogada() {
                   disabled
                   rows={6}
                   className="w-full bg-night-sky/50 border border-obsidian-border rounded-2xl text-lg md:text-xl text-starlight-text placeholder:text-moonlight-text/60 focus:outline-none focus:border-mystic-indigo transition-colors resize-none disabled:opacity-60 disabled:cursor-not-allowed"
-                  style={{ padding: '24px' }}
+                  style={{ padding: "24px" }}
                 />
-                
+
                 <div className="w-full flex justify-center">
                   <Button
                     size="lg"
                     disabled
-                    className="w-full sm:w-auto sm:min-w-[50%] bg-mystic-indigo hover:bg-mystic-indigo-dark text-starlight-text h-14 md:h-16 text-lg md:text-xl disabled:opacity-60 whitespace-nowrap"
+                    className="w-full sm:w-auto sm:min-w-[50%] bg-mystic-indigo hover:bg-mystic-indigo-dark text-starlight-text h-14 md:h-16 text-lg md:text-xl disabled:opacity-60 px-8 whitespace-nowrap"
                   >
                     ✨ Consultar o Oráculo
                   </Button>
@@ -637,26 +550,33 @@ export function HomeDeslogada() {
             </div>
 
             {/* Warning Message */}
-            <div className="w-full max-w-[900px]" style={{ marginBottom: '24px' }}>
-              <div 
+            <div className="w-full max-w-[900px]" style={{ marginBottom: "24px" }}>
+              <div
                 className="flex items-center justify-center gap-4 bg-solar-warning/10 border border-solar-warning/30 rounded-2xl w-full"
-                style={{ padding: '12px 32px' }}
+                style={{ padding: "12px 32px" }}
               >
                 <div className="w-2.5 h-2.5 rounded-full bg-solar-warning animate-pulse flex-shrink-0" />
                 <p className="text-base md:text-lg text-solar-warning text-center">
-                  Você precisa estar <span className="underline">logado</span> e ter <span className="underline">créditos</span> para fazer uma consulta
+                  Você precisa estar <span className="underline">logado</span> e ter{" "}
+                  <span className="underline">créditos</span> para fazer uma consulta
                 </p>
               </div>
             </div>
 
-            <p className="text-base md:text-lg text-moonlight-text/80 text-center w-full" style={{ marginBottom: '24px' }}>
+            <p
+              className="text-base md:text-lg text-moonlight-text/80 text-center w-full"
+              style={{ marginBottom: "24px" }}
+            >
               1 crédito por oráculo selecionado • Sem limites de temas
             </p>
 
-            <div className="flex flex-col sm:flex-row gap-5 justify-center items-center w-full max-w-[600px]" style={{ marginBottom: '40px' }}>
-              <Button 
-                size="lg" 
-                className="w-full sm:flex-1 bg-mystic-indigo hover:bg-mystic-indigo-dark text-starlight-text h-14 md:h-16 text-base md:text-lg"
+            <div
+              className="flex flex-col sm:flex-row gap-5 justify-center items-center w-full max-w-[600px]"
+              style={{ marginBottom: "40px" }}
+            >
+              <Button
+                size="lg"
+                className="w-full sm:flex-1 bg-mystic-indigo hover:bg-mystic-indigo-dark text-starlight-text h-14 md:h-16 text-base md:text-lg px-8"
                 onClick={() => setShowLoginModal(true)}
               >
                 Entrar | Criar conta
@@ -665,14 +585,14 @@ export function HomeDeslogada() {
                 size="lg"
                 variant="outline"
                 onClick={() => setShowHowItWorksModal(true)}
-                className="w-full sm:flex-1 border-obsidian-border text-moonlight-text hover:bg-midnight-surface hover:text-starlight-text h-14 md:h-16 text-base md:text-lg"
+                className="w-full sm:flex-1 border-obsidian-border text-moonlight-text hover:bg-midnight-surface hover:text-starlight-text h-14 md:h-16 text-base md:text-lg px-8"
               >
                 Como funciona
               </Button>
             </div>
 
             {/* DEV ONLY - Remover em produção */}
-            <Button 
+            <Button
               size="sm"
               variant="outline"
               className="border-oracle-ember text-oracle-ember hover:bg-oracle-ember/10"
@@ -682,7 +602,7 @@ export function HomeDeslogada() {
             </Button>
 
             {/* DEV ONLY - Testar erro de login */}
-            <Button 
+            <Button
               size="sm"
               variant="outline"
               className="border-solar-warning text-solar-warning hover:bg-solar-warning/10"
@@ -693,13 +613,12 @@ export function HomeDeslogada() {
             >
               🧪 Testar Erro de Login (DEV)
             </Button>
-
           </div>
         </div>
       </section>
 
       {/* Como Funciona */}
-      <section className="relative z-10 flex flex-col items-center justify-center">
+      <section className="relative z-10 py-40 md:py-48 flex flex-col items-center justify-center">
         <style>{`
           @media (max-width: 767px) {
             .como-funciona-container {
@@ -722,12 +641,10 @@ export function HomeDeslogada() {
         `}</style>
         <div className="como-funciona-container w-full flex flex-col items-center justify-center">
           <div className="w-full max-w-[1400px] flex flex-col items-center">
-            
-            <div className="w-full flex flex-col items-center mb-10">
-              <h2 className="text-starlight-text text-center w-full">
-                Como funciona
-              </h2>
-              <p className="text-moonlight-text text-center w-full max-w-[800px]">
+            <div className="w-full flex flex-col items-center" style={{ marginBottom: "40px" }}>
+              <h2 className="mb-8 text-4xl md:text-6xl text-starlight-text text-center w-full">Como funciona</h2>
+
+              <p className="text-lg md:text-2xl text-moonlight-text text-center w-full max-w-[800px]">
                 Três passos simples para acessar a <span className="text-mystic-indigo">sabedoria ancestral</span>
               </p>
             </div>
@@ -772,27 +689,30 @@ export function HomeDeslogada() {
                 }
               }
             `}</style>
-            
+
             {/* Container com position relative para as setas absolutas */}
-            <div className="carousel-container-spacing" style={{ width: '100%', display: 'flex', justifyContent: 'center' }}>
-              <div style={{ width: '100%', maxWidth: '1200px', position: 'relative' }}>
+            <div
+              className="carousel-container-spacing"
+              style={{ width: "100%", display: "flex", justifyContent: "center" }}
+            >
+              <div style={{ width: "100%", maxWidth: "1200px", position: "relative" }}>
                 <div className="features-carousel w-full" ref={howItWorksRef}>
                   {features.map((feature, index) => (
                     <div
                       key={index}
                       className="bg-midnight-surface/80 backdrop-blur-sm border border-obsidian-border rounded-3xl hover:border-mystic-indigo/50 transition-all duration-300 hover:shadow-lg hover:shadow-mystic-indigo/10 flex flex-col items-center"
-                      style={{ padding: '32px' }}
+                      style={{ padding: "32px" }}
                     >
-                      <div 
+                      <div
                         className="rounded-full bg-mystic-indigo/10 border border-mystic-indigo/30 flex items-center justify-center"
-                        style={{ width: '72px', height: '72px', marginBottom: '24px' }}
+                        style={{ width: "72px", height: "72px", marginBottom: "24px" }}
                       >
                         <feature.icon className="w-8 h-8 text-mystic-indigo" />
                       </div>
-                      <h3 className="text-starlight-text text-center w-full" style={{ marginBottom: '16px' }}>
+                      <h3 className="text-2xl text-starlight-text text-center w-full" style={{ marginBottom: "16px" }}>
                         {feature.title}
                       </h3>
-                      <p className="text-moonlight-text text-center w-full">
+                      <p className="text-base text-moonlight-text leading-relaxed text-center w-full">
                         {feature.description}
                       </p>
                     </div>
@@ -805,44 +725,49 @@ export function HomeDeslogada() {
                   disabled={activeFeatureIndex === 0}
                   className="carousel-arrows"
                   aria-label="Anterior"
-                  style={{ 
-                    position: 'absolute',
-                    left: 'calc((100vw - 100%) / -2 + 2vw)',
-                    top: '50%',
-                    transform: 'translateY(-50%)',
-                    width: '48px',
-                    height: '96px',
+                  style={{
+                    position: "absolute",
+                    left: "calc((100vw - 100%) / -2 + 2vw)",
+                    top: "50%",
+                    transform: "translateY(-50%)",
+                    width: "48px",
+                    height: "96px",
                     padding: 0,
                     margin: 0,
-                    border: 'none',
-                    background: 'transparent',
+                    border: "none",
+                    background: "transparent",
                     zIndex: 50,
-                    cursor: activeFeatureIndex === 0 ? 'not-allowed' : 'pointer',
+                    cursor: activeFeatureIndex === 0 ? "not-allowed" : "pointer",
                     opacity: activeFeatureIndex === 0 ? 0 : 1,
-                    color: '#E2E8F0',
-                    transition: 'all 0.3s',
-                    pointerEvents: activeFeatureIndex === 0 ? 'none' : 'auto'
+                    color: "#E2E8F0",
+                    transition: "all 0.3s",
+                    pointerEvents: activeFeatureIndex === 0 ? "none" : "auto",
                   }}
                   onMouseEnter={(e) => {
                     if (activeFeatureIndex !== 0) {
-                      e.currentTarget.style.color = '#6366F1';
+                      e.currentTarget.style.color = "#6366F1";
                     }
                   }}
                   onMouseLeave={(e) => {
-                    e.currentTarget.style.color = '#E2E8F0';
+                    e.currentTarget.style.color = "#E2E8F0";
                   }}
                 >
-                  <svg 
-                    xmlns="http://www.w3.org/2000/svg" 
-                    width="48" 
-                    height="96" 
-                    viewBox="0 0 24 48" 
-                    fill="none" 
-                    stroke="currentColor" 
-                    strokeWidth="2.5" 
-                    strokeLinecap="round" 
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="48"
+                    height="96"
+                    viewBox="0 0 24 48"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2.5"
+                    strokeLinecap="round"
                     strokeLinejoin="round"
-                    style={{ width: '48px', height: '96px', filter: 'drop-shadow(0 10px 15px rgba(0, 0, 0, 0.3))', pointerEvents: 'none' }}
+                    style={{
+                      width: "48px",
+                      height: "96px",
+                      filter: "drop-shadow(0 10px 15px rgba(0, 0, 0, 0.3))",
+                      pointerEvents: "none",
+                    }}
                   >
                     <polyline points="15 6 9 24 15 42" />
                   </svg>
@@ -854,44 +779,49 @@ export function HomeDeslogada() {
                   disabled={activeFeatureIndex === features.length - 1}
                   className="carousel-arrows"
                   aria-label="Próximo"
-                  style={{ 
-                    position: 'absolute',
-                    right: 'calc((100vw - 100%) / -2 + 2vw)',
-                    top: '50%',
-                    transform: 'translateY(-50%)',
-                    width: '48px',
-                    height: '96px',
+                  style={{
+                    position: "absolute",
+                    right: "calc((100vw - 100%) / -2 + 2vw)",
+                    top: "50%",
+                    transform: "translateY(-50%)",
+                    width: "48px",
+                    height: "96px",
                     padding: 0,
                     margin: 0,
-                    border: 'none',
-                    background: 'transparent',
+                    border: "none",
+                    background: "transparent",
                     zIndex: 50,
-                    cursor: activeFeatureIndex === features.length - 1 ? 'not-allowed' : 'pointer',
+                    cursor: activeFeatureIndex === features.length - 1 ? "not-allowed" : "pointer",
                     opacity: activeFeatureIndex === features.length - 1 ? 0 : 1,
-                    color: '#E2E8F0',
-                    transition: 'all 0.3s',
-                    pointerEvents: activeFeatureIndex === features.length - 1 ? 'none' : 'auto'
+                    color: "#E2E8F0",
+                    transition: "all 0.3s",
+                    pointerEvents: activeFeatureIndex === features.length - 1 ? "none" : "auto",
                   }}
                   onMouseEnter={(e) => {
                     if (activeFeatureIndex !== features.length - 1) {
-                      e.currentTarget.style.color = '#6366F1';
+                      e.currentTarget.style.color = "#6366F1";
                     }
                   }}
                   onMouseLeave={(e) => {
-                    e.currentTarget.style.color = '#E2E8F0';
+                    e.currentTarget.style.color = "#E2E8F0";
                   }}
                 >
-                  <svg 
-                    xmlns="http://www.w3.org/2000/svg" 
-                    width="48" 
-                    height="96" 
-                    viewBox="0 0 24 48" 
-                    fill="none" 
-                    stroke="currentColor" 
-                    strokeWidth="2.5" 
-                    strokeLinecap="round" 
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="48"
+                    height="96"
+                    viewBox="0 0 24 48"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2.5"
+                    strokeLinecap="round"
                     strokeLinejoin="round"
-                    style={{ width: '48px', height: '96px', filter: 'drop-shadow(0 10px 15px rgba(0, 0, 0, 0.3))', pointerEvents: 'none' }}
+                    style={{
+                      width: "48px",
+                      height: "96px",
+                      filter: "drop-shadow(0 10px 15px rgba(0, 0, 0, 0.3))",
+                      pointerEvents: "none",
+                    }}
                   >
                     <polyline points="9 6 15 24 9 42" />
                   </svg>
@@ -907,7 +837,10 @@ export function HomeDeslogada() {
                 }
               }
             `}</style>
-            <div className="carousel-nav flex flex-col items-center gap-6 w-full" style={{ marginTop: '16px', marginBottom: '40px' }}>
+            <div
+              className="carousel-nav flex flex-col items-center gap-6 w-full"
+              style={{ marginTop: "16px", marginBottom: "40px" }}
+            >
               {/* Indicators (dots) */}
               <div className="flex justify-center gap-2">
                 {features.map((_, index) => (
@@ -915,22 +848,21 @@ export function HomeDeslogada() {
                     key={index}
                     onClick={() => scrollToFeature(index)}
                     className={`rounded-full transition-all duration-300 ${
-                      activeFeatureIndex === index 
-                        ? 'bg-mystic-indigo w-8 h-2' 
-                        : 'bg-moonlight-text/30 w-2 h-2 hover:bg-moonlight-text/50'
+                      activeFeatureIndex === index
+                        ? "bg-mystic-indigo w-8 h-2"
+                        : "bg-moonlight-text/30 w-2 h-2 hover:bg-moonlight-text/50"
                     }`}
                     aria-label={`Ir para slide ${index + 1}`}
                   />
                 ))}
               </div>
             </div>
-
           </div>
         </div>
       </section>
 
       {/* Planos */}
-      <section className="relative z-10 flex flex-col items-center justify-center">
+      <section className="relative z-10 py-40 md:py-48 flex flex-col items-center justify-center">
         <style>{`
           @media (max-width: 767px) {
             .planos-container {
@@ -953,12 +885,10 @@ export function HomeDeslogada() {
         `}</style>
         <div className="planos-container w-full flex flex-col items-center justify-center">
           <div className="w-full max-w-[1400px] flex flex-col items-center">
-            
-            <div className="w-full flex flex-col items-center mb-10">
-              <h2 className="text-starlight-text text-center w-full">
-                Planos de créditos
-              </h2>
-              <p className="text-moonlight-text text-center w-full max-w-[800px]">
+            <div className="w-full flex flex-col items-center" style={{ marginBottom: "40px" }}>
+              <h2 className="mb-8 text-4xl md:text-6xl text-starlight-text text-center w-full">Planos de créditos</h2>
+
+              <p className="text-lg md:text-2xl text-moonlight-text text-center w-full max-w-[800px]">
                 Escolha o plano ideal para suas consultas
               </p>
             </div>
@@ -1004,10 +934,13 @@ export function HomeDeslogada() {
                 }
               }
             `}</style>
-            
+
             {/* Container centralizado com position relative */}
-            <div className="plans-container-spacing" style={{ width: '100%', display: 'flex', justifyContent: 'center', position: 'relative' }}>
-              <div style={{ width: '100%', maxWidth: '1100px', position: 'relative' }}>
+            <div
+              className="plans-container-spacing"
+              style={{ width: "100%", display: "flex", justifyContent: "center", position: "relative" }}
+            >
+              <div style={{ width: "100%", maxWidth: "1100px", position: "relative" }}>
                 <div className="plans-carousel w-full" ref={plansRef}>
                   {plans.map((plan, index) => (
                     <div
@@ -1017,54 +950,53 @@ export function HomeDeslogada() {
                           ? "border-mystic-indigo shadow-xl shadow-mystic-indigo/20 md:scale-105"
                           : "border-obsidian-border hover:border-mystic-indigo/30 hover:shadow-lg"
                       }`}
-                      style={{ padding: '48px' }}
+                      style={{ padding: "48px" }}
                     >
                       {plan.badge && (
-                        <div className="absolute -top-4" style={{ left: '50%', transform: 'translateX(-50%)' }}>
+                        <div className="absolute -top-4 left-1/2 -translate-x-1/2">
                           <div
-                            className="bg-oracle-ember rounded-full text-starlight-text shadow-lg whitespace-nowrap"
-                            style={{ padding: '8px 20px' }}
+                            className="bg-oracle-ember rounded-full text-sm md:text-base text-starlight-text shadow-lg whitespace-nowrap"
+                            style={{ padding: "8px 20px" }}
                           >
                             {plan.badge}
                           </div>
                         </div>
                       )}
-                      
-                      <div className="text-center w-full" style={{ marginBottom: '32px', marginTop: '8px' }}>
-                        <h3 className="text-starlight-text" style={{ marginBottom: '16px' }}>
+
+                      <div className="text-center w-full" style={{ marginBottom: "32px", marginTop: "8px" }}>
+                        <h3 className="text-3xl text-starlight-text" style={{ marginBottom: "16px" }}>
                           {plan.name}
                         </h3>
-                        <p className="text-moonlight-text">
-                          {plan.description}
-                        </p>
+                        <p className="text-lg text-moonlight-text">{plan.description}</p>
                       </div>
 
-                      <div className="text-center w-full" style={{ marginBottom: '32px' }}>
-                        <div className="flex justify-center" style={{ marginBottom: '16px' }}>
-                          <span className="text-mystic-indigo" style={{ fontSize: '3rem', fontWeight: plan.highlight ? 700 : 400 }}>
+                      <div className="text-center w-full" style={{ marginBottom: "32px" }}>
+                        <div className="flex justify-center" style={{ marginBottom: "16px" }}>
+                          <span className={`text-6xl text-mystic-indigo ${plan.highlight ? "font-bold" : ""}`}>
                             {plan.price}
                           </span>
                         </div>
-                        <p className="text-moonlight-text" style={{ marginBottom: '16px' }}>
-                          <span className="text-starlight-text" style={{ fontSize: '2rem' }}>{plan.credits}</span> consultas
+                        <p className="text-lg text-moonlight-text" style={{ marginBottom: "16px" }}>
+                          <span className="text-4xl text-starlight-text">{plan.credits}</span> consultas
                         </p>
-                        <p className="text-base text-moonlight-text/70">
-                          {plan.pricePerCredit}
-                        </p>
+                        <p className="text-base text-moonlight-text/70">{plan.pricePerCredit}</p>
                       </div>
 
-                      <div className="text-center w-full flex justify-center" style={{ marginBottom: '32px', minHeight: '56px', alignItems: 'center' }}>
+                      <div
+                        className="text-center w-full flex justify-center"
+                        style={{ marginBottom: "32px", minHeight: "56px", alignItems: "center" }}
+                      >
                         {plan.savings && (
-                          <span 
+                          <span
                             className="inline-block rounded-full bg-verdant-success/10 border border-verdant-success/30 text-base text-verdant-success"
-                            style={{ padding: '8px 16px' }}
+                            style={{ padding: "8px 16px" }}
                           >
                             {plan.savings}
                           </span>
                         )}
                       </div>
 
-                      <div style={{ marginTop: 'auto' }}>
+                      <div style={{ marginTop: "auto" }}>
                         <Button
                           className={`w-full h-16 text-lg ${
                             plan.highlight
@@ -1086,44 +1018,49 @@ export function HomeDeslogada() {
                   disabled={activePlanIndex === 0}
                   className="carousel-arrows-plans"
                   aria-label="Anterior"
-                  style={{ 
-                    position: 'absolute',
-                    left: 'calc((100vw - 100%) / -2 + 2vw)',
-                    top: '50%',
-                    transform: 'translateY(-50%)',
-                    width: '48px',
-                    height: '96px',
+                  style={{
+                    position: "absolute",
+                    left: "calc((100vw - 100%) / -2 + 2vw)",
+                    top: "50%",
+                    transform: "translateY(-50%)",
+                    width: "48px",
+                    height: "96px",
                     padding: 0,
                     margin: 0,
-                    border: 'none',
-                    background: 'transparent',
+                    border: "none",
+                    background: "transparent",
                     zIndex: 50,
-                    cursor: activePlanIndex === 0 ? 'not-allowed' : 'pointer',
+                    cursor: activePlanIndex === 0 ? "not-allowed" : "pointer",
                     opacity: activePlanIndex === 0 ? 0 : 1,
-                    color: '#E2E8F0',
-                    transition: 'all 0.3s',
-                    pointerEvents: activePlanIndex === 0 ? 'none' : 'auto'
+                    color: "#E2E8F0",
+                    transition: "all 0.3s",
+                    pointerEvents: activePlanIndex === 0 ? "none" : "auto",
                   }}
                   onMouseEnter={(e) => {
                     if (activePlanIndex !== 0) {
-                      e.currentTarget.style.color = '#6366F1';
+                      e.currentTarget.style.color = "#6366F1";
                     }
                   }}
                   onMouseLeave={(e) => {
-                    e.currentTarget.style.color = '#E2E8F0';
+                    e.currentTarget.style.color = "#E2E8F0";
                   }}
                 >
-                  <svg 
-                    xmlns="http://www.w3.org/2000/svg" 
-                    width="48" 
-                    height="96" 
-                    viewBox="0 0 24 48" 
-                    fill="none" 
-                    stroke="currentColor" 
-                    strokeWidth="2.5" 
-                    strokeLinecap="round" 
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="48"
+                    height="96"
+                    viewBox="0 0 24 48"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2.5"
+                    strokeLinecap="round"
                     strokeLinejoin="round"
-                    style={{ width: '48px', height: '96px', filter: 'drop-shadow(0 10px 15px rgba(0, 0, 0, 0.3))', pointerEvents: 'none' }}
+                    style={{
+                      width: "48px",
+                      height: "96px",
+                      filter: "drop-shadow(0 10px 15px rgba(0, 0, 0, 0.3))",
+                      pointerEvents: "none",
+                    }}
                   >
                     <polyline points="15 6 9 24 15 42" />
                   </svg>
@@ -1135,44 +1072,49 @@ export function HomeDeslogada() {
                   disabled={activePlanIndex === plans.length - 1}
                   className="carousel-arrows-plans"
                   aria-label="Próximo"
-                  style={{ 
-                    position: 'absolute',
-                    right: 'calc((100vw - 100%) / -2 + 2vw)',
-                    top: '50%',
-                    transform: 'translateY(-50%)',
-                    width: '48px',
-                    height: '96px',
+                  style={{
+                    position: "absolute",
+                    right: "calc((100vw - 100%) / -2 + 2vw)",
+                    top: "50%",
+                    transform: "translateY(-50%)",
+                    width: "48px",
+                    height: "96px",
                     padding: 0,
                     margin: 0,
-                    border: 'none',
-                    background: 'transparent',
+                    border: "none",
+                    background: "transparent",
                     zIndex: 50,
-                    cursor: activePlanIndex === plans.length - 1 ? 'not-allowed' : 'pointer',
+                    cursor: activePlanIndex === plans.length - 1 ? "not-allowed" : "pointer",
                     opacity: activePlanIndex === plans.length - 1 ? 0 : 1,
-                    color: '#E2E8F0',
-                    transition: 'all 0.3s',
-                    pointerEvents: activePlanIndex === plans.length - 1 ? 'none' : 'auto'
+                    color: "#E2E8F0",
+                    transition: "all 0.3s",
+                    pointerEvents: activePlanIndex === plans.length - 1 ? "none" : "auto",
                   }}
                   onMouseEnter={(e) => {
                     if (activePlanIndex !== plans.length - 1) {
-                      e.currentTarget.style.color = '#6366F1';
+                      e.currentTarget.style.color = "#6366F1";
                     }
                   }}
                   onMouseLeave={(e) => {
-                    e.currentTarget.style.color = '#E2E8F0';
+                    e.currentTarget.style.color = "#E2E8F0";
                   }}
                 >
-                  <svg 
-                    xmlns="http://www.w3.org/2000/svg" 
-                    width="48" 
-                    height="96" 
-                    viewBox="0 0 24 48" 
-                    fill="none" 
-                    stroke="currentColor" 
-                    strokeWidth="2.5" 
-                    strokeLinecap="round" 
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="48"
+                    height="96"
+                    viewBox="0 0 24 48"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2.5"
+                    strokeLinecap="round"
                     strokeLinejoin="round"
-                    style={{ width: '48px', height: '96px', filter: 'drop-shadow(0 10px 15px rgba(0, 0, 0, 0.3))', pointerEvents: 'none' }}
+                    style={{
+                      width: "48px",
+                      height: "96px",
+                      filter: "drop-shadow(0 10px 15px rgba(0, 0, 0, 0.3))",
+                      pointerEvents: "none",
+                    }}
                   >
                     <polyline points="9 6 15 24 9 42" />
                   </svg>
@@ -1188,7 +1130,10 @@ export function HomeDeslogada() {
                 }
               }
             `}</style>
-            <div className="carousel-nav-plans flex flex-col items-center gap-6 w-full" style={{ marginTop: '16px', marginBottom: '40px' }}>
+            <div
+              className="carousel-nav-plans flex flex-col items-center gap-6 w-full"
+              style={{ marginTop: "16px", marginBottom: "40px" }}
+            >
               {/* Indicators (dots) */}
               <div className="flex justify-center gap-2">
                 {plans.map((_, index) => (
@@ -1196,16 +1141,15 @@ export function HomeDeslogada() {
                     key={index}
                     onClick={() => scrollToPlan(index)}
                     className={`rounded-full transition-all duration-300 ${
-                      activePlanIndex === index 
-                        ? 'bg-mystic-indigo w-8 h-2' 
-                        : 'bg-moonlight-text/30 w-2 h-2 hover:bg-moonlight-text/50'
+                      activePlanIndex === index
+                        ? "bg-mystic-indigo w-8 h-2"
+                        : "bg-moonlight-text/30 w-2 h-2 hover:bg-moonlight-text/50"
                     }`}
                     aria-label={`Ir para plano ${index + 1}`}
                   />
                 ))}
               </div>
             </div>
-
           </div>
         </div>
       </section>
@@ -1216,9 +1160,9 @@ export function HomeDeslogada() {
           {features.map((feature, index) => (
             <div key={index} className="flex gap-6">
               <div className="flex-shrink-0">
-                <div 
+                <div
                   className="rounded-full bg-mystic-indigo/10 border border-mystic-indigo/30 flex items-center justify-center"
-                  style={{ width: '56px', height: '56px' }}
+                  style={{ width: "56px", height: "56px" }}
                 >
                   <feature.icon className="w-6 h-6 text-mystic-indigo" />
                 </div>
@@ -1236,16 +1180,19 @@ export function HomeDeslogada() {
       {showLoginModal && (
         <>
           {/* Backdrop com blur */}
-          <div 
+          <div
             className="fixed inset-0 z-50 bg-night-sky/80 backdrop-blur-md"
             onClick={() => {
               setShowLoginModal(false);
               setLoginError(false);
             }}
           />
-          
+
           {/* Modal */}
-          <div className="fixed inset-0 z-50 flex items-center justify-center pointer-events-none" style={{ padding: '5%' }}>
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center pointer-events-none"
+            style={{ padding: "5%" }}
+          >
             <style>{`
               @media (min-width: 768px) {
                 .login-modal-container {
@@ -1261,7 +1208,7 @@ export function HomeDeslogada() {
                 animation: shake 0.6s cubic-bezier(.36,.07,.19,.97) both;
               }
             `}</style>
-            <div className={`relative pointer-events-auto ${loginError && shakeModal ? 'shake-animation' : ''}`}>
+            <div className={`relative pointer-events-auto ${loginError && shakeModal ? "shake-animation" : ""}`}>
               {/* Botão X - Fora do modal, canto superior direito */}
               <button
                 onClick={() => {
@@ -1288,9 +1235,9 @@ export function HomeDeslogada() {
               </button>
 
               {/* Conteúdo do Modal */}
-              <div 
+              <div
                 className="bg-midnight-surface border border-obsidian-border rounded-3xl shadow-2xl w-full max-w-2xl max-h-[80vh] overflow-y-auto"
-                style={{ padding: '32px' }}
+                style={{ padding: "32px" }}
                 onClick={(e) => e.stopPropagation()}
               >
                 <div>
@@ -1298,7 +1245,7 @@ export function HomeDeslogada() {
                 </div>
 
                 {/* Espaçador explícito */}
-                <div style={{ height: '30px' }} />
+                <div style={{ height: "30px" }} />
 
                 {/* Formulário */}
                 <div className="flex flex-col gap-6">
@@ -1308,7 +1255,7 @@ export function HomeDeslogada() {
                       type="email"
                       placeholder="Insira seu email"
                       className="w-full bg-night-sky/50 border border-obsidian-border rounded-xl text-base text-starlight-text placeholder:text-moonlight-text/60 focus:outline-none focus:border-mystic-indigo transition-colors"
-                      style={{ padding: '16px 20px' }}
+                      style={{ padding: "16px 20px" }}
                     />
                   </div>
 
@@ -1318,12 +1265,14 @@ export function HomeDeslogada() {
                       type="password"
                       placeholder="Insira sua senha"
                       className="w-full bg-night-sky/50 border border-obsidian-border rounded-xl text-base text-starlight-text placeholder:text-moonlight-text/60 focus:outline-none focus:border-mystic-indigo transition-colors"
-                      style={{ padding: '16px 20px' }}
+                      style={{ padding: "16px 20px" }}
                     />
-                    
+
                     {/* Link Esqueci minha senha */}
                     <button
-                      onClick={() => {/* TODO: implementar recuperação de senha */}}
+                      onClick={() => {
+                        /* TODO: implementar recuperação de senha */
+                      }}
                       className="text-sm text-moonlight-text hover:text-mystic-indigo transition-colors self-start"
                     >
                       Esqueci minha senha
@@ -1335,9 +1284,7 @@ export function HomeDeslogada() {
                     {/* Mensagem de erro */}
                     {loginError && (
                       <div className="w-full flex justify-center">
-                        <p className="text-sm text-oracle-ember text-center">
-                          Login inválido
-                        </p>
+                        <p className="text-sm text-oracle-ember text-center">Login inválido</p>
                       </div>
                     )}
 
@@ -1354,7 +1301,8 @@ export function HomeDeslogada() {
                       onClick={() => setShowSignupModal(true)}
                       className="text-sm text-moonlight-text hover:text-starlight-text transition-colors"
                     >
-                      Não possui conta? <span className="text-mystic-indigo underline">Cadastre-se e ganhe 3 créditos!</span>
+                      Não possui conta?{" "}
+                      <span className="text-mystic-indigo underline">Cadastre-se e ganhe 3 créditos!</span>
                     </button>
                   </div>
                 </div>
@@ -1368,16 +1316,19 @@ export function HomeDeslogada() {
       {showSignupModal && (
         <>
           {/* Backdrop com blur */}
-          <div 
+          <div
             className="fixed inset-0 z-50 bg-night-sky/80 backdrop-blur-md"
             onClick={() => {
               setShowSignupModal(false);
               setLoginError(false);
             }}
           />
-          
+
           {/* Modal */}
-          <div className="fixed inset-0 z-50 flex items-center justify-center pointer-events-none" style={{ padding: '5%' }}>
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center pointer-events-none"
+            style={{ padding: "5%" }}
+          >
             <style>{`
               @media (min-width: 768px) {
                 .signup-modal-container {
@@ -1393,26 +1344,26 @@ export function HomeDeslogada() {
                 animation: shake 0.6s cubic-bezier(.36,.07,.19,.97) both;
               }
             `}</style>
-            <div className={`relative pointer-events-auto ${shakeModal ? 'shake-animation' : ''}`}>
+            <div className={`relative pointer-events-auto ${shakeModal ? "shake-animation" : ""}`}>
               {/* Botão X - Fora do modal, canto superior direito */}
               <button
                 onClick={() => {
                   setShowSignupModal(false);
                   setLoginError(false);
                   // Limpar todos os campos
-                  setSignupEmail('');
-                  setSignupPassword('');
-                  setSignupPasswordConfirm('');
-                  setSignupBirthDate('');
-                  setSignupCPF('');
-                  setSignupPhone('');
+                  setSignupEmail("");
+                  setSignupPassword("");
+                  setSignupPasswordConfirm("");
+                  setSignupBirthDate("");
+                  setSignupCPF("");
+                  setSignupPhone("");
                   // Limpar todos os erros
-                  setEmailError('');
-                  setPasswordError('');
-                  setPasswordConfirmError('');
-                  setBirthDateError('');
-                  setCpfError('');
-                  setPhoneError('');
+                  setEmailError("");
+                  setPasswordError("");
+                  setPasswordConfirmError("");
+                  setBirthDateError("");
+                  setCpfError("");
+                  setPhoneError("");
                 }}
                 className="absolute -top-4 -right-4 w-10 h-10 rounded-full bg-midnight-surface border border-obsidian-border text-moonlight-text hover:text-starlight-text hover:border-mystic-indigo transition-colors flex items-center justify-center z-10"
                 aria-label="Fechar"
@@ -1434,9 +1385,9 @@ export function HomeDeslogada() {
               </button>
 
               {/* Conteúdo do Modal */}
-              <div 
+              <div
                 className="bg-midnight-surface border border-obsidian-border rounded-3xl shadow-2xl w-full max-w-2xl max-h-[80vh] overflow-y-auto"
-                style={{ padding: '32px' }}
+                style={{ padding: "32px" }}
                 onClick={(e) => e.stopPropagation()}
               >
                 <div>
@@ -1444,7 +1395,7 @@ export function HomeDeslogada() {
                 </div>
 
                 {/* Espaçador explícito */}
-                <div style={{ height: '30px' }} />
+                <div style={{ height: "30px" }} />
 
                 {/* Formulário */}
                 <div className="flex flex-col gap-6">
@@ -1457,13 +1408,13 @@ export function HomeDeslogada() {
                       onChange={(e) => setSignupEmail(e.target.value)}
                       onBlur={() => {
                         if (signupEmail && !validateEmail(signupEmail)) {
-                          setEmailError('Email inválido');
+                          setEmailError("Email inválido");
                         } else if (signupEmail) {
-                          setEmailError('');
+                          setEmailError("");
                         }
                       }}
                       className="w-full bg-night-sky/50 border border-obsidian-border rounded-xl text-base text-starlight-text placeholder:text-moonlight-text/60 focus:outline-none focus:border-mystic-indigo transition-colors"
-                      style={{ padding: '16px 20px' }}
+                      style={{ padding: "16px 20px" }}
                     />
                     {emailError && <p className="text-sm text-oracle-ember">{emailError}</p>}
                   </div>
@@ -1476,7 +1427,7 @@ export function HomeDeslogada() {
                       value={signupPassword}
                       onChange={(e) => setSignupPassword(e.target.value)}
                       className="w-full bg-night-sky/50 border border-obsidian-border rounded-xl text-base text-starlight-text placeholder:text-moonlight-text/60 focus:outline-none focus:border-mystic-indigo transition-colors"
-                      style={{ padding: '16px 20px' }}
+                      style={{ padding: "16px 20px" }}
                     />
                     {/* Lista de requisitos sempre visível */}
                     {signupPassword && (
@@ -1553,13 +1504,13 @@ export function HomeDeslogada() {
                       onChange={(e) => setSignupPasswordConfirm(e.target.value)}
                       onBlur={() => {
                         if (signupPasswordConfirm && signupPassword !== signupPasswordConfirm) {
-                          setPasswordConfirmError('As senhas não coincidem');
+                          setPasswordConfirmError("As senhas não coincidem");
                         } else if (signupPasswordConfirm) {
-                          setPasswordConfirmError('');
+                          setPasswordConfirmError("");
                         }
                       }}
                       className="w-full bg-night-sky/50 border border-obsidian-border rounded-xl text-base text-starlight-text placeholder:text-moonlight-text/60 focus:outline-none focus:border-mystic-indigo transition-colors"
-                      style={{ padding: '16px 20px' }}
+                      style={{ padding: "16px 20px" }}
                     />
                     {passwordConfirmError && <p className="text-sm text-oracle-ember">{passwordConfirmError}</p>}
                   </div>
@@ -1577,16 +1528,18 @@ export function HomeDeslogada() {
                           const today = new Date();
                           const age = today.getFullYear() - birthDate.getFullYear();
                           if (age < 18) {
-                            setBirthDateError('Você deve ter pelo menos 18 anos');
+                            setBirthDateError("Você deve ter pelo menos 18 anos");
                           } else {
-                            setBirthDateError('');
+                            setBirthDateError("");
                           }
                         }
                       }}
                       className="w-full bg-night-sky/50 border border-obsidian-border rounded-xl text-base text-starlight-text placeholder:text-moonlight-text/60 focus:outline-none focus:border-mystic-indigo transition-colors"
-                      style={{ padding: '16px 20px' }}
+                      style={{ padding: "16px 20px" }}
                     />
-                    <p className="text-xs text-moonlight-text/70">Utilizamos sua data de nascimento para personalizar suas leituras</p>
+                    <p className="text-xs text-moonlight-text/70">
+                      Utilizamos sua data de nascimento para personalizar suas leituras
+                    </p>
                     {birthDateError && <p className="text-sm text-oracle-ember">{birthDateError}</p>}
                   </div>
 
@@ -1599,7 +1552,7 @@ export function HomeDeslogada() {
                       onChange={(e) => handleCPFChange(e.target.value)}
                       maxLength={14}
                       className="w-full bg-night-sky/50 border border-obsidian-border rounded-xl text-base text-starlight-text placeholder:text-moonlight-text/60 focus:outline-none focus:border-mystic-indigo transition-colors"
-                      style={{ padding: '16px 20px' }}
+                      style={{ padding: "16px 20px" }}
                     />
                     <p className="text-xs text-moonlight-text/70">Para segurança da sua conta e das transações</p>
                     {cpfError && <p className="text-sm text-oracle-ember">{cpfError}</p>}
@@ -1614,7 +1567,7 @@ export function HomeDeslogada() {
                       onChange={(e) => handlePhoneChange(e.target.value)}
                       maxLength={15}
                       className="w-full bg-night-sky/50 border border-obsidian-border rounded-xl text-base text-starlight-text placeholder:text-moonlight-text/60 focus:outline-none focus:border-mystic-indigo transition-colors"
-                      style={{ padding: '16px 20px' }}
+                      style={{ padding: "16px 20px" }}
                     />
                     {phoneError && <p className="text-sm text-oracle-ember">{phoneError}</p>}
                   </div>
@@ -1670,28 +1623,29 @@ export function HomeDeslogada() {
             }
           }
         `}</style>
-        <div className="footer-container w-full" style={{ paddingTop: '48px', paddingBottom: '48px' }}>
+        <div className="footer-container w-full" style={{ paddingTop: "48px", paddingBottom: "48px" }}>
           <div className="max-w-[1400px] mx-auto">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-12" style={{ marginBottom: '80px' }}>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-12" style={{ marginBottom: "80px" }}>
               {/* Logo e descrição */}
               <div>
-                <div className="flex items-center gap-3" style={{ marginBottom: '16px' }}>
+                <div className="flex items-center gap-3 mb-4">
                   <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-mystic-indigo to-oracle-ember flex items-center justify-center">
                     <Sparkles className="w-5 h-5 text-starlight-text" />
                   </div>
                   <span className="text-xl text-starlight-text">Tarot Online</span>
                 </div>
                 <small className="block text-moonlight-text/70 leading-relaxed">
-                  Consultas de Tarot, Tarot Cigano e Cartomancia Clássica disponíveis 24/7 com interpretações profundas e personalizadas.
+                  Consultas de Tarot, Tarot Cigano e Cartomancia Clássica disponíveis 24/7 com interpretações profundas
+                  e personalizadas.
                 </small>
               </div>
 
               {/* Links - Serviços */}
               <div>
-                <h3 className="text-base text-starlight-text" style={{ marginBottom: '16px' }}>Serviços</h3>
+                <h3 className="text-base text-starlight-text mb-4">Serviços</h3>
                 <ul className="space-y-3">
                   <li>
-                    <button 
+                    <button
                       onClick={() => setShowLoginModal(true)}
                       className="text-sm text-moonlight-text/70 hover:text-mystic-indigo transition-colors"
                     >
@@ -1699,7 +1653,7 @@ export function HomeDeslogada() {
                     </button>
                   </li>
                   <li>
-                    <button 
+                    <button
                       onClick={() => setShowLoginModal(true)}
                       className="text-sm text-moonlight-text/70 hover:text-mystic-indigo transition-colors"
                     >
@@ -1707,7 +1661,7 @@ export function HomeDeslogada() {
                     </button>
                   </li>
                   <li>
-                    <button 
+                    <button
                       onClick={() => setShowLoginModal(true)}
                       className="text-sm text-moonlight-text/70 hover:text-mystic-indigo transition-colors"
                     >
@@ -1715,7 +1669,7 @@ export function HomeDeslogada() {
                     </button>
                   </li>
                   <li>
-                    <button 
+                    <button
                       onClick={() => setShowHowItWorksModal(true)}
                       className="text-sm text-moonlight-text/70 hover:text-mystic-indigo transition-colors"
                     >
@@ -1727,35 +1681,43 @@ export function HomeDeslogada() {
 
               {/* Links - Informações */}
               <div>
-                <h3 className="text-base text-starlight-text" style={{ marginBottom: '16px' }}>Informações</h3>
+                <h3 className="text-base text-starlight-text mb-4">Informações</h3>
                 <ul className="space-y-3">
                   <li>
-                    <button 
-                      onClick={() => {/* TODO: implementar página */}}
+                    <button
+                      onClick={() => {
+                        /* TODO: implementar página */
+                      }}
                       className="text-sm text-moonlight-text/70 hover:text-mystic-indigo transition-colors"
                     >
                       Sobre nós
                     </button>
                   </li>
                   <li>
-                    <button 
-                      onClick={() => {/* TODO: implementar página */}}
+                    <button
+                      onClick={() => {
+                        /* TODO: implementar página */
+                      }}
                       className="text-sm text-moonlight-text/70 hover:text-mystic-indigo transition-colors"
                     >
                       Termos de uso
                     </button>
                   </li>
                   <li>
-                    <button 
-                      onClick={() => {/* TODO: implementar página */}}
+                    <button
+                      onClick={() => {
+                        /* TODO: implementar página */
+                      }}
                       className="text-sm text-moonlight-text/70 hover:text-mystic-indigo transition-colors"
                     >
                       Política de privacidade
                     </button>
                   </li>
                   <li>
-                    <button 
-                      onClick={() => {/* TODO: implementar página */}}
+                    <button
+                      onClick={() => {
+                        /* TODO: implementar página */
+                      }}
                       className="text-sm text-moonlight-text/70 hover:text-mystic-indigo transition-colors"
                     >
                       Contato
@@ -1766,7 +1728,7 @@ export function HomeDeslogada() {
             </div>
 
             {/* Copyright */}
-            <div>
+            <div className="pt-8">
               <small className="block text-center text-moonlight-text/70">
                 © 2024 Tarot Online. Todos os direitos reservados.
               </small>
