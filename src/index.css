@@ -166,12 +166,9 @@
     border: 0 solid;
     margin: 0;
     padding: 0;
-  }
-
-  {
     border-color: transparent;
   }
-  
+
   ::file-selector-button {
     box-sizing: border-box;
     border: 0 solid;
