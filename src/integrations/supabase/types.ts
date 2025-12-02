@@ -32,46 +32,80 @@ export type Database = {
         }
         Relationships: []
       }
+      credit_packages: {
+        Row: {
+          active: boolean
+          created_at: string
+          credits: number
+          currency: string
+          id: string
+          name: string
+          price_cents: number
+          slug: string
+          stripe_price_id: string
+        }
+        Insert: {
+          active?: boolean
+          created_at?: string
+          credits: number
+          currency?: string
+          id?: string
+          name: string
+          price_cents: number
+          slug: string
+          stripe_price_id: string
+        }
+        Update: {
+          active?: boolean
+          created_at?: string
+          credits?: number
+          currency?: string
+          id?: string
+          name?: string
+          price_cents?: number
+          slug?: string
+          stripe_price_id?: string
+        }
+        Relationships: []
+      }
       credit_transactions: {
         Row: {
-          created_at: string | null
+          amount_cents: number | null
+          created_at: string
           credits_change: number
+          currency: string
           description: string | null
           id: string
           metadata: Json | null
-          reading_id: string | null
-          tx_type: Database["public"]["Enums"]["credit_transaction_type"]
+          stripe_session_id: string | null
+          tx_type: string
           user_id: string
         }
         Insert: {
-          created_at?: string | null
+          amount_cents?: number | null
+          created_at?: string
           credits_change: number
+          currency?: string
           description?: string | null
           id?: string
           metadata?: Json | null
-          reading_id?: string | null
-          tx_type: Database["public"]["Enums"]["credit_transaction_type"]
+          stripe_session_id?: string | null
+          tx_type: string
           user_id: string
         }
         Update: {
-          created_at?: string | null
+          amount_cents?: number | null
+          created_at?: string
           credits_change?: number
+          currency?: string
           description?: string | null
           id?: string
           metadata?: Json | null
-          reading_id?: string | null
-          tx_type?: Database["public"]["Enums"]["credit_transaction_type"]
+          stripe_session_id?: string | null
+          tx_type?: string
           user_id?: string
         }
-        Relationships: [
-          {
-            foreignKeyName: "credit_transactions_reading_id_fkey"
-            columns: ["reading_id"]
-            isOneToOne: false
-            referencedRelation: "readings"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
       profiles: {
         Row: {
