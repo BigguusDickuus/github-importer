@@ -588,122 +588,103 @@ export function HomeDeslogada() {
         `}</style>
         <div className="hero-section-container w-full flex flex-col items-center justify-center">
           <div className="w-full max-w-[1200px] flex flex-col items-center">
-                        {/* HERO – título + textos + CTAs com CSS inline */}
-            <div style={{ marginBottom: 40 }}>
+            <div className="mb-10">
               <h1
                 className="text-starlight-text tracking-tight text-center w-full"
                 style={{
                   fontSize: "2.5rem",
-                  lineHeight: 1.1,
-                  marginBottom: 24,
-                  color: "#F9FAFB",
+                  lineHeight: "1.1",
                 }}
               >
-                <span
-                  className="hero-title"
-                  style={{
-                    fontSize: "2.5rem",
-                  }}
-                >
+                <style>{`
+                  @media (min-width: 768px) {
+                    .hero-title {
+                      font-size: 3.0rem !important;
+                    }
+                  }
+                `}</style>
+                <span className="hero-title" style={{ fontSize: "2.5rem" }}>
                   Tarot Online
                 </span>
               </h1>
 
-              <p
-                style={{
-                  marginBottom: 16,
-                  fontSize: "1.25rem",      // ≈ text-xl
-                  lineHeight: 1.5,
-                  textAlign: "center",
-                  color: "#9CA3AF",         // moonlight-text
-                  maxWidth: 800,
-                  marginLeft: "auto",
-                  marginRight: "auto",
-                }}
-              >
+              <p className="text-moonlight-text text-center w-full max-w-[800px]">
                 Consultas de Tarot, Tarot Cigano e Cartomancia Clássica disponíveis 24/7
               </p>
 
               <p
-                style={{
-                  marginBottom: 32,
-                  fontSize: "1.125rem",     // ≈ text-lg
-                  lineHeight: 1.5,
-                  textAlign: "center",
-                  color: "#F97316",         // oracle-ember
-                  maxWidth: 700,
-                  marginLeft: "auto",
-                  marginRight: "auto",
-                }}
+                className="text-oracle-ember text-center w-full max-w-[700px]"
+                style={{ marginLeft: "auto", marginRight: "auto" }}
               >
                 Interpretações profundas e personalizadas para suas perguntas
               </p>
+            </div>
 
-              <p
-                style={{
-                  marginBottom: 24,
-                  fontSize: 16,
-                  lineHeight: 1.5,
-                  textAlign: "center",
-                  color: "rgba(156,163,175,0.8)", // moonlight 80%
-                }}
-              >
-                1 crédito por oráculo selecionado • Sem limites de temas
-              </p>
+            {/* Prompt Card - ATUALIZADO COM ESPAÇAMENTOS */}
+            <div className="w-full max-w-[900px] mb-6">
+              <div className="bg-midnight-surface/80 backdrop-blur-sm border border-obsidian-border rounded-3xl shadow-2xl w-full flex flex-col p-6 gap-6">
+                <textarea
+                  placeholder="Faça sua pergunta..."
+                  value={question}
+                  onChange={(e) => setQuestion(e.target.value)}
+                  disabled
+                  rows={6}
+                  className="w-full bg-night-sky/50 border border-obsidian-border rounded-2xl text-lg md:text-xl text-starlight-text placeholder:text-moonlight-text/60 focus:outline-none focus:border-mystic-indigo transition-colors resize-none disabled:opacity-60 disabled:cursor-not-allowed"
+                  style={{ padding: "24px" }}
+                />
 
-              <div
-                className="flex flex-col sm:flex-row"
-                style={{
-                  gap: 20,
-                  justifyContent: "center",
-                  alignItems: "center",
-                  width: "100%",
-                  maxWidth: 600,
-                  marginLeft: "auto",
-                  marginRight: "auto",
-                  marginBottom: 40,
-                }}
-              >
-                <Button
-                  size="lg"
-                  onClick={() => setShowLoginModal(true)}
-                  className="w-full sm:flex-1"
-                  style={{
-                    backgroundColor: "#6366F1",  // mystic-indigo
-                    color: "#F9FAFB",            // starlight-text
-                    borderRadius: 9999,
-                    height: 56,                  // h-14
-                    fontSize: 16,
-                    fontWeight: 600,
-                    paddingLeft: 24,
-                    paddingRight: 24,
-                    border: "none",
-                  }}
-                >
-                  Entrar | Criar conta
-                </Button>
-
-                <Button
-                  size="lg"
-                  onClick={() => setShowHowItWorksModal(true)}
-                  className="w-full sm:flex-1"
-                  style={{
-                    backgroundColor: "transparent",
-                    color: "#F9FAFB",
-                    borderRadius: 9999,
-                    height: 56,
-                    fontSize: 16,
-                    fontWeight: 500,
-                    paddingLeft: 24,
-                    paddingRight: 24,
-                    border: "1px solid #1F2933", // obsidian-border
-                  }}
-                >
-                  Como funciona
-                </Button>
+                <div className="w-full flex justify-center">
+                  <Button
+                    size="lg"
+                    disabled
+                    className="w-full sm:w-auto sm:min-w-[50%] bg-mystic-indigo hover:bg-mystic-indigo-dark text-starlight-text h-14 md:h-16 text-lg md:text-xl disabled:opacity-60 whitespace-nowrap"
+                  >
+                    ✨ Consultar o Oráculo
+                  </Button>
+                </div>
               </div>
             </div>
 
+            {/* Warning Message */}
+            <div className="w-full max-w-[900px]" style={{ marginBottom: "24px" }}>
+              <div
+                className="flex items-center justify-center gap-4 bg-solar-warning/10 border border-solar-warning/30 rounded-2xl w-full"
+                style={{ padding: "12px 32px" }}
+              >
+                <div className="w-2.5 h-2.5 rounded-full bg-solar-warning animate-pulse flex-shrink-0" />
+                <p className="text-base md:text-lg text-solar-warning text-center">
+                  Você precisa estar <span className="underline">logado</span> e ter{" "}
+                  <span className="underline">créditos</span> para fazer uma consulta
+                </p>
+              </div>
+            </div>
+
+            <p
+              className="text-base md:text-lg text-moonlight-text/80 text-center w-full"
+              style={{ marginBottom: "24px" }}
+            >
+              1 crédito por oráculo selecionado • Sem limites de temas
+            </p>
+
+            <div
+              className="flex flex-col sm:flex-row gap-5 justify-center items-center w-full max-w-[600px]"
+              style={{ marginBottom: "40px" }}
+            >
+              <Button
+                size="lg"
+                className="w-full sm:flex-1 bg-mystic-indigo hover:bg-mystic-indigo-dark text-starlight-text h-14 md:h-16 text-base md:text-lg"
+                onClick={() => setShowLoginModal(true)}
+              >
+                Entrar | Criar conta
+              </Button>
+              <Button
+                size="lg"
+                variant="outline"
+                onClick={() => setShowHowItWorksModal(true)}
+                className="w-full sm:flex-1 border-obsidian-border text-moonlight-text hover:bg-midnight-surface hover:text-starlight-text h-14 md:h-16 text-base md:text-lg"
+              >
+                Como funciona
+              </Button>
             </div>
 
             {/* DEV ONLY - Remover em produção */}
