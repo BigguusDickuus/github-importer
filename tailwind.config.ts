@@ -14,7 +14,7 @@ export default {
     },
     extend: {
       colors: {
-        // Paleta Noite Cósmica - NOMES CUSTOM
+        // Paleta Noite Cósmica
         "night-sky": "#050816",
         "midnight-surface": "#101322",
         "mystic-indigo": "#6366F1",
@@ -27,48 +27,48 @@ export default {
         "solar-warning": "#FACC15",
         "blood-moon-error": "#EF4444",
 
-        // Shadcn colors - USA AS VARS
-        border: "hsl(var(--border))",
-        input: "hsl(var(--input))",
-        ring: "hsl(var(--ring))",
-        background: "hsl(var(--background))",
-        foreground: "hsl(var(--foreground))",
+        // Shadcn colors
+        border: "#1F2933",
+        input: "#1F2933",
+        ring: "#6366F1",
+        background: "#050816",
+        foreground: "#F9FAFB",
         primary: {
-          DEFAULT: "hsl(var(--primary))",
-          foreground: "hsl(var(--primary-foreground))",
+          DEFAULT: "#6366F1",
+          foreground: "#F9FAFB",
         },
         secondary: {
-          DEFAULT: "hsl(var(--secondary))",
-          foreground: "hsl(var(--secondary-foreground))",
+          DEFAULT: "#101322",
+          foreground: "#F9FAFB",
         },
         destructive: {
-          DEFAULT: "hsl(var(--destructive))",
-          foreground: "hsl(var(--destructive-foreground))",
+          DEFAULT: "#EF4444",
+          foreground: "#F9FAFB",
         },
         muted: {
-          DEFAULT: "hsl(var(--muted))",
-          foreground: "hsl(var(--muted-foreground))",
+          DEFAULT: "#1F2933",
+          foreground: "#9CA3AF",
         },
         accent: {
-          DEFAULT: "hsl(var(--accent))",
-          foreground: "hsl(var(--accent-foreground))",
+          DEFAULT: "#1F2933",
+          foreground: "#F9FAFB",
         },
         popover: {
-          DEFAULT: "hsl(var(--popover))",
-          foreground: "hsl(var(--popover-foreground))",
+          DEFAULT: "#101322",
+          foreground: "#F9FAFB",
         },
         card: {
-          DEFAULT: "hsl(var(--card))",
-          foreground: "hsl(var(--card-foreground))",
+          DEFAULT: "#101322",
+          foreground: "#F9FAFB",
         },
       },
       fontFamily: {
         sans: ["Space Grotesk", "system-ui", "-apple-system", "sans-serif"],
       },
       borderRadius: {
-        lg: "var(--radius)",
-        md: "calc(var(--radius) - 2px)",
-        sm: "calc(var(--radius) - 4px)",
+        lg: "0.5rem",
+        md: "0.375rem",
+        sm: "0.25rem",
       },
     },
   },
