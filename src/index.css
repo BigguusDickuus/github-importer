@@ -446,7 +446,7 @@
   }
 
   * {
-    border-color: transparent !important;
+    border-color: var(--color-border);
     outline-color: #6366f180;
   }
 
