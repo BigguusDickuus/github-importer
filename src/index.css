@@ -3541,3 +3541,14 @@ small {
     opacity: 0.5;
   }
 }
+
+{
+  border-color: #1F2933 !important;
+}
+
+button,
+input,
+textarea,
+select {
+  background-color: inherit;
+}
