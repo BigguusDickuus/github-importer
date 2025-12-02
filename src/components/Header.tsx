@@ -27,14 +27,16 @@ export function Header({ isLoggedIn = false, credits = 15, onBuyCredits, onLogin
     }
 
     if (profileDropdownOpen) {
-      document.addEventListener("mousedown", handleClickOutside);
+      document.addEventListener('mousedown', handleClickOutside);
       return () => {
-        document.removeEventListener("mousedown", handleClickOutside);
+        document.removeEventListener('mousedown', handleClickOutside);
       };
     }
   }, [profileDropdownOpen]);
 
-  const publicLinks = [{ label: "Como funciona", href: "#como-funciona" }];
+  const publicLinks = [
+    { label: "Como funciona", href: "#como-funciona" },
+  ];
 
   const loggedInLinks: never[] = [];
 
@@ -48,10 +50,7 @@ export function Header({ isLoggedIn = false, credits = 15, onBuyCredits, onLogin
   return (
     <>
       <header className="fixed top-0 left-0 right-0 z-50 backdrop-blur-md bg-night-sky/60 border-b border-obsidian-border">
-        <div
-          className="w-full flex flex-col items-center justify-center md:px-16"
-          style={{ paddingLeft: "32px", paddingRight: "32px" }}
-        >
+        <div className="w-full flex flex-col items-center justify-center md:px-16" style={{ paddingLeft: '32px', paddingRight: '32px' }}>
           <div className="w-full max-w-[1400px] flex flex-col items-center">
             <div className="flex items-center justify-between h-16 md:h-20 w-full">
               {/* Logo */}
@@ -66,7 +65,7 @@ export function Header({ isLoggedIn = false, credits = 15, onBuyCredits, onLogin
 
               {/* Centro: Créditos - Desktop: absoluto centro | Mobile: centro entre logo e hambúrguer */}
               {isLoggedIn && (
-                <button
+                <button 
                   onClick={onBuyCredits}
                   className="flex flex-col items-center hover:opacity-80 transition-opacity cursor-pointer md:absolute md:left-1/2 md:-translate-x-1/2"
                 >
@@ -103,15 +102,13 @@ export function Header({ isLoggedIn = false, credits = 15, onBuyCredits, onLogin
                         className="flex items-center gap-2 text-moonlight-text hover:text-starlight-text transition-colors text-sm"
                       >
                         Meu perfil
-                        <ChevronDown
-                          className={`w-4 h-4 transition-transform ${profileDropdownOpen ? "rotate-180" : ""}`}
-                        />
+                        <ChevronDown className={`w-4 h-4 transition-transform ${profileDropdownOpen ? 'rotate-180' : ''}`} />
                       </button>
 
                       {profileDropdownOpen && (
-                        <div
+                        <div 
                           className="absolute right-0 top-full mt-2 w-56 bg-midnight-surface border border-obsidian-border rounded-xl shadow-xl"
-                          style={{ padding: "12px" }}
+                          style={{ padding: '12px' }}
                         >
                           {/* Links de navegação */}
                           <button
@@ -120,41 +117,41 @@ export function Header({ isLoggedIn = false, credits = 15, onBuyCredits, onLogin
                               setSettingsModalOpen(true);
                             }}
                             className="w-full text-left text-sm text-moonlight-text hover:bg-night-sky hover:text-starlight-text transition-colors rounded-lg"
-                            style={{ padding: "10px 12px", marginBottom: "4px" }}
+                            style={{ padding: '10px 12px', marginBottom: '4px' }}
                           >
                             Configurações
                           </button>
-
+                          
                           <button
                             onClick={() => {
                               setProfileDropdownOpen(false);
                               navigate("/historico");
                             }}
                             className="w-full text-left text-sm text-moonlight-text hover:bg-night-sky hover:text-starlight-text transition-colors rounded-lg"
-                            style={{ padding: "10px 12px", marginBottom: "4px" }}
+                            style={{ padding: '10px 12px', marginBottom: '4px' }}
                           >
                             Histórico de leituras
                           </button>
-
+                          
                           <button
                             onClick={() => {
                               setProfileDropdownOpen(false);
                               navigate("/transacoes");
                             }}
                             className="w-full text-left text-sm text-moonlight-text hover:bg-night-sky hover:text-starlight-text transition-colors rounded-lg"
-                            style={{ padding: "10px 12px", marginBottom: "12px" }}
+                            style={{ padding: '10px 12px', marginBottom: '12px' }}
                           >
                             Histórico de transações
                           </button>
 
                           {/* Separador */}
-                          <div className="border-t border-obsidian-border" style={{ marginBottom: "12px" }}></div>
+                          <div className="border-t border-obsidian-border" style={{ marginBottom: '12px' }}></div>
 
                           {/* Botão de Sair destacado */}
                           <button
                             onClick={handleLogout}
                             className="w-full text-sm text-starlight-text bg-blood-moon-error/20 hover:bg-blood-moon-error/30 border border-blood-moon-error/40 rounded-lg transition-colors"
-                            style={{ padding: "10px 12px" }}
+                            style={{ padding: '10px 12px' }}
                           >
                             Sair
                           </button>
@@ -173,12 +170,12 @@ export function Header({ isLoggedIn = false, credits = 15, onBuyCredits, onLogin
                         {link.label}
                       </Link>
                     ))}
-                    <Button
-                      variant="default"
-                      size="sm"
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
                       onClick={onLoginClick}
-                      className="bg-mystic-indigo hover:bg-mystic-indigo-dark text-starlight-text border border-mystic-indigo rounded-full"
-                      style={{ height: "44px", paddingLeft: "24px", paddingRight: "24px" }}
+                      className="text-starlight-text"
+                      style={{ height: '44px', paddingLeft: '24px', paddingRight: '24px' }}
                     >
                       Login / Criar conta
                     </Button>
@@ -191,7 +188,7 @@ export function Header({ isLoggedIn = false, credits = 15, onBuyCredits, onLogin
                 onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
                 className="md:hidden w-10 h-10 flex items-center justify-center text-starlight-text hover:text-mystic-indigo transition-colors"
                 aria-label="Menu"
-                style={{ margin: 0, padding: 0, width: "40px", height: "40px" }}
+                style={{ margin: 0, padding: 0, width: '40px', height: '40px' }}
               >
                 {mobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
               </button>
@@ -204,105 +201,92 @@ export function Header({ isLoggedIn = false, credits = 15, onBuyCredits, onLogin
       {mobileMenuOpen && (
         <>
           {/* Backdrop */}
-          <div
+          <div 
             className="md:hidden fixed inset-0 top-16 z-40 bg-transparent"
             onClick={() => setMobileMenuOpen(false)}
           />
-
+          
           {/* Menu */}
-          <div
-            className="md:hidden fixed top-16 z-50 w-full flex justify-center pointer-events-none"
-            style={{ paddingLeft: "32px", paddingRight: "32px" }}
-          >
-            <nav
-              className="bg-night-sky/95 backdrop-blur-lg rounded-2xl border border-obsidian-border flex flex-col w-full pointer-events-auto"
-              style={{ padding: "15px" }}
-            >
+          <div className="md:hidden fixed top-16 z-50 w-full flex justify-center pointer-events-none" style={{ paddingLeft: '32px', paddingRight: '32px' }}>
+            <nav className="bg-night-sky/95 backdrop-blur-lg rounded-2xl border border-obsidian-border flex flex-col w-full pointer-events-auto" style={{ padding: '15px' }}>
               {links.map((link) => (
                 <Link
                   key={link.href}
                   to={link.href}
                   className="text-starlight-text hover:text-mystic-indigo transition-colors px-4 rounded-lg hover:bg-midnight-surface text-center"
                   onClick={() => setMobileMenuOpen(false)}
-                  style={{ fontSize: "1rem", marginBottom: "16px", paddingTop: "12px", paddingBottom: "12px" }}
+                  style={{ fontSize: '1rem', marginBottom: '16px', paddingTop: '12px', paddingBottom: '12px' }}
                 >
                   {link.label}
                 </Link>
               ))}
-
-              <div
-                style={{ paddingTop: links.length > 0 ? "16px" : "0" }}
-                className={
-                  links.length > 0 ? "border-t border-obsidian-border flex flex-col gap-3" : "flex flex-col gap-3"
-                }
-              >
+              
+              <div style={{ paddingTop: links.length > 0 ? '16px' : '0' }} className={links.length > 0 ? 'border-t border-obsidian-border flex flex-col gap-3' : 'flex flex-col gap-3'}>
                 {isLoggedIn ? (
                   <>
-                    <Button
-                      variant="outline"
-                      className="w-full"
+                    <Button 
+                      variant="outline" 
+                      className="w-full" 
                       onClick={() => {
                         setMobileMenuOpen(false);
                         onBuyCredits?.();
                       }}
-                      style={{ height: "44px" }}
+                      style={{ height: '44px' }}
                     >
                       Comprar créditos
                     </Button>
-                    <Button
-                      variant="outline"
-                      className="w-full"
+                    <Button 
+                      variant="outline" 
+                      className="w-full" 
                       onClick={() => {
                         setMobileMenuOpen(false);
                         setSettingsModalOpen(true);
                       }}
-                      style={{ height: "44px" }}
+                      style={{ height: '44px' }}
                     >
                       Configurações
                     </Button>
-                    <Button
-                      variant="outline"
-                      className="w-full"
+                    <Button 
+                      variant="outline" 
+                      className="w-full" 
                       onClick={() => {
                         setMobileMenuOpen(false);
                         navigate("/historico");
                       }}
-                      style={{ height: "44px" }}
+                      style={{ height: '44px' }}
                     >
                       Histórico de leituras
                     </Button>
-                    <Button
-                      variant="outline"
-                      className="w-full"
+                    <Button 
+                      variant="outline" 
+                      className="w-full" 
                       onClick={() => {
                         setMobileMenuOpen(false);
                         navigate("/transacoes");
                       }}
-                      style={{ height: "44px" }}
+                      style={{ height: '44px' }}
                     >
                       Histórico de transações
                     </Button>
-                    <Button
-                      variant="outline"
-                      className="w-full !bg-blood-moon-error/20 hover:!bg-blood-moon-error/30 !border-blood-moon-error/40 !text-starlight-text"
+                    <Button 
+                      variant="outline" 
+                      className="w-full !bg-blood-moon-error/20 hover:!bg-blood-moon-error/30 !border-blood-moon-error/40 !text-starlight-text" 
                       onClick={() => {
-                        setMobileMenuOpen(false);
-                        handleLogout();
-                      }}
-                      style={{ height: "44px" }}
-                    >
+                      setMobileMenuOpen(false);
+                      handleLogout();
+                    }} style={{ height: '44px' }}>
                       Sair
                     </Button>
                   </>
                 ) : (
-                  <Button
-                    variant="default"
-                    className="w-full bg-mystic-indigo hover:bg-mystic-indigo-dark text-starlight-text rounded-full"
+                  <Button 
+                    variant="outline" 
+                    className="w-full text-starlight-text" 
                     onClick={() => {
                       setMobileMenuOpen(false);
                       onLoginClick?.();
-                    }}
-                    style={{ height: "44px" }}
+                    }} 
+                    style={{ height: '44px' }}
                   >
                     Login / Criar conta
                   </Button>
@@ -314,7 +298,12 @@ export function Header({ isLoggedIn = false, credits = 15, onBuyCredits, onLogin
       )}
 
       {/* Settings Modal */}
-      {settingsModalOpen && <SettingsModal isOpen={settingsModalOpen} onClose={() => setSettingsModalOpen(false)} />}
+      {settingsModalOpen && (
+        <SettingsModal
+          isOpen={settingsModalOpen}
+          onClose={() => setSettingsModalOpen(false)}
+        />
+      )}
     </>
   );
 }
