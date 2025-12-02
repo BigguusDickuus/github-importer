@@ -274,7 +274,7 @@
 
   table {
     text-indent: 0;
-    border-color: transparent;
+    border-color: inherit;
     border-collapse: collapse;
   }
 
