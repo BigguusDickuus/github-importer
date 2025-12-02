@@ -2,62 +2,14 @@ import { useState } from "react";
 import { Link } from "react-router-dom";
 import { Header } from "./Header";
 import { Button } from "./ui/button";
-import { Sparkles, CreditCard, Zap } from "lucide-react";
+import { Sparkles, CreditCard } from "lucide-react";
 import { Modal } from "./Modal";
 import { OracleSelectionModal } from "./OracleSelectionModal";
-import { supabase } from "@/integrations/supabase/client";
 
 export function Dashboard() {
   const [question, setQuestion] = useState("");
   const [showOracleModal, setShowOracleModal] = useState(false);
-  const [testLoading, setTestLoading] = useState(false);
-  const [testResult, setTestResult] = useState<any>(null);
   const userCredits = 12;
-
-  const demoConfirmReadingPayload = {
-    question: "Como posso melhorar minha vida profissional nos próximos meses?",
-    oracleTypes: ["tarot"],
-    oracles: [
-      {
-        oracle_type: "tarot",
-        spread_code: "tarot_3_situation_advice_tendency",
-        spread_name: "3 Cartas: Situação / Conselho / Tendência",
-        positions: [
-          {
-            index: 1,
-            role: "situation",
-            label: "Situação",
-            card: {
-              code: "major_06_lovers",
-              name: "VI - Os Enamorados",
-              reversed: false,
-            },
-          },
-          {
-            index: 2,
-            role: "advice",
-            label: "Conselho",
-            card: {
-              code: "major_01_magician",
-              name: "I - O Mago",
-              reversed: false,
-            },
-          },
-          {
-            index: 3,
-            role: "tendency",
-            label: "Tendência",
-            card: {
-              code: "major_19_sun",
-              name: "XIX - O Sol",
-              reversed: false,
-            },
-          },
-        ],
-      },
-    ],
-    useHistory: true,
-  };
 
   const suggestions = [
     "Amor",
@@ -71,45 +23,6 @@ export function Dashboard() {
   const handleAsk = () => {
     if (question.trim()) {
       setShowOracleModal(true);
-    }
-  };
-
-  const handleTestReading = async () => {
-    const { data: { session } } = await supabase.auth.getSession();
-    
-    if (!session) {
-      setTestResult({ error: "❌ Você precisa estar logado para testar a leitura" });
-      return;
-    }
-
-    setTestLoading(true);
-    setTestResult(null);
-
-    try {
-      const { data, error } = await supabase.functions.invoke("confirm-reading", {
-        body: demoConfirmReadingPayload,
-      });
-
-      if (error) {
-        console.error("Erro ao chamar confirm-reading:", error);
-        setTestResult({ 
-          error: `❌ Erro: ${error.message || error.toString()}` 
-        });
-      } else {
-        console.log("Sucesso ao chamar confirm-reading:", data);
-        setTestResult({ 
-          success: true,
-          readingId: data?.readingId || data?.reading_id || 'N/A',
-          response: data?.response || data?.text || 'Sem resposta retornada'
-        });
-      }
-    } catch (err: any) {
-      console.error("Erro inesperado:", err);
-      setTestResult({ 
-        error: `❌ Erro inesperado: ${err.message || err.toString()}` 
-      });
-    } finally {
-      setTestLoading(false);
     }
   };
 
@@ -173,47 +86,6 @@ export function Dashboard() {
             <p className="mt-4 text-sm text-moonlight-text text-center">
               1 crédito será consumido por cada oráculo selecionado
             </p>
-
-            {/* Botão de Teste */}
-            <div className="mt-6 pt-6 border-t border-obsidian-border">
-              <Button
-                size="lg"
-                onClick={handleTestReading}
-                disabled={testLoading}
-                variant="outline"
-                className="w-full border-mystic-indigo text-mystic-indigo hover:bg-mystic-indigo hover:text-starlight-text"
-              >
-                <Zap className="w-5 h-5 mr-2" />
-                {testLoading ? "⏳ Carregando..." : "⚡ Testar leitura (tarot demo)"}
-              </Button>
-
-              {testResult && (
-                <div className="mt-4">
-                  {testResult.error ? (
-                    <div className="p-4 bg-blood-moon-error/10 border border-blood-moon-error rounded-xl">
-                      <p className="text-blood-moon-error font-semibold mb-2">Erro na chamada:</p>
-                      <p className="text-starlight-text text-sm">{testResult.error}</p>
-                    </div>
-                  ) : (
-                    <div className="p-4 bg-verdant-success/10 border border-verdant-success rounded-xl">
-                      <p className="text-verdant-success font-semibold mb-3">✅ Leitura criada com sucesso!</p>
-                      
-                      <div className="mb-4">
-                        <p className="text-moonlight-text text-xs mb-1">Reading ID:</p>
-                        <p className="text-starlight-text font-mono text-sm">{testResult.readingId}</p>
-                      </div>
-
-                      <div>
-                        <p className="text-moonlight-text text-xs mb-2">Resposta do GPT:</p>
-                        <div className="bg-night-sky border border-obsidian-border rounded-lg p-4 max-h-96 overflow-y-auto">
-                          <p className="text-starlight-text text-sm whitespace-pre-wrap">{testResult.response}</p>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
           </div>
         </div>
 
