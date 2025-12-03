@@ -4,6 +4,8 @@ import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
 import { Sparkles } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client"; // caminho da sua pasta supabase
+import { toast } from "@/hooks/use-toast"; // caminho do hook de toast (pode ser diferente, veja abaixo)
 
 export function Login() {
   const [isLogin, setIsLogin] = useState(true);
@@ -35,13 +37,9 @@ export function Login() {
         {/* Form Card */}
         <div className="bg-midnight-surface border border-obsidian-border rounded-2xl p-8 shadow-2xl">
           <div className="mb-6">
-            <h2 className="text-starlight-text mb-2">
-              {isLogin ? "Entrar" : "Criar conta"}
-            </h2>
+            <h2 className="text-starlight-text mb-2">{isLogin ? "Entrar" : "Criar conta"}</h2>
             <p className="text-moonlight-text">
-              {isLogin
-                ? "Acesse sua conta e consulte o oráculo"
-                : "Comece sua jornada com o Oráculo IA"}
+              {isLogin ? "Acesse sua conta e consulte o oráculo" : "Comece sua jornada com o Oráculo IA"}
             </p>
           </div>
 
@@ -97,10 +95,7 @@ export function Login() {
               </div>
             )}
 
-            <Button
-              type="submit"
-              className="w-full bg-mystic-indigo hover:bg-mystic-indigo-dark text-starlight-text"
-            >
+            <Button type="submit" className="w-full bg-mystic-indigo hover:bg-mystic-indigo-dark text-starlight-text">
               {isLogin ? "Entrar" : "Criar conta"}
             </Button>
           </form>
@@ -120,10 +115,7 @@ export function Login() {
 
         {/* Back to Home */}
         <div className="mt-6 text-center">
-          <Link
-            to="/"
-            className="text-moonlight-text hover:text-starlight-text transition-colors text-sm"
-          >
+          <Link to="/" className="text-moonlight-text hover:text-starlight-text transition-colors text-sm">
             ← Voltar para o início
           </Link>
         </div>
