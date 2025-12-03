@@ -717,6 +717,13 @@ export function HomeDeslogada() {
         show={showErrorBar}
         onClose={() => setShowErrorBar(false)}
       />
+      <HelloBar
+        message="Email de recuperação enviado, cheque seu inbox e sua pasta de spam"
+        type="warning"
+        show={showPasswordRecoveryBar}
+        onClose={() => setShowPasswordRecoveryBar(false)}
+        autoCloseDelay={0}
+      />
 
       {/* Background Gradients - Fixed */}
       <div className="fixed inset-0 overflow-hidden pointer-events-none">
@@ -1549,7 +1556,8 @@ export function HomeDeslogada() {
                     {/* Link Esqueci minha senha */}
                     <button
                       onClick={() => {
-                        /* TODO: implementar recuperação de senha */
+                        setShowLoginModal(false);
+                        setShowPasswordRecoveryModal(true);
                       }}
                       className="text-sm text-moonlight-text hover:text-mystic-indigo transition-colors self-start"
                     >
@@ -1893,6 +1901,106 @@ export function HomeDeslogada() {
                       className="text-sm text-moonlight-text hover:text-starlight-text transition-colors"
                     >
                       Já possui conta? <span className="text-mystic-indigo underline">Entrar</span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* Password Recovery Modal - Backdrop com Blur */}
+      {showPasswordRecoveryModal && (
+        <>
+          {/* Backdrop com blur */}
+          <div
+            className="fixed inset-0 z-50 bg-night-sky/80 backdrop-blur-md"
+            onClick={() => {
+              setShowPasswordRecoveryModal(false);
+              setRecoveryEmail("");
+            }}
+          />
+
+          {/* Modal Container */}
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 pointer-events-none">
+            <div className="relative pointer-events-auto">
+              {/* Botão X - Fora do modal, canto superior direito */}
+              <button
+                onClick={() => {
+                  setShowPasswordRecoveryModal(false);
+                  setRecoveryEmail("");
+                }}
+                className="absolute -top-4 -right-4 w-10 h-10 rounded-full bg-midnight-surface border border-obsidian-border text-moonlight-text hover:text-starlight-text hover:border-mystic-indigo transition-colors flex items-center justify-center z-10"
+                aria-label="Fechar"
+              >
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="20"
+                  height="20"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <line x1="18" y1="6" x2="6" y2="18"></line>
+                  <line x1="6" y1="6" x2="18" y2="18"></line>
+                </svg>
+              </button>
+
+              {/* Conteúdo do Modal */}
+              <div
+                className="bg-midnight-surface border border-obsidian-border rounded-3xl shadow-2xl w-full max-w-2xl"
+                style={{ padding: "32px" }}
+                onClick={(e) => e.stopPropagation()}
+              >
+                <div>
+                  <h2 className="text-2xl md:text-3xl text-starlight-text">Recuperar senha</h2>
+                  <p className="text-moonlight-text mt-4">
+                    Digite seu email para receber instruções de recuperação de senha.
+                  </p>
+                </div>
+
+                {/* Espaçador explícito */}
+                <div style={{ height: "30px" }} />
+
+                {/* Formulário */}
+                <div className="flex flex-col gap-6">
+                  {/* Campo Email */}
+                  <div className="flex flex-col gap-2">
+                    <input
+                      type="email"
+                      value={recoveryEmail}
+                      onChange={(e) => setRecoveryEmail(e.target.value)}
+                      placeholder="Insira seu email"
+                      className="w-full bg-night-sky/50 border border-obsidian-border rounded-xl text-base text-starlight-text placeholder:text-moonlight-text/60 focus:outline-none focus:border-mystic-indigo transition-colors"
+                      style={{ padding: "16px 20px" }}
+                    />
+                  </div>
+
+                  {/* Botão Enviar */}
+                  <div className="flex flex-col items-center gap-4 mt-4">
+                    <Button
+                      size="lg"
+                      className="w-full bg-mystic-indigo hover:bg-mystic-indigo-dark text-starlight-text h-14 text-lg disabled:opacity-50 disabled:cursor-not-allowed"
+                      onClick={handlePasswordRecovery}
+                      disabled={!isRecoveryEmailValid()}
+                    >
+                      Enviar
+                    </Button>
+
+                    {/* Link Voltar ao login */}
+                    <button
+                      onClick={() => {
+                        setShowPasswordRecoveryModal(false);
+                        setRecoveryEmail("");
+                        setShowLoginModal(true);
+                      }}
+                      className="text-sm text-moonlight-text hover:text-starlight-text transition-colors"
+                    >
+                      Voltar ao login
                     </button>
                   </div>
                 </div>
