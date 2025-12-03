@@ -542,6 +542,25 @@ export function HomeDeslogada() {
         return;
       }
 
+      // --- NOVO BLOCO: tratar caso de email já cadastrado (Supabase retorna 200) ---
+      const identities = Array.isArray((data.user as any).identities) ? (data.user as any).identities : [];
+
+      const isExistingConfirmedUser = identities.length === 0;
+
+      if (isExistingConfirmedUser) {
+        console.log("Signup chamado com email já existente:", data.user.email);
+
+        // Hello bar vermelha
+        setErrorBarMessage("Este e-mail já está cadastrado. Faça login ou recupere sua senha.");
+        setShowErrorBar(true);
+
+        // opcional: já troca pro modal de login
+        setShowSignupModal(false);
+        setShowLoginModal(true);
+
+        return;
+      }
+
       // Sucesso: usuário criado no Auth
       console.log("Usuário criado no Supabase:", data);
 
