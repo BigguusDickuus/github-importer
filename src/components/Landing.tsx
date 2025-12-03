@@ -481,6 +481,7 @@ export function HomeDeslogada() {
         password: signupPassword,
         options: {
           data: {
+            full_name: signupName,
             birthday: signupBirthDate, // input type="date" já vem em YYYY-MM-DD
             cpf: cleanCpf,
             phone: cleanPhone,
