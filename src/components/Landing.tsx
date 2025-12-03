@@ -23,6 +23,10 @@ export function HomeDeslogada() {
   const [activeFeatureIndex, setActiveFeatureIndex] = useState(0);
   const [activePlanIndex, setActivePlanIndex] = useState(1);
 
+  // Hello Bar states
+  const [showSuccessBar, setShowSuccessBar] = useState(false);
+  const [showEmailValidationBar, setShowEmailValidationBar] = useState(false);
+
   // Login form states (modal da landing)
   const [loginEmail, setLoginEmail] = useState("");
   const [loginPassword, setLoginPassword] = useState("");
@@ -606,6 +610,19 @@ export function HomeDeslogada() {
 
   return (
     <div className="min-h-screen bg-night-sky text-moonlight-text relative">
+      {/* Hello Bars */}
+      <HelloBar
+        message="Usuário criado com sucesso"
+        type="success"
+        show={showSuccessBar}
+        onClose={() => setShowSuccessBar(false)}
+      />
+      <HelloBar
+        message="Valide o email enviado antes de logar!"
+        type="warning"
+        show={showEmailValidationBar}
+        onClose={() => setShowEmailValidationBar(false)}
+      />
       {/* Background Gradients - Fixed */}
       <div className="fixed inset-0 overflow-hidden pointer-events-none">
         <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[800px] bg-mystic-indigo/20 rounded-full blur-[150px]" />
