@@ -61,7 +61,7 @@ export function TransactionHistory() {
       // 2) Busca histórico em credit_transactions
       const { data, error } = await supabase
         .from("credit_transactions")
-        .select("id, credits_change, description, created_at")
+        .select("id, credits_change, amount_cents, currency, description, created_at")
         .eq("user_id", user.id)
         .order("created_at", { ascending: false });
 
@@ -75,21 +75,41 @@ export function TransactionHistory() {
       const mapped: Transaction[] = (data || []).map((row: any) => {
         const d = new Date(row.created_at);
 
-        const date = d.toISOString(); // usamos a data completa; o render já faz toLocaleDateString
+        const date = d.toISOString();
         const time = d.toLocaleTimeString("pt-BR", {
           hour: "2-digit",
           minute: "2-digit",
         });
 
-        const amount = `${row.credits_change >= 0 ? "+" : ""}${row.credits_change} créditos`;
+        // --- NOVO: Valor financeiro ---
+        let amount: string;
+
+        if (row.amount_cents == null) {
+          // Sem valor financeiro → grátis
+          amount = "grátis";
+        } else {
+          const cents = Number(row.amount_cents);
+          const value = cents / 100; // ex: 10000 -> 100.00
+
+          const currencyCode = row.currency || "BRL";
+
+          // Intl.NumberFormat usa o código da moeda (BRL) pra gerar "R$"
+          amount = new Intl.NumberFormat("pt-BR", {
+            style: "currency",
+            currency: currencyCode,
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2,
+          }).format(value);
+        }
+
         const pkg = row.description || "Movimentação de créditos";
 
         return {
           id: row.id,
           date,
           time,
-          amount,
-          package: pkg,
+          amount, // agora é "R$ 100,00" ou "grátis"
+          package: pkg, // "Boas vindas (3 créditos)", etc.
         };
       });
 
