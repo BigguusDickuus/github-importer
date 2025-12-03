@@ -198,7 +198,7 @@ export function Header({ isLoggedIn = false, onBuyCredits, onLoginClick }: Heade
                           <button
                             onClick={() => {
                               setProfileDropdownOpen(false);
-                              navigate("/historico");
+                              navigate("/History");
                             }}
                             className="w-full text-left text-sm text-moonlight-text hover:bg-night-sky hover:text-starlight-text transition-colors rounded-lg"
                             style={{ padding: "10px 12px", marginBottom: "4px" }}
@@ -209,7 +209,7 @@ export function Header({ isLoggedIn = false, onBuyCredits, onLoginClick }: Heade
                           <button
                             onClick={() => {
                               setProfileDropdownOpen(false);
-                              navigate("/transacoes");
+                              navigate("/TransactionHistory");
                             }}
                             className="w-full text-left text-sm text-moonlight-text hover:bg-night-sky hover:text-starlight-text transition-colors rounded-lg"
                             style={{ padding: "10px 12px", marginBottom: "12px" }}
