@@ -3,6 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { Menu, X, Sparkles, ChevronDown } from "lucide-react";
 import { Button } from "./ui/button";
 import { SettingsModal } from "./SettingsModal";
+import { supabase } from "@/integrations/supabase/client";
 
 interface HeaderProps {
   isLoggedIn?: boolean;
@@ -40,9 +41,18 @@ export function Header({ isLoggedIn = false, credits = 15, onBuyCredits, onLogin
 
   const links = isLoggedIn ? loggedInLinks : publicLinks;
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    // Fecha dropdown e menu mobile (se existirem)
     setProfileDropdownOpen(false);
-    navigate("/");
+    setMobileMenuOpen(false); // se esse state existir no componente
+
+    try {
+      await supabase.auth.signOut();
+    } catch (error) {
+      console.error("Erro ao sair:", error);
+    } finally {
+      navigate("/", { replace: true });
+    }
   };
 
   return (
@@ -285,10 +295,7 @@ export function Header({ isLoggedIn = false, credits = 15, onBuyCredits, onLogin
                     <Button
                       variant="outline"
                       className="w-full !bg-blood-moon-error/20 hover:!bg-blood-moon-error/30 !border-blood-moon-error/40 !text-starlight-text"
-                      onClick={() => {
-                        setMobileMenuOpen(false);
-                        handleLogout();
-                      }}
+                      onClick={handleLogout}
                       style={{ height: "44px" }}
                     >
                       Sair
