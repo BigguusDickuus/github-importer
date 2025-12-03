@@ -26,6 +26,8 @@ export function HomeDeslogada() {
   // Hello Bar states
   const [showSuccessBar, setShowSuccessBar] = useState(false);
   const [showEmailValidationBar, setShowEmailValidationBar] = useState(false);
+  const [showErrorBar, setShowErrorBar] = useState(false);
+  const [errorBarMessage, setErrorBarMessage] = useState("");
 
   // Login form states (modal da landing)
   const [loginEmail, setLoginEmail] = useState("");
@@ -181,6 +183,18 @@ export function HomeDeslogada() {
         setLoginError(true);
         setShakeModal(true);
         setTimeout(() => setShakeModal(false), 600);
+
+        const msg = (error.message || "").toLowerCase();
+
+        // Casos típicos do Supabase para email não confirmado
+        if (
+          msg.includes("email not confirmed") ||
+          msg.includes("email confirmation") ||
+          (msg.includes("confirm") && msg.includes("email"))
+        ) {
+          // Mostra Hello Bar amarela
+          setShowEmailValidationBar(true);
+        }
 
         toast({
           title: "Erro ao fazer login",
@@ -497,10 +511,21 @@ export function HomeDeslogada() {
       if (error) {
         console.error("Erro no signUp:", error);
 
-        // Mostra a mensagem REAL do Supabase
+        const rawMessage = (error.message || "").toLowerCase();
+        let barMessage = "Erro ao criar conta, tente novamente mais tarde.";
+
+        // Supabase costuma mandar algo como "User already registered"
+        if (rawMessage.includes("already registered") || rawMessage.includes("already exists")) {
+          barMessage = "Usuário já cadastrado. Tente fazer login.";
+        }
+
+        setErrorBarMessage(barMessage);
+        setShowErrorBar(true);
+
+        // (opcional) mantém o toast também
         toast({
           title: "Erro ao criar conta",
-          description: error.message || "Veja os detalhes no console do navegador (F12).",
+          description: error.message || barMessage,
           variant: "destructive",
         });
 
@@ -520,6 +545,10 @@ export function HomeDeslogada() {
       // Sucesso: usuário criado no Auth
       console.log("Usuário criado no Supabase:", data);
 
+      // Fecha modal e mostra Hello Bar verde
+      setShowSignupModal(false);
+      setShowSuccessBar(true);
+
       toast({
         title: "Conta criada com sucesso!",
         description: "Verifique seu e-mail para confirmar o cadastro e acessar a plataforma.",
@@ -529,6 +558,9 @@ export function HomeDeslogada() {
       setShowEmailConfirmationMessage(true);
     } catch (err: any) {
       console.error("Erro inesperado no signup:", err);
+
+      setErrorBarMessage("Erro inesperado ao criar conta, tente novamente mais tarde.");
+      setShowErrorBar(true);
 
       toast({
         title: "Erro inesperado ao criar conta",
@@ -622,7 +654,15 @@ export function HomeDeslogada() {
         type="warning"
         show={showEmailValidationBar}
         onClose={() => setShowEmailValidationBar(false)}
+        autoCloseDelay={0}
       />
+      <HelloBar
+        message={errorBarMessage || "Erro ao criar conta, tente novamente mais tarde."}
+        type="error"
+        show={showErrorBar}
+        onClose={() => setShowErrorBar(false)}
+      />
+
       {/* Background Gradients - Fixed */}
       <div className="fixed inset-0 overflow-hidden pointer-events-none">
         <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[800px] bg-mystic-indigo/20 rounded-full blur-[150px]" />
