@@ -393,7 +393,7 @@ export function HomeLogada() {
       </section>
 
       {/* Planos */}
-      <section className="relative z-10 py-40 md:py-48 flex flex-col items-center justify-center">
+      <section className="relative z-10 flex flex-col items-center justify-center">
         <style>{`
           @media (max-width: 767px) {
             .planos-container {
@@ -414,12 +414,11 @@ export function HomeLogada() {
             }
           }
         `}</style>
-        <div className="planos-container w-full flex flex-col items-center">
+        <div className="planos-container w-full flex flex-col items-center justify-center">
           <div className="w-full max-w-[1400px] flex flex-col items-center">
             <div className="w-full flex flex-col items-center" style={{ marginBottom: "40px" }}>
-              <h2 className="mb-8 text-4xl md:text-6xl text-starlight-text text-center w-full">Planos de créditos</h2>
-
-              <p className="text-lg md:text-2xl text-moonlight-text text-center w-full max-w-[800px]">
+              <h2 className="text-starlight-text text-center w-full">Planos de créditos</h2>
+              <p className="text-moonlight-text text-center w-full max-w-[800px]">
                 Escolha o plano ideal para suas consultas
               </p>
             </div>
