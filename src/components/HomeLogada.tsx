@@ -376,18 +376,6 @@ export function HomeLogada() {
                 <Link to="/historico">📖 Histórico de leituras</Link>
               </Button>
             </div>
-
-            {/* DEBUG BUTTON - Remover em produção */}
-            <div className="flex justify-center w-full" style={{ marginBottom: "40px" }}>
-              <Button
-                size="sm"
-                variant="outline"
-                className="border-oracle-ember text-oracle-ember hover:bg-oracle-ember/10"
-                onClick={() => setCredits(credits === 0 ? 5 : 0)}
-              >
-                🔧 DEBUG: Alternar Créditos ({credits === 0 ? "0 → 5" : "5 → 0"})
-              </Button>
-            </div>
           </div>
         </div>
       </section>
