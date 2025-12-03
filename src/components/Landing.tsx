@@ -4,6 +4,7 @@ import { Button } from "./ui/button";
 import { Sparkles, User, DollarSign, Check, ChevronLeft, ChevronRight } from "lucide-react";
 import { CardsIcon } from "./icons/CardsIcon";
 import { Modal } from "./Modal";
+import { HelloBar } from "./HelloBar";
 import { Link, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client"; // caminho da sua pasta supabase
 import { toast } from "@/hooks/use-toast"; // caminho do hook de toast (pode ser diferente, veja abaixo)
