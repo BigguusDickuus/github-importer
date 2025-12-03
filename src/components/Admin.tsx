@@ -4,17 +4,7 @@ import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
 import { Modal } from "./Modal";
-import {
-  Users,
-  LayoutDashboard,
-  CreditCard,
-  FileText,
-  TrendingUp,
-  Eye,
-  AlertCircle,
-  Menu,
-  X,
-} from "lucide-react";
+import { Users, LayoutDashboard, CreditCard, FileText, TrendingUp, Eye, AlertCircle, Menu, X } from "lucide-react";
 
 export function Admin() {
   const [selectedSection, setSelectedSection] = useState<string>("dashboard");
@@ -67,7 +57,7 @@ export function Admin() {
 
   return (
     <div className="min-h-screen bg-night-sky">
-      <Header isLoggedIn={true} credits={100} />
+      <Header isLoggedIn={true} />
 
       <div className="max-w-[1600px] mx-auto">
         <div className="flex items-center justify-between mb-8">
@@ -164,9 +154,7 @@ export function Admin() {
               </div>
               <div>
                 <p className="text-moonlight-text text-sm mb-1">Data de cadastro</p>
-                <p className="text-starlight-text">
-                  {new Date(selectedUser.date).toLocaleDateString("pt-BR")}
-                </p>
+                <p className="text-starlight-text">{new Date(selectedUser.date).toLocaleDateString("pt-BR")}</p>
               </div>
               <div>
                 <p className="text-moonlight-text text-sm mb-1">Créditos</p>
@@ -230,7 +218,8 @@ export function Admin() {
           <div className="flex items-start gap-2 p-3 rounded-lg bg-solar-warning/10 border border-solar-warning">
             <AlertCircle className="w-5 h-5 text-solar-warning flex-shrink-0 mt-0.5" />
             <p className="text-sm text-solar-warning">
-              Use valores positivos para adicionar créditos ou negativos para remover. Esta ação será registrada nos logs.
+              Use valores positivos para adicionar créditos ou negativos para remover. Esta ação será registrada nos
+              logs.
             </p>
           </div>
 
@@ -309,7 +298,10 @@ function UsersSection({ users, onSelectUser }: { users: any[]; onSelectUser: (us
           </thead>
           <tbody>
             {users.map((user) => (
-              <tr key={user.id} className="border-b border-obsidian-border last:border-0 hover:bg-night-sky/50 transition-colors">
+              <tr
+                key={user.id}
+                className="border-b border-obsidian-border last:border-0 hover:bg-night-sky/50 transition-colors"
+              >
                 <td className="px-6 py-4 text-starlight-text">{user.email}</td>
                 <td className="px-6 py-4 text-starlight-text">{new Date(user.date).toLocaleDateString("pt-BR")}</td>
                 <td className="px-6 py-4 text-starlight-text">{user.credits}</td>
