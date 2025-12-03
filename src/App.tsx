@@ -8,18 +8,61 @@ import { Credits } from "./components/Credits";
 import { Profile } from "./components/Profile";
 import { Admin } from "./components/Admin";
 import { Login } from "./components/Login";
+import { ProtectedRoute } from "./components/ProtectedRoute";
 
 export default function App() {
   return (
     <Router>
       <Routes>
         <Route path="/" element={<HomeDeslogada />} />
-        <Route path="/dashboard" element={<HomeLogada />} />
-        <Route path="/historico" element={<History />} />
-        <Route path="/transacoes" element={<TransactionHistory />} />
-        <Route path="/creditos" element={<Credits />} />
-        <Route path="/perfil" element={<Profile />} />
-        <Route path="/admin" element={<Admin />} />
+        <Route
+          path="/dashboard"
+          element={
+            <ProtectedRoute>
+              <HomeLogada />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/historico"
+          element={
+            <ProtectedRoute>
+              <Historico />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/transacoes"
+          element={
+            <ProtectedRoute>
+              <Transacoes />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/creditos"
+          element={
+            <ProtectedRoute>
+              <Creditos />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/perfil"
+          element={
+            <ProtectedRoute>
+              <Perfil />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin"
+          element={
+            <ProtectedRoute>
+              <Admin />
+            </ProtectedRoute>
+          }
+        />
         <Route path="/login" element={<Login />} />
         {/* Catch-all route - redirects any unmatched routes to landing */}
         <Route path="*" element={<Navigate to="/" replace />} />
