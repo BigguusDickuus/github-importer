@@ -12,7 +12,7 @@ export function HomeLogada() {
   const [showNoCreditsModal, setShowNoCreditsModal] = useState(false);
   const [showOracleSelectionModal, setShowOracleSelectionModal] = useState(false);
   const [showCardSelectionModal, setShowCardSelectionModal] = useState(false);
-  
+
   // Simular créditos - TODO: pegar do backend/context
   const [credits, setCredits] = useState(0);
 
@@ -42,10 +42,12 @@ export function HomeLogada() {
   });
 
   // Card selection flow state
-  const [currentOracleQueue, setCurrentOracleQueue] = useState<Array<{
-    type: 'tarot' | 'lenormand' | 'cartomancia';
-    method: string;
-  }>>([]);
+  const [currentOracleQueue, setCurrentOracleQueue] = useState<
+    Array<{
+      type: "tarot" | "lenormand" | "cartomancia";
+      method: string;
+    }>
+  >([]);
   const [currentOracleIndex, setCurrentOracleIndex] = useState(0);
   const [allSelectedCards, setAllSelectedCards] = useState<Record<string, number[]>>({});
 
@@ -68,42 +70,42 @@ export function HomeLogada() {
     setShowPaymentModal(true);
   };
 
-  const handleOracleToggle = (oracle: 'tarot' | 'lenormand' | 'cartomancia') => {
-    setSelectedOracles(prev => ({
+  const handleOracleToggle = (oracle: "tarot" | "lenormand" | "cartomancia") => {
+    setSelectedOracles((prev) => ({
       ...prev,
-      [oracle]: !prev[oracle]
+      [oracle]: !prev[oracle],
     }));
     // Reset method selection when unchecking
     if (selectedOracles[oracle]) {
-      setSelectedMethods(prev => ({
+      setSelectedMethods((prev) => ({
         ...prev,
-        [oracle]: ""
+        [oracle]: "",
       }));
     }
   };
 
-  const handleMethodChange = (oracle: 'tarot' | 'lenormand' | 'cartomancia', method: string) => {
-    setSelectedMethods(prev => ({
+  const handleMethodChange = (oracle: "tarot" | "lenormand" | "cartomancia", method: string) => {
+    setSelectedMethods((prev) => ({
       ...prev,
-      [oracle]: method
+      [oracle]: method,
     }));
   };
 
   const handleOracleSelectionProceed = () => {
     // Criar fila de oráculos selecionados
     const queue: Array<{
-      type: 'tarot' | 'lenormand' | 'cartomancia';
+      type: "tarot" | "lenormand" | "cartomancia";
       method: string;
     }> = [];
 
     if (selectedOracles.tarot) {
-      queue.push({ type: 'tarot', method: selectedMethods.tarot });
+      queue.push({ type: "tarot", method: selectedMethods.tarot });
     }
     if (selectedOracles.lenormand) {
-      queue.push({ type: 'lenormand', method: selectedMethods.lenormand });
+      queue.push({ type: "lenormand", method: selectedMethods.lenormand });
     }
     if (selectedOracles.cartomancia) {
-      queue.push({ type: 'cartomancia', method: selectedMethods.cartomancia });
+      queue.push({ type: "cartomancia", method: selectedMethods.cartomancia });
     }
 
     setCurrentOracleQueue(queue);
@@ -116,23 +118,23 @@ export function HomeLogada() {
   const handleCardSelectionComplete = (selectedCards: number[]) => {
     const currentOracle = currentOracleQueue[currentOracleIndex];
     const key = `${currentOracle.type}_${currentOracle.method}`;
-    
-    setAllSelectedCards(prev => ({
+
+    setAllSelectedCards((prev) => ({
       ...prev,
-      [key]: selectedCards
+      [key]: selectedCards,
     }));
 
     // Se houver mais oráculos na fila, vai para o próximo
     if (currentOracleIndex < currentOracleQueue.length - 1) {
-      setCurrentOracleIndex(prev => prev + 1);
+      setCurrentOracleIndex((prev) => prev + 1);
     } else {
       // Finalizou todas as seleções
       setShowCardSelectionModal(false);
       // TODO: Aqui vai para a tela de resultados/interpretação
-      console.log('Consulta completa:', {
+      console.log("Consulta completa:", {
         question,
         oracles: currentOracleQueue,
-        selectedCards: allSelectedCards
+        selectedCards: allSelectedCards,
       });
     }
   };
@@ -152,7 +154,7 @@ export function HomeLogada() {
     return getSelectedCreditsCount() > 0;
   };
 
-  const isConsultButtonDisabled = credits === 0 || question.trim() === '';
+  const isConsultButtonDisabled = credits === 0 || question.trim() === "";
 
   // Scroll to initial position in plans carousel (index 1 - Explorador)
   useEffect(() => {
@@ -171,7 +173,7 @@ export function HomeLogada() {
           }
         }
       }, 500);
-      
+
       // Segundo timeout para forçar novamente caso o primeiro falhe
       setTimeout(() => {
         if (plansRef.current) {
@@ -195,7 +197,7 @@ export function HomeLogada() {
 
     const handleScroll = () => {
       if (window.innerWidth > 922) return;
-      
+
       const scrollLeft = carousel.scrollLeft;
       const cardWidth = carousel.children[0]?.clientWidth || 0;
       const gap = 20;
@@ -203,8 +205,8 @@ export function HomeLogada() {
       setActivePlanIndex(index);
     };
 
-    carousel.addEventListener('scroll', handleScroll);
-    return () => carousel.removeEventListener('scroll', handleScroll);
+    carousel.addEventListener("scroll", handleScroll);
+    return () => carousel.removeEventListener("scroll", handleScroll);
   }, []);
 
   const scrollToPlan = (index: number) => {
@@ -256,7 +258,10 @@ export function HomeLogada() {
       <Header isLoggedIn={true} onBuyCredits={() => setShowPaymentModal(true)} credits={credits} />
 
       {/* Hero Section */}
-      <section className="hero-section relative z-10 pt-24 pb-40 md:pt-40 md:pb-56 flex flex-col items-center justify-center" style={{ marginTop: 'calc(64px + 24px + 40px)' }}>
+      <section
+        className="hero-section relative z-10 flex flex-col items-center justify-center"
+        style={{ marginTop: "calc(64px + 24px + 40px)" }}
+      >
         <style>{`
           @media (min-width: 768px) {
             .hero-section {
@@ -284,13 +289,12 @@ export function HomeLogada() {
         `}</style>
         <div className="hero-section-container w-full flex flex-col items-center">
           <div className="w-full max-w-[1200px] flex flex-col items-center">
-            
-            <div style={{ marginBottom: '40px' }}>
-              <h1 
+            <div style={{ marginBottom: "40px" }}>
+              <h1
                 className="text-starlight-text tracking-tight text-center w-full"
-                style={{ 
-                  fontSize: '2.5rem',
-                  lineHeight: '1.1'
+                style={{
+                  fontSize: "2.5rem",
+                  lineHeight: "1.1",
                 }}
               >
                 <style>{`
@@ -300,7 +304,9 @@ export function HomeLogada() {
                     }
                   }
                 `}</style>
-                <span className="hero-title" style={{ fontSize: '2.5rem' }}>Tarot Online</span>
+                <span className="hero-title" style={{ fontSize: "2.5rem" }}>
+                  Tarot Online
+                </span>
               </h1>
 
               <p className="text-moonlight-text text-center w-full max-w-[800px]">
@@ -313,14 +319,14 @@ export function HomeLogada() {
             </div>
 
             {/* Prompt Card - HABILITADO */}
-            <div className="w-full max-w-[900px]" style={{ marginBottom: '24px' }}>
-              <div 
+            <div className="w-full max-w-[900px]" style={{ marginBottom: "24px" }}>
+              <div
                 className="bg-midnight-surface/80 backdrop-blur-sm border border-obsidian-border rounded-3xl shadow-2xl w-full flex flex-col"
-                style={{ padding: '24px', gap: '24px' }}
+                style={{ padding: "24px", gap: "24px" }}
               >
-                <div 
+                <div
                   onClick={credits === 0 ? handleFieldClick : undefined}
-                  className={credits === 0 ? 'cursor-not-allowed' : ''}
+                  className={credits === 0 ? "cursor-not-allowed" : ""}
                 >
                   <textarea
                     placeholder="Faça sua pergunta..."
@@ -328,14 +334,14 @@ export function HomeLogada() {
                     onChange={(e) => setQuestion(e.target.value)}
                     rows={6}
                     className="w-full bg-night-sky/50 border border-obsidian-border rounded-2xl text-lg md:text-xl text-starlight-text placeholder:text-moonlight-text/60 focus:outline-none focus:border-mystic-indigo transition-colors resize-none disabled:opacity-50"
-                    style={{ 
-                      padding: '24px',
-                      pointerEvents: credits === 0 ? 'none' : 'auto'
+                    style={{
+                      padding: "24px",
+                      pointerEvents: credits === 0 ? "none" : "auto",
                     }}
                     disabled={credits === 0}
                   />
                 </div>
-                
+
                 <div className="w-full flex justify-center">
                   <Button
                     size="lg"
@@ -350,13 +356,19 @@ export function HomeLogada() {
               </div>
             </div>
 
-            <p className="text-base md:text-lg text-moonlight-text/80 text-center w-full" style={{ marginBottom: '24px' }}>
+            <p
+              className="text-base md:text-lg text-moonlight-text/80 text-center w-full"
+              style={{ marginBottom: "24px" }}
+            >
               1 crédito por oráculo selecionado • Sem limites de temas
             </p>
 
-            <div className="flex flex-col sm:flex-row gap-5 justify-center items-center w-full max-w-[600px]" style={{ marginBottom: '40px' }}>
-              <Button 
-                size="lg" 
+            <div
+              className="flex flex-col sm:flex-row gap-5 justify-center items-center w-full max-w-[600px]"
+              style={{ marginBottom: "40px" }}
+            >
+              <Button
+                size="lg"
                 variant="outline"
                 className="w-full sm:flex-1 border-obsidian-border text-moonlight-text hover:bg-midnight-surface hover:text-starlight-text h-14 md:h-16 text-base md:text-lg px-8"
                 asChild
@@ -366,17 +378,16 @@ export function HomeLogada() {
             </div>
 
             {/* DEBUG BUTTON - Remover em produção */}
-            <div className="flex justify-center w-full" style={{ marginBottom: '40px' }}>
-              <Button 
-                size="sm" 
+            <div className="flex justify-center w-full" style={{ marginBottom: "40px" }}>
+              <Button
+                size="sm"
                 variant="outline"
                 className="border-oracle-ember text-oracle-ember hover:bg-oracle-ember/10"
                 onClick={() => setCredits(credits === 0 ? 5 : 0)}
               >
-                🔧 DEBUG: Alternar Créditos ({credits === 0 ? '0 → 5' : '5 → 0'})
+                🔧 DEBUG: Alternar Créditos ({credits === 0 ? "0 → 5" : "5 → 0"})
               </Button>
             </div>
-
           </div>
         </div>
       </section>
@@ -405,12 +416,9 @@ export function HomeLogada() {
         `}</style>
         <div className="planos-container w-full flex flex-col items-center">
           <div className="w-full max-w-[1400px] flex flex-col items-center">
-            
-            <div className="w-full flex flex-col items-center" style={{ marginBottom: '40px' }}>
-              <h2 className="mb-8 text-4xl md:text-6xl text-starlight-text text-center w-full">
-                Planos de créditos
-              </h2>
-              
+            <div className="w-full flex flex-col items-center" style={{ marginBottom: "40px" }}>
+              <h2 className="mb-8 text-4xl md:text-6xl text-starlight-text text-center w-full">Planos de créditos</h2>
+
               <p className="text-lg md:text-2xl text-moonlight-text text-center w-full max-w-[800px]">
                 Escolha o plano ideal para suas consultas
               </p>
@@ -452,10 +460,13 @@ export function HomeLogada() {
                 }
               }
             `}</style>
-            
+
             {/* Container centralizado com position relative */}
-            <div className="plans-container-spacing-logada" style={{ width: '100%', display: 'flex', justifyContent: 'center', position: 'relative' }}>
-              <div style={{ width: '100%', maxWidth: '1100px', position: 'relative' }}>
+            <div
+              className="plans-container-spacing-logada"
+              style={{ width: "100%", display: "flex", justifyContent: "center", position: "relative" }}
+            >
+              <div style={{ width: "100%", maxWidth: "1100px", position: "relative" }}>
                 <div className="plans-carousel-logada w-full" ref={plansRef}>
                   {plans.map((plan, index) => (
                     <div
@@ -465,54 +476,53 @@ export function HomeLogada() {
                           ? "border-mystic-indigo shadow-xl shadow-mystic-indigo/20 md:scale-105"
                           : "border-obsidian-border hover:border-mystic-indigo/30 hover:shadow-lg"
                       }`}
-                      style={{ padding: '48px' }}
+                      style={{ padding: "48px" }}
                     >
                       {plan.badge && (
                         <div className="absolute -top-4 left-1/2 -translate-x-1/2">
-                          <div 
+                          <div
                             className="bg-oracle-ember rounded-full text-sm md:text-base text-starlight-text shadow-lg whitespace-nowrap"
-                            style={{ padding: '8px 20px' }}
+                            style={{ padding: "8px 20px" }}
                           >
                             {plan.badge}
                           </div>
                         </div>
                       )}
-                      
-                      <div className="text-center w-full" style={{ marginBottom: '32px', marginTop: '8px' }}>
-                        <h3 className="text-3xl text-starlight-text" style={{ marginBottom: '16px' }}>
+
+                      <div className="text-center w-full" style={{ marginBottom: "32px", marginTop: "8px" }}>
+                        <h3 className="text-3xl text-starlight-text" style={{ marginBottom: "16px" }}>
                           {plan.name}
                         </h3>
-                        <p className="text-lg text-moonlight-text">
-                          {plan.description}
-                        </p>
+                        <p className="text-lg text-moonlight-text">{plan.description}</p>
                       </div>
 
-                      <div className="text-center w-full" style={{ marginBottom: '32px' }}>
-                        <div className="flex justify-center" style={{ marginBottom: '16px' }}>
-                          <span className={`text-6xl text-mystic-indigo ${plan.highlight ? 'font-bold' : ''}`}>
+                      <div className="text-center w-full" style={{ marginBottom: "32px" }}>
+                        <div className="flex justify-center" style={{ marginBottom: "16px" }}>
+                          <span className={`text-6xl text-mystic-indigo ${plan.highlight ? "font-bold" : ""}`}>
                             {plan.price}
                           </span>
                         </div>
-                        <p className="text-lg text-moonlight-text" style={{ marginBottom: '16px' }}>
+                        <p className="text-lg text-moonlight-text" style={{ marginBottom: "16px" }}>
                           <span className="text-4xl text-starlight-text">{plan.credits}</span> consultas
                         </p>
-                        <p className="text-base text-moonlight-text/70">
-                          {plan.pricePerCredit}
-                        </p>
+                        <p className="text-base text-moonlight-text/70">{plan.pricePerCredit}</p>
                       </div>
 
-                      <div className="text-center w-full flex justify-center" style={{ marginBottom: '32px', minHeight: '56px', alignItems: 'center' }}>
+                      <div
+                        className="text-center w-full flex justify-center"
+                        style={{ marginBottom: "32px", minHeight: "56px", alignItems: "center" }}
+                      >
                         {plan.savings && (
-                          <span 
+                          <span
                             className="inline-block rounded-full bg-verdant-success/10 border border-verdant-success/30 text-base text-verdant-success"
-                            style={{ padding: '8px 16px' }}
+                            style={{ padding: "8px 16px" }}
                           >
                             {plan.savings}
                           </span>
                         )}
                       </div>
 
-                      <div style={{ marginTop: 'auto' }}>
+                      <div style={{ marginTop: "auto" }}>
                         <Button
                           className={`w-full h-16 text-lg ${
                             plan.highlight
@@ -534,44 +544,49 @@ export function HomeLogada() {
                   disabled={activePlanIndex === 0}
                   className="carousel-arrows-plans"
                   aria-label="Anterior"
-                  style={{ 
-                    position: 'absolute',
-                    left: 'calc((100vw - 100%) / -2 + 2vw)',
-                    top: '50%',
-                    transform: 'translateY(-50%)',
-                    width: '48px',
-                    height: '96px',
+                  style={{
+                    position: "absolute",
+                    left: "calc((100vw - 100%) / -2 + 2vw)",
+                    top: "50%",
+                    transform: "translateY(-50%)",
+                    width: "48px",
+                    height: "96px",
                     padding: 0,
                     margin: 0,
-                    border: 'none',
-                    background: 'transparent',
+                    border: "none",
+                    background: "transparent",
                     zIndex: 50,
-                    cursor: activePlanIndex === 0 ? 'not-allowed' : 'pointer',
+                    cursor: activePlanIndex === 0 ? "not-allowed" : "pointer",
                     opacity: activePlanIndex === 0 ? 0 : 1,
-                    color: '#E2E8F0',
-                    transition: 'all 0.3s',
-                    pointerEvents: activePlanIndex === 0 ? 'none' : 'auto'
+                    color: "#E2E8F0",
+                    transition: "all 0.3s",
+                    pointerEvents: activePlanIndex === 0 ? "none" : "auto",
                   }}
                   onMouseEnter={(e) => {
                     if (activePlanIndex !== 0) {
-                      e.currentTarget.style.color = '#6366F1';
+                      e.currentTarget.style.color = "#6366F1";
                     }
                   }}
                   onMouseLeave={(e) => {
-                    e.currentTarget.style.color = '#E2E8F0';
+                    e.currentTarget.style.color = "#E2E8F0";
                   }}
                 >
-                  <svg 
-                    xmlns="http://www.w3.org/2000/svg" 
-                    width="48" 
-                    height="96" 
-                    viewBox="0 0 24 48" 
-                    fill="none" 
-                    stroke="currentColor" 
-                    strokeWidth="2.5" 
-                    strokeLinecap="round" 
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="48"
+                    height="96"
+                    viewBox="0 0 24 48"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2.5"
+                    strokeLinecap="round"
                     strokeLinejoin="round"
-                    style={{ width: '48px', height: '96px', filter: 'drop-shadow(0 10px 15px rgba(0, 0, 0, 0.3))', pointerEvents: 'none' }}
+                    style={{
+                      width: "48px",
+                      height: "96px",
+                      filter: "drop-shadow(0 10px 15px rgba(0, 0, 0, 0.3))",
+                      pointerEvents: "none",
+                    }}
                   >
                     <polyline points="15 6 9 24 15 42" />
                   </svg>
@@ -583,44 +598,49 @@ export function HomeLogada() {
                   disabled={activePlanIndex === plans.length - 1}
                   className="carousel-arrows-plans"
                   aria-label="Próximo"
-                  style={{ 
-                    position: 'absolute',
-                    right: 'calc((100vw - 100%) / -2 + 2vw)',
-                    top: '50%',
-                    transform: 'translateY(-50%)',
-                    width: '48px',
-                    height: '96px',
+                  style={{
+                    position: "absolute",
+                    right: "calc((100vw - 100%) / -2 + 2vw)",
+                    top: "50%",
+                    transform: "translateY(-50%)",
+                    width: "48px",
+                    height: "96px",
                     padding: 0,
                     margin: 0,
-                    border: 'none',
-                    background: 'transparent',
+                    border: "none",
+                    background: "transparent",
                     zIndex: 50,
-                    cursor: activePlanIndex === plans.length - 1 ? 'not-allowed' : 'pointer',
+                    cursor: activePlanIndex === plans.length - 1 ? "not-allowed" : "pointer",
                     opacity: activePlanIndex === plans.length - 1 ? 0 : 1,
-                    color: '#E2E8F0',
-                    transition: 'all 0.3s',
-                    pointerEvents: activePlanIndex === plans.length - 1 ? 'none' : 'auto'
+                    color: "#E2E8F0",
+                    transition: "all 0.3s",
+                    pointerEvents: activePlanIndex === plans.length - 1 ? "none" : "auto",
                   }}
                   onMouseEnter={(e) => {
                     if (activePlanIndex !== plans.length - 1) {
-                      e.currentTarget.style.color = '#6366F1';
+                      e.currentTarget.style.color = "#6366F1";
                     }
                   }}
                   onMouseLeave={(e) => {
-                    e.currentTarget.style.color = '#E2E8F0';
+                    e.currentTarget.style.color = "#E2E8F0";
                   }}
                 >
-                  <svg 
-                    xmlns="http://www.w3.org/2000/svg" 
-                    width="48" 
-                    height="96" 
-                    viewBox="0 0 24 48" 
-                    fill="none" 
-                    stroke="currentColor" 
-                    strokeWidth="2.5" 
-                    strokeLinecap="round" 
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="48"
+                    height="96"
+                    viewBox="0 0 24 48"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2.5"
+                    strokeLinecap="round"
                     strokeLinejoin="round"
-                    style={{ width: '48px', height: '96px', filter: 'drop-shadow(0 10px 15px rgba(0, 0, 0, 0.3))', pointerEvents: 'none' }}
+                    style={{
+                      width: "48px",
+                      height: "96px",
+                      filter: "drop-shadow(0 10px 15px rgba(0, 0, 0, 0.3))",
+                      pointerEvents: "none",
+                    }}
                   >
                     <polyline points="9 6 15 24 9 42" />
                   </svg>
@@ -641,7 +661,10 @@ export function HomeLogada() {
                 }
               }
             `}</style>
-            <div className="carousel-nav-plans flex flex-col items-center gap-6 w-full" style={{ marginTop: '16px', marginBottom: '40px' }}>
+            <div
+              className="carousel-nav-plans flex flex-col items-center gap-6 w-full"
+              style={{ marginTop: "16px", marginBottom: "40px" }}
+            >
               {/* Indicators (dots) */}
               <div className="flex justify-center gap-2">
                 {plans.map((_, index) => (
@@ -649,16 +672,15 @@ export function HomeLogada() {
                     key={index}
                     onClick={() => scrollToPlan(index)}
                     className={`rounded-full transition-all duration-300 ${
-                      activePlanIndex === index 
-                        ? 'bg-mystic-indigo w-8 h-2' 
-                        : 'bg-moonlight-text/30 w-2 h-2 hover:bg-moonlight-text/50'
+                      activePlanIndex === index
+                        ? "bg-mystic-indigo w-8 h-2"
+                        : "bg-moonlight-text/30 w-2 h-2 hover:bg-moonlight-text/50"
                     }`}
                     aria-label={`Ir para plano ${index + 1}`}
                   />
                 ))}
               </div>
             </div>
-
           </div>
         </div>
       </section>
@@ -667,13 +689,16 @@ export function HomeLogada() {
       {showPaymentModal && (
         <>
           {/* Backdrop com blur */}
-          <div 
+          <div
             className="fixed inset-0 z-50 bg-night-sky/80 backdrop-blur-md"
             onClick={() => setShowPaymentModal(false)}
           />
-          
+
           {/* Modal */}
-          <div className="fixed inset-0 z-50 flex items-center justify-center pointer-events-none" style={{ padding: '16px' }}>
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center pointer-events-none"
+            style={{ padding: "16px" }}
+          >
             <div className="relative pointer-events-auto">
               {/* Botão X - Fora do modal, canto superior direito */}
               <button
@@ -697,23 +722,26 @@ export function HomeLogada() {
                 </svg>
               </button>
 
-              <div 
+              <div
                 className="bg-midnight-surface border border-obsidian-border rounded-3xl shadow-2xl w-full max-w-3xl max-h-[80vh] overflow-y-auto"
-                style={{ padding: '32px' }}
+                style={{ padding: "32px" }}
                 onClick={(e) => e.stopPropagation()}
               >
                 <div className="mb-6">
                   <h2 className="text-2xl md:text-3xl text-starlight-text text-center">Comprar Créditos</h2>
                 </div>
 
-                <p className="text-lg text-moonlight-text text-center" style={{ marginBottom: '32px' }}>
+                <p className="text-lg text-moonlight-text text-center" style={{ marginBottom: "32px" }}>
                   Escolha o plano ideal para você:
                 </p>
 
                 {/* Plans Grid */}
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   {/* Plano Iniciante */}
-                  <div className="plan-card-mobile bg-night-sky/50 border border-obsidian-border rounded-2xl flex flex-col items-center text-center" style={{ padding: '24px' }}>
+                  <div
+                    className="plan-card-mobile bg-night-sky/50 border border-obsidian-border rounded-2xl flex flex-col items-center text-center"
+                    style={{ padding: "24px" }}
+                  >
                     <style>{`
                       @media (max-width: 767px) {
                         .plan-card-mobile {
@@ -752,59 +780,86 @@ export function HomeLogada() {
                         }
                       }
                     `}</style>
-                    <h3 className="plan-title text-xl text-starlight-text" style={{ marginBottom: '8px' }}>Iniciante</h3>
-                    <div className="plan-credits-wrapper" style={{ marginBottom: '8px' }}>
+                    <h3 className="plan-title text-xl text-starlight-text" style={{ marginBottom: "8px" }}>
+                      Iniciante
+                    </h3>
+                    <div className="plan-credits-wrapper" style={{ marginBottom: "8px" }}>
                       <div className="plan-credits-number text-3xl text-starlight-text">10</div>
                       <div className="plan-credits-text text-moonlight-text/70">créditos</div>
                     </div>
-                    <div className="plan-price-wrapper" style={{ marginBottom: '12px' }}>
+                    <div className="plan-price-wrapper" style={{ marginBottom: "12px" }}>
                       <div className="plan-price text-2xl text-mystic-indigo">R$ 25,00</div>
-                      <div className="plan-price-per text-sm text-moonlight-text/70" style={{ marginTop: '2px' }}>R$ 2,50/cada</div>
+                      <div className="plan-price-per text-sm text-moonlight-text/70" style={{ marginTop: "2px" }}>
+                        R$ 2,50/cada
+                      </div>
                     </div>
                     <Button
                       className="plan-button w-full bg-mystic-indigo hover:bg-mystic-indigo-dark text-starlight-text mt-auto"
-                      onClick={() => {/* TODO: Abrir gateway de pagamento */}}
+                      onClick={() => {
+                        /* TODO: Abrir gateway de pagamento */
+                      }}
                     >
                       Escolher
                     </Button>
                   </div>
 
                   {/* Plano Explorador */}
-                  <div className="plan-card-mobile bg-night-sky/50 border-2 border-mystic-indigo rounded-2xl flex flex-col items-center text-center relative" style={{ padding: '24px' }}>
-                    <div className="plan-badge absolute -top-3 left-1/2 -translate-x-1/2 bg-mystic-indigo text-starlight-text text-xs rounded-full" style={{ paddingLeft: '12px', paddingRight: '12px', paddingTop: '4px', paddingBottom: '4px' }}>
+                  <div
+                    className="plan-card-mobile bg-night-sky/50 border-2 border-mystic-indigo rounded-2xl flex flex-col items-center text-center relative"
+                    style={{ padding: "24px" }}
+                  >
+                    <div
+                      className="plan-badge absolute -top-3 left-1/2 -translate-x-1/2 bg-mystic-indigo text-starlight-text text-xs rounded-full"
+                      style={{ paddingLeft: "12px", paddingRight: "12px", paddingTop: "4px", paddingBottom: "4px" }}
+                    >
                       POPULAR
                     </div>
-                    <h3 className="plan-title text-xl text-starlight-text" style={{ marginBottom: '8px' }}>Explorador</h3>
-                    <div className="plan-credits-wrapper" style={{ marginBottom: '8px' }}>
+                    <h3 className="plan-title text-xl text-starlight-text" style={{ marginBottom: "8px" }}>
+                      Explorador
+                    </h3>
+                    <div className="plan-credits-wrapper" style={{ marginBottom: "8px" }}>
                       <div className="plan-credits-number text-3xl text-starlight-text">25</div>
                       <div className="plan-credits-text text-moonlight-text/70">créditos</div>
                     </div>
-                    <div className="plan-price-wrapper" style={{ marginBottom: '12px' }}>
+                    <div className="plan-price-wrapper" style={{ marginBottom: "12px" }}>
                       <div className="plan-price text-2xl text-mystic-indigo">R$ 50,00</div>
-                      <div className="plan-price-per text-sm text-moonlight-text/70" style={{ marginTop: '2px' }}>R$ 2,00/cada</div>
+                      <div className="plan-price-per text-sm text-moonlight-text/70" style={{ marginTop: "2px" }}>
+                        R$ 2,00/cada
+                      </div>
                     </div>
                     <Button
                       className="plan-button w-full bg-mystic-indigo hover:bg-mystic-indigo-dark text-starlight-text mt-auto"
-                      onClick={() => {/* TODO: Abrir gateway de pagamento */}}
+                      onClick={() => {
+                        /* TODO: Abrir gateway de pagamento */
+                      }}
                     >
                       Escolher
                     </Button>
                   </div>
 
                   {/* Plano Místico */}
-                  <div className="plan-card-mobile bg-night-sky/50 border border-obsidian-border rounded-2xl flex flex-col items-center text-center" style={{ padding: '24px' }}>
-                    <h3 className="plan-title text-xl text-starlight-text" style={{ marginBottom: '8px' }}>Místico</h3>
-                    <div className="plan-credits-wrapper" style={{ marginBottom: '8px' }}>
+                  <div
+                    className="plan-card-mobile bg-night-sky/50 border border-obsidian-border rounded-2xl flex flex-col items-center text-center"
+                    style={{ padding: "24px" }}
+                  >
+                    <h3 className="plan-title text-xl text-starlight-text" style={{ marginBottom: "8px" }}>
+                      Místico
+                    </h3>
+                    <div className="plan-credits-wrapper" style={{ marginBottom: "8px" }}>
                       <div className="plan-credits-number text-3xl text-starlight-text">60</div>
                       <div className="plan-credits-text text-moonlight-text/70">créditos</div>
                     </div>
-                    <div className="plan-price-wrapper" style={{ marginBottom: '12px' }}>
+                    <div className="plan-price-wrapper" style={{ marginBottom: "12px" }}>
                       <div className="plan-price text-2xl text-mystic-indigo">R$ 100,00</div>
-                      <div className="plan-price-per text-sm text-moonlight-text/70" style={{ marginTop: '2px' }}>R$ 1,67/cada</div>
+                      <div className="plan-price-per text-sm text-moonlight-text/70" style={{ marginTop: "2px" }}>
+                        R$ 1,67/cada
+                      </div>
                     </div>
                     <Button
                       className="plan-button w-full bg-mystic-indigo hover:bg-mystic-indigo-dark text-starlight-text mt-auto"
-                      onClick={() => {/* TODO: Abrir gateway de pagamento */}}
+                      onClick={() => {
+                        /* TODO: Abrir gateway de pagamento */
+                      }}
                     >
                       Escolher
                     </Button>
@@ -820,13 +875,16 @@ export function HomeLogada() {
       {showNoCreditsModal && (
         <>
           {/* Backdrop com blur */}
-          <div 
+          <div
             className="fixed inset-0 z-50 bg-night-sky/80 backdrop-blur-md"
             onClick={() => setShowNoCreditsModal(false)}
           />
-          
+
           {/* Modal */}
-          <div className="fixed inset-0 z-50 flex items-center justify-center pointer-events-none" style={{ padding: '16px' }}>
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center pointer-events-none"
+            style={{ padding: "16px" }}
+          >
             <div className="relative pointer-events-auto">
               {/* Botão X - Fora do modal, canto superior direito */}
               <button
@@ -850,23 +908,26 @@ export function HomeLogada() {
                 </svg>
               </button>
 
-              <div 
+              <div
                 className="bg-midnight-surface border border-obsidian-border rounded-3xl shadow-2xl w-full max-w-3xl max-h-[80vh] overflow-y-auto"
-                style={{ padding: '32px' }}
+                style={{ padding: "32px" }}
                 onClick={(e) => e.stopPropagation()}
               >
                 <div className="mb-6">
                   <h2 className="text-2xl md:text-3xl text-starlight-text text-center">Sem Créditos</h2>
                 </div>
 
-                <p className="text-lg text-moonlight-text text-center" style={{ marginBottom: '32px' }}>
+                <p className="text-lg text-moonlight-text text-center" style={{ marginBottom: "32px" }}>
                   Você não tem créditos suficientes para realizar uma consulta.
                 </p>
 
                 {/* Plans Grid */}
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   {/* Plano Iniciante */}
-                  <div className="plan-card-mobile bg-night-sky/50 border border-obsidian-border rounded-2xl flex flex-col items-center text-center" style={{ padding: '24px' }}>
+                  <div
+                    className="plan-card-mobile bg-night-sky/50 border border-obsidian-border rounded-2xl flex flex-col items-center text-center"
+                    style={{ padding: "24px" }}
+                  >
                     <style>{`
                       @media (max-width: 767px) {
                         .plan-card-mobile {
@@ -905,14 +966,18 @@ export function HomeLogada() {
                         }
                       }
                     `}</style>
-                    <h3 className="plan-title text-xl text-starlight-text" style={{ marginBottom: '8px' }}>Iniciante</h3>
-                    <div className="plan-credits-wrapper" style={{ marginBottom: '8px' }}>
+                    <h3 className="plan-title text-xl text-starlight-text" style={{ marginBottom: "8px" }}>
+                      Iniciante
+                    </h3>
+                    <div className="plan-credits-wrapper" style={{ marginBottom: "8px" }}>
                       <div className="plan-credits-number text-3xl text-starlight-text">10</div>
                       <div className="plan-credits-text text-moonlight-text/70">créditos</div>
                     </div>
-                    <div className="plan-price-wrapper" style={{ marginBottom: '12px' }}>
+                    <div className="plan-price-wrapper" style={{ marginBottom: "12px" }}>
                       <div className="plan-price text-2xl text-mystic-indigo">R$ 25,00</div>
-                      <div className="plan-price-per text-sm text-moonlight-text/70" style={{ marginTop: '2px' }}>R$ 2,50/cada</div>
+                      <div className="plan-price-per text-sm text-moonlight-text/70" style={{ marginTop: "2px" }}>
+                        R$ 2,50/cada
+                      </div>
                     </div>
                     <Button
                       className="plan-button w-full bg-mystic-indigo hover:bg-mystic-indigo-dark text-starlight-text mt-auto"
@@ -923,18 +988,28 @@ export function HomeLogada() {
                   </div>
 
                   {/* Plano Explorador */}
-                  <div className="plan-card-mobile bg-night-sky/50 border-2 border-mystic-indigo rounded-2xl flex flex-col items-center text-center relative" style={{ padding: '24px' }}>
-                    <div className="plan-badge absolute -top-3 left-1/2 -translate-x-1/2 bg-mystic-indigo text-starlight-text text-xs rounded-full" style={{ paddingLeft: '12px', paddingRight: '12px', paddingTop: '4px', paddingBottom: '4px' }}>
+                  <div
+                    className="plan-card-mobile bg-night-sky/50 border-2 border-mystic-indigo rounded-2xl flex flex-col items-center text-center relative"
+                    style={{ padding: "24px" }}
+                  >
+                    <div
+                      className="plan-badge absolute -top-3 left-1/2 -translate-x-1/2 bg-mystic-indigo text-starlight-text text-xs rounded-full"
+                      style={{ paddingLeft: "12px", paddingRight: "12px", paddingTop: "4px", paddingBottom: "4px" }}
+                    >
                       POPULAR
                     </div>
-                    <h3 className="plan-title text-xl text-starlight-text" style={{ marginBottom: '8px' }}>Explorador</h3>
-                    <div className="plan-credits-wrapper" style={{ marginBottom: '8px' }}>
+                    <h3 className="plan-title text-xl text-starlight-text" style={{ marginBottom: "8px" }}>
+                      Explorador
+                    </h3>
+                    <div className="plan-credits-wrapper" style={{ marginBottom: "8px" }}>
                       <div className="plan-credits-number text-3xl text-starlight-text">25</div>
                       <div className="plan-credits-text text-moonlight-text/70">créditos</div>
                     </div>
-                    <div className="plan-price-wrapper" style={{ marginBottom: '12px' }}>
+                    <div className="plan-price-wrapper" style={{ marginBottom: "12px" }}>
                       <div className="plan-price text-2xl text-mystic-indigo">R$ 50,00</div>
-                      <div className="plan-price-per text-sm text-moonlight-text/70" style={{ marginTop: '2px' }}>R$ 2,00/cada</div>
+                      <div className="plan-price-per text-sm text-moonlight-text/70" style={{ marginTop: "2px" }}>
+                        R$ 2,00/cada
+                      </div>
                     </div>
                     <Button
                       className="plan-button w-full bg-mystic-indigo hover:bg-mystic-indigo-dark text-starlight-text mt-auto"
@@ -945,15 +1020,22 @@ export function HomeLogada() {
                   </div>
 
                   {/* Plano Místico */}
-                  <div className="plan-card-mobile bg-night-sky/50 border border-obsidian-border rounded-2xl flex flex-col items-center text-center" style={{ padding: '24px' }}>
-                    <h3 className="plan-title text-xl text-starlight-text" style={{ marginBottom: '8px' }}>Místico</h3>
-                    <div className="plan-credits-wrapper" style={{ marginBottom: '8px' }}>
+                  <div
+                    className="plan-card-mobile bg-night-sky/50 border border-obsidian-border rounded-2xl flex flex-col items-center text-center"
+                    style={{ padding: "24px" }}
+                  >
+                    <h3 className="plan-title text-xl text-starlight-text" style={{ marginBottom: "8px" }}>
+                      Místico
+                    </h3>
+                    <div className="plan-credits-wrapper" style={{ marginBottom: "8px" }}>
                       <div className="plan-credits-number text-3xl text-starlight-text">60</div>
                       <div className="plan-credits-text text-moonlight-text/70">créditos</div>
                     </div>
-                    <div className="plan-price-wrapper" style={{ marginBottom: '12px' }}>
+                    <div className="plan-price-wrapper" style={{ marginBottom: "12px" }}>
                       <div className="plan-price text-2xl text-mystic-indigo">R$ 100,00</div>
-                      <div className="plan-price-per text-sm text-moonlight-text/70" style={{ marginTop: '2px' }}>R$ 1,67/cada</div>
+                      <div className="plan-price-per text-sm text-moonlight-text/70" style={{ marginTop: "2px" }}>
+                        R$ 1,67/cada
+                      </div>
                     </div>
                     <Button
                       className="plan-button w-full bg-mystic-indigo hover:bg-mystic-indigo-dark text-starlight-text mt-auto"
@@ -1012,9 +1094,9 @@ export function HomeLogada() {
             }
           }
         `}</style>
-        <div className="footer-container w-full" style={{ paddingTop: '48px', paddingBottom: '48px' }}>
+        <div className="footer-container w-full" style={{ paddingTop: "48px", paddingBottom: "48px" }}>
           <div className="max-w-[1400px] mx-auto">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-12" style={{ marginBottom: '80px' }}>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-12" style={{ marginBottom: "80px" }}>
               {/* Logo e descrição */}
               <div>
                 <div className="flex items-center gap-3 mb-4">
@@ -1024,7 +1106,8 @@ export function HomeLogada() {
                   <span className="text-xl text-starlight-text">Tarot Online</span>
                 </div>
                 <small className="block text-moonlight-text/70 leading-relaxed">
-                  Consultas de Tarot, Tarot Cigano e Cartomancia Clássica disponíveis 24/7 com interpretações profundas e personalizadas.
+                  Consultas de Tarot, Tarot Cigano e Cartomancia Clássica disponíveis 24/7 com interpretações profundas
+                  e personalizadas.
                 </small>
               </div>
 
@@ -1033,31 +1116,40 @@ export function HomeLogada() {
                 <h3 className="text-base text-starlight-text mb-4">Serviços</h3>
                 <ul className="space-y-3">
                   <li>
-                    <button 
-                      onClick={() => {/* Scroll to top or navigate to consultation */}}
+                    <button
+                      onClick={() => {
+                        /* Scroll to top or navigate to consultation */
+                      }}
                       className="text-sm text-moonlight-text/70 hover:text-mystic-indigo transition-colors"
                     >
                       Tarot
                     </button>
                   </li>
                   <li>
-                    <button 
-                      onClick={() => {/* Scroll to top or navigate to consultation */}}
+                    <button
+                      onClick={() => {
+                        /* Scroll to top or navigate to consultation */
+                      }}
                       className="text-sm text-moonlight-text/70 hover:text-mystic-indigo transition-colors"
                     >
                       Tarot Cigano
                     </button>
                   </li>
                   <li>
-                    <button 
-                      onClick={() => {/* Scroll to top or navigate to consultation */}}
+                    <button
+                      onClick={() => {
+                        /* Scroll to top or navigate to consultation */
+                      }}
                       className="text-sm text-moonlight-text/70 hover:text-mystic-indigo transition-colors"
                     >
                       Cartomancia Clássica
                     </button>
                   </li>
                   <li>
-                    <Link to="/historico" className="text-sm text-moonlight-text/70 hover:text-mystic-indigo transition-colors">
+                    <Link
+                      to="/historico"
+                      className="text-sm text-moonlight-text/70 hover:text-mystic-indigo transition-colors"
+                    >
                       Histórico de leituras
                     </Link>
                   </li>
@@ -1069,32 +1161,40 @@ export function HomeLogada() {
                 <h3 className="text-base text-starlight-text mb-4">Informações</h3>
                 <ul className="space-y-3">
                   <li>
-                    <button 
-                      onClick={() => {/* TODO: implementar página */}}
+                    <button
+                      onClick={() => {
+                        /* TODO: implementar página */
+                      }}
                       className="text-sm text-moonlight-text/70 hover:text-mystic-indigo transition-colors"
                     >
                       Sobre nós
                     </button>
                   </li>
                   <li>
-                    <button 
-                      onClick={() => {/* TODO: implementar página */}}
+                    <button
+                      onClick={() => {
+                        /* TODO: implementar página */
+                      }}
                       className="text-sm text-moonlight-text/70 hover:text-mystic-indigo transition-colors"
                     >
                       Termos de uso
                     </button>
                   </li>
                   <li>
-                    <button 
-                      onClick={() => {/* TODO: implementar página */}}
+                    <button
+                      onClick={() => {
+                        /* TODO: implementar página */
+                      }}
                       className="text-sm text-moonlight-text/70 hover:text-mystic-indigo transition-colors"
                     >
                       Política de privacidade
                     </button>
                   </li>
                   <li>
-                    <button 
-                      onClick={() => {/* TODO: implementar página */}}
+                    <button
+                      onClick={() => {
+                        /* TODO: implementar página */
+                      }}
                       className="text-sm text-moonlight-text/70 hover:text-mystic-indigo transition-colors"
                     >
                       Contato
