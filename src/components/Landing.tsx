@@ -47,6 +47,7 @@ export function HomeDeslogada() {
 
   // Password recovery states
   const [recoveryEmail, setRecoveryEmail] = useState("");
+  const [recoveryLoading, setRecoveryLoading] = useState(false);
 
   // Validation errors
   const [emailError, setEmailError] = useState("");
@@ -609,15 +610,71 @@ export function HomeDeslogada() {
   };
 
   // Password Recovery
-  const handlePasswordRecovery = () => {
-    if (recoveryEmail && recoveryEmail.includes("@")) {
-      // TODO: implementar lógica real de recuperação de senha
-      // Fechar modal de recuperação
+  const handlePasswordRecovery = async () => {
+    // validação básica (já tem o isRecoveryEmailValid, mas deixo aqui
+    if (!isRecoveryEmailValid()) {
+      toast({
+        title: "Email inválido",
+        description: "Informe um email válido para recuperar sua senha.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setRecoveryLoading(true);
+
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(recoveryEmail, {
+        redirectTo: `${window.location.origin}/reset-password`,
+      });
+
+      if (error) {
+        console.error("Erro ao enviar email de recuperação:", error);
+
+        const msg = (error.message || "").toLowerCase();
+        let barMessage = "Erro ao enviar email de recuperação. Tente novamente mais tarde.";
+
+        // Se o Supabase resolver ser explícito
+        if (msg.includes("user not found") || msg.includes("no user")) {
+          barMessage = "Não encontramos uma conta com este email.";
+        }
+
+        setErrorBarMessage(barMessage);
+        setShowErrorBar(true); // 🔴 Hello Bar vermelha
+
+        toast({
+          title: "Erro ao enviar email",
+          description: error.message || barMessage,
+          variant: "destructive",
+        });
+
+        return;
+      }
+
+      // Sucesso: Supabase aceitou o pedido de reset
       setShowPasswordRecoveryModal(false);
-      // Limpar campo
       setRecoveryEmail("");
-      // Mostrar hello bar de recuperação (não expira automaticamente)
+
+      // 🟡 Hello Bar amarela
       setShowPasswordRecoveryBar(true);
+
+      toast({
+        title: "Email enviado",
+        description: "Se este email estiver cadastrado, você receberá instruções para redefinir sua senha.",
+      });
+    } catch (err: any) {
+      console.error("Erro inesperado na recuperação de senha:", err);
+
+      setErrorBarMessage("Erro inesperado ao enviar email de recuperação. Tente novamente mais tarde.");
+      setShowErrorBar(true); // 🔴 Hello Bar vermelha
+
+      toast({
+        title: "Erro inesperado ao enviar email",
+        description: String(err),
+        variant: "destructive",
+      });
+    } finally {
+      setRecoveryLoading(false);
     }
   };
 
@@ -1986,9 +2043,9 @@ export function HomeDeslogada() {
                       size="lg"
                       className="w-full bg-mystic-indigo hover:bg-mystic-indigo-dark text-starlight-text h-14 text-lg disabled:opacity-50 disabled:cursor-not-allowed"
                       onClick={handlePasswordRecovery}
-                      disabled={!isRecoveryEmailValid()}
+                      disabled={!isRecoveryEmailValid() || recoveryLoading}
                     >
-                      Enviar
+                      {recoveryLoading ? "Enviando..." : "Enviar"}
                     </Button>
 
                     {/* Link Voltar ao login */}
