@@ -8,7 +8,7 @@ import { Link, useNavigate } from "react-router-dom";
 // --- ADICIONA ISSO NO TOPO DO ARQUIVO ---
 
 import { supabase } from "@/integrations/supabase/client"; // caminho da sua pasta supabase
-import { toast } from "@/hooks/ui/use-toast"; // caminho do hook de toast (pode ser diferente, veja abaixo)
+import { toast } from "@/hooks/use-toast"; // caminho do hook de toast (pode ser diferente, veja abaixo)
 
 export function HomeDeslogada() {
   const navigate = useNavigate();
@@ -16,6 +16,7 @@ export function HomeDeslogada() {
   const [showHowItWorksModal, setShowHowItWorksModal] = useState(false);
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [showSignupModal, setShowSignupModal] = useState(false);
+  const [showEmailConfirmationMessage, setShowEmailConfirmationMessage] = useState(false);
   const [loginError, setLoginError] = useState(false);
   const [shakeModal, setShakeModal] = useState(false);
   const howItWorksRef = useRef<HTMLDivElement>(null);
