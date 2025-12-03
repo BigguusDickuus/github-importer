@@ -113,6 +113,7 @@ export type Database = {
           cpf: string | null
           created_at: string | null
           email: string
+          full_name: string | null
           id: string
           is_admin: boolean | null
           phone: string | null
@@ -122,6 +123,7 @@ export type Database = {
           cpf?: string | null
           created_at?: string | null
           email: string
+          full_name?: string | null
           id: string
           is_admin?: boolean | null
           phone?: string | null
@@ -131,6 +133,7 @@ export type Database = {
           cpf?: string | null
           created_at?: string | null
           email?: string
+          full_name?: string | null
           id?: string
           is_admin?: boolean | null
           phone?: string | null
@@ -223,7 +226,9 @@ export type Database = {
           response: string
         }[]
       }
-      grant_signup_bonus: { Args: never; Returns: undefined }
+      grant_signup_bonus:
+        | { Args: { p_user_id?: string }; Returns: undefined }
+        | { Args: never; Returns: undefined }
     }
     Enums: {
       credit_transaction_type:
