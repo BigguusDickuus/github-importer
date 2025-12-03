@@ -23,6 +23,7 @@ export function HomeDeslogada() {
   const [signupEmail, setSignupEmail] = useState("");
   const [signupPassword, setSignupPassword] = useState("");
   const [signupPasswordConfirm, setSignupPasswordConfirm] = useState("");
+  const [signupFullName, setSignupFullName] = useState("");
   const [signupBirthDate, setSignupBirthDate] = useState("");
   const [signupCPF, setSignupCPF] = useState("");
   const [signupPhone, setSignupPhone] = useState("");
