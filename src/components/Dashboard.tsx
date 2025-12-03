@@ -11,14 +11,7 @@ export function Dashboard() {
   const [showOracleModal, setShowOracleModal] = useState(false);
   const userCredits = 12;
 
-  const suggestions = [
-    "Amor",
-    "Carreira",
-    "Finanças",
-    "Espiritualidade",
-    "Família",
-    "Saúde",
-  ];
+  const suggestions = ["Amor", "Carreira", "Finanças", "Espiritualidade", "Família", "Saúde"];
 
   const handleAsk = () => {
     if (question.trim()) {
@@ -28,7 +21,7 @@ export function Dashboard() {
 
   return (
     <div className="min-h-screen bg-night-sky">
-      <Header isLoggedIn={true} credits={userCredits} />
+      <Header isLoggedIn={true} />
 
       <main className="max-w-7xl mx-auto">
         {/* Credits Card */}
@@ -38,9 +31,7 @@ export function Dashboard() {
               <h3 className="mb-2 text-moonlight-text">Seus créditos</h3>
               <div className="flex items-baseline gap-3">
                 <span className="text-starlight-text">{userCredits}</span>
-                <span className="text-moonlight-text">
-                  consultas disponíveis
-                </span>
+                <span className="text-moonlight-text">consultas disponíveis</span>
               </div>
             </div>
             <Button
