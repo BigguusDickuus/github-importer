@@ -457,6 +457,7 @@ export function HomeDeslogada() {
 
   // Handler de cadastro
   const handleSignup = async () => {
+    // Se o form for inválido, chacoalha modal e sai
     if (!validateSignupForm()) {
       setShakeModal(true);
       setTimeout(() => {
@@ -469,75 +470,47 @@ export function HomeDeslogada() {
       const cleanCpf = signupCPF.replace(/\D/g, "");
       const cleanPhone = signupPhone.replace(/\D/g, "");
 
-      // Verifica se email ou CPF já existem (best-effort: não bloqueia se der erro de permissão/RLS)
-      let emailOrCpfInUse = false;
+      // 🚨 Nada de SELECT em "profiles" aqui por enquanto.
+      // Vamos só tentar criar o usuário no Auth.
 
-      try {
-        const { data: existingProfiles, error: checkError } = await supabase
-          .from("profiles")
-          .select("email, cpf")
-          .or(`email.eq.${signupEmail},cpf.eq.${cleanCpf}`);
-
-        if (checkError) {
-          // Se der erro aqui (ex: RLS na tabela profiles pra usuário anônimo),
-          // a gente só loga e segue pro signUp normalmente.
-          console.error("Erro ao verificar email/CPF existentes:", checkError);
-        } else if (existingProfiles && existingProfiles.length > 0) {
-          const existingEmail = existingProfiles.some((p) => p.email === signupEmail);
-          const existingCpf = existingProfiles.some((p) => p.cpf === cleanCpf);
-
-          let errorMessage = "";
-          if (existingEmail && existingCpf) {
-            errorMessage = "CPF e email já cadastrados";
-          } else if (existingEmail) {
-            errorMessage = "Email já cadastrado";
-          } else if (existingCpf) {
-            errorMessage = "CPF já cadastrado";
-          }
-
-          toast({
-            title: "Conta já existe",
-            description: errorMessage,
-            variant: "destructive",
-          });
-
-          emailOrCpfInUse = true;
-        }
-      } catch (checkErr) {
-        console.error("Erro inesperado ao verificar email/CPF:", checkErr);
-      }
-
-      // Se achou email/CPF duplicado, não tenta cadastrar
-      if (emailOrCpfInUse) {
-        return;
-      }
-
-      // Aqui finalmente chamamos o Supabase pra criar o usuário
-      const { data, error: signUpError } = await supabase.auth.signUp({
+      const { data, error } = await supabase.auth.signUp({
         email: signupEmail,
         password: signupPassword,
         options: {
           data: {
-            birthday: signupBirthDate, // já vem em YYYY-MM-DD do input type="date"
+            birthday: signupBirthDate, // input type="date" já vem em YYYY-MM-DD
             cpf: cleanCpf,
             phone: cleanPhone,
           },
         },
       });
 
-      if (signUpError) {
-        console.error("Erro no signUp:", signUpError);
+      if (error) {
+        console.error("Erro no signUp:", error);
+
+        // Mostra a mensagem REAL do Supabase
         toast({
           title: "Erro ao criar conta",
-          description: signUpError.message || "Tente novamente mais tarde.",
+          description: error.message || "Veja os detalhes no console do navegador (F12).",
+          variant: "destructive",
+        });
+
+        return;
+      }
+
+      if (!data.user) {
+        console.error("SignUp retornou sem user:", data);
+        toast({
+          title: "Erro ao criar conta",
+          description: "O servidor não retornou o usuário. Tente novamente mais tarde.",
           variant: "destructive",
         });
         return;
       }
 
+      // Sucesso: usuário criado no Auth
       console.log("Usuário criado no Supabase:", data);
 
-      // Sucesso: mostra mensagem sobre confirmação de e-mail
       toast({
         title: "Conta criada com sucesso!",
         description: "Verifique seu e-mail para confirmar o cadastro e acessar a plataforma.",
@@ -545,9 +518,14 @@ export function HomeDeslogada() {
 
       setShowSignupModal(false);
       setShowEmailConfirmationMessage(true);
-    } catch (error) {
-      console.error("Erro inesperado no signup:", error);
-      alert("Erro ao criar conta, tente novamente mais tarde");
+    } catch (err: any) {
+      console.error("Erro inesperado no signup:", err);
+
+      toast({
+        title: "Erro inesperado ao criar conta",
+        description: String(err),
+        variant: "destructive",
+      });
     }
   };
 
