@@ -462,7 +462,7 @@ export function HomeDeslogada() {
 
       {/* Hero Section */}
       <section
-        className="hero-section relative z-10 pb-40 md:pb-56 flex flex-col items-center justify-center"
+        className="hero-section relative z-10 flex flex-col items-center justify-center"
         style={{ marginTop: "calc(64px + 24px + 40px)" }}
       >
         <style>{`
