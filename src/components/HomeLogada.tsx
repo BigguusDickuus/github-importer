@@ -255,7 +255,7 @@ export function HomeLogada() {
         <div className="absolute top-1/3 left-1/4 w-[400px] h-[400px] bg-mystic-indigo/10 rounded-full blur-[100px]" />
       </div>
 
-      <Header isLoggedIn={true} onBuyCredits={() => setShowPaymentModal(true)} credits={credits} />
+      <Header isLoggedIn={true} onBuyCredits={() => setShowPaymentModal(true)} />
 
       {/* Hero Section */}
       <section
