@@ -7,12 +7,11 @@ import { supabase } from "@/integrations/supabase/client";
 
 interface HeaderProps {
   isLoggedIn?: boolean;
-  credits?: number;
   onBuyCredits?: () => void;
   onLoginClick?: () => void;
 }
 
-export function Header({ isLoggedIn = false, credits = 15, onBuyCredits, onLoginClick }: HeaderProps) {
+export function Header({ isLoggedIn = false, onBuyCredits, onLoginClick }: HeaderProps) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [profileDropdownOpen, setProfileDropdownOpen] = useState(false);
   const [settingsModalOpen, setSettingsModalOpen] = useState(false);
