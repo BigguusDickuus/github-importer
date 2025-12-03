@@ -5,8 +5,6 @@ import { Sparkles, User, DollarSign, Check, ChevronLeft, ChevronRight } from "lu
 import { CardsIcon } from "./icons/CardsIcon";
 import { Modal } from "./Modal";
 import { Link, useNavigate } from "react-router-dom";
-// --- ADICIONA ISSO NO TOPO DO ARQUIVO ---
-
 import { supabase } from "@/integrations/supabase/client"; // caminho da sua pasta supabase
 import { toast } from "@/hooks/use-toast"; // caminho do hook de toast (pode ser diferente, veja abaixo)
 
