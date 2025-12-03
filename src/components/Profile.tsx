@@ -14,7 +14,7 @@ export function Profile() {
 
   return (
     <div className="min-h-screen bg-night-sky">
-      <Header isLoggedIn={true} credits={12} />
+      <Header isLoggedIn={true} />
 
       <main className="max-w-7xl mx-auto">
         <div className="mb-8">
@@ -63,10 +63,7 @@ export function Profile() {
                 <AccountSection />
               </TabsContent>
               <TabsContent value="security">
-                <SecuritySection
-                  twoFactorEnabled={twoFactorEnabled}
-                  setTwoFactorEnabled={setTwoFactorEnabled}
-                />
+                <SecuritySection twoFactorEnabled={twoFactorEnabled} setTwoFactorEnabled={setTwoFactorEnabled} />
               </TabsContent>
               <TabsContent value="notifications">
                 <NotificationsSection
@@ -110,10 +107,7 @@ export function Profile() {
           {/* Content */}
           <div className="col-span-3 space-y-8">
             <AccountSection />
-            <SecuritySection
-              twoFactorEnabled={twoFactorEnabled}
-              setTwoFactorEnabled={setTwoFactorEnabled}
-            />
+            <SecuritySection twoFactorEnabled={twoFactorEnabled} setTwoFactorEnabled={setTwoFactorEnabled} />
             <NotificationsSection
               emailNotifications={emailNotifications}
               setEmailNotifications={setEmailNotifications}
@@ -235,9 +229,7 @@ function SecuritySection({
         <div className="flex items-center justify-between">
           <div className="flex-1">
             <h4 className="text-starlight-text mb-1">Autenticação de dois fatores</h4>
-            <p className="text-moonlight-text text-sm">
-              Adicione uma camada extra de segurança à sua conta
-            </p>
+            <p className="text-moonlight-text text-sm">Adicione uma camada extra de segurança à sua conta</p>
           </div>
           <Switch
             checked={twoFactorEnabled}
@@ -269,9 +261,7 @@ function NotificationsSection({
         <div className="flex items-center justify-between py-4 border-b border-obsidian-border">
           <div className="flex-1">
             <h4 className="text-starlight-text mb-1">E-mail de notificações</h4>
-            <p className="text-moonlight-text text-sm">
-              Receba atualizações sobre suas leituras e novidades
-            </p>
+            <p className="text-moonlight-text text-sm">Receba atualizações sobre suas leituras e novidades</p>
           </div>
           <Switch
             checked={emailNotifications}
@@ -283,9 +273,7 @@ function NotificationsSection({
         <div className="flex items-center justify-between py-4 border-b border-obsidian-border">
           <div className="flex-1">
             <h4 className="text-starlight-text mb-1">Lembretes de leitura</h4>
-            <p className="text-moonlight-text text-sm">
-              Receba lembretes para fazer suas consultas regulares
-            </p>
+            <p className="text-moonlight-text text-sm">Receba lembretes para fazer suas consultas regulares</p>
           </div>
           <Switch
             checked={readingReminders}
@@ -297,9 +285,7 @@ function NotificationsSection({
         <div className="flex items-center justify-between py-4">
           <div className="flex-1">
             <h4 className="text-starlight-text mb-1">Ofertas e promoções</h4>
-            <p className="text-moonlight-text text-sm">
-              Fique por dentro de ofertas especiais de créditos
-            </p>
+            <p className="text-moonlight-text text-sm">Fique por dentro de ofertas especiais de créditos</p>
           </div>
           <Switch className="data-[state=checked]:bg-mystic-indigo ml-4" />
         </div>
@@ -318,10 +304,7 @@ function BillingSection() {
           <p className="text-starlight-text/80 mb-2">Saldo Atual</p>
           <p className="text-starlight-text mb-1">12</p>
           <p className="text-starlight-text/80 mb-4">créditos disponíveis</p>
-          <Button
-            size="sm"
-            className="bg-starlight-text text-mystic-indigo hover:bg-starlight-text/90"
-          >
+          <Button size="sm" className="bg-starlight-text text-mystic-indigo hover:bg-starlight-text/90">
             Comprar mais créditos
           </Button>
         </div>
