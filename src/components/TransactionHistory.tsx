@@ -17,65 +17,9 @@ export function TransactionHistory() {
   const [itemsPerPage, setItemsPerPage] = useState<number>(20);
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
-
-  const transactions: Transaction[] = [
-    {
-      id: "1",
-      date: "2025-11-20",
-      time: "15:42",
-      amount: "R$ 100,00",
-      package: "Pacote Místico (60 créditos)",
-    },
-    {
-      id: "2",
-      date: "2025-11-18",
-      time: "10:15",
-      amount: "R$ 25,00",
-      package: "Pacote Iniciante (10 créditos)",
-    },
-    {
-      id: "3",
-      date: "2025-11-15",
-      time: "14:30",
-      amount: "R$ 50,00",
-      package: "Pacote Explorador (25 créditos)",
-    },
-    {
-      id: "4",
-      date: "2025-11-10",
-      time: "09:20",
-      amount: "R$ 100,00",
-      package: "Pacote Místico (60 créditos)",
-    },
-    {
-      id: "5",
-      date: "2025-11-05",
-      time: "18:05",
-      amount: "R$ 50,00",
-      package: "Pacote Explorador (25 créditos)",
-    },
-    {
-      id: "6",
-      date: "2025-10-28",
-      time: "11:45",
-      amount: "R$ 25,00",
-      package: "Pacote Iniciante (10 créditos)",
-    },
-    {
-      id: "7",
-      date: "2025-10-20",
-      time: "16:30",
-      amount: "R$ 100,00",
-      package: "Pacote Místico (60 créditos)",
-    },
-    {
-      id: "8",
-      date: "2025-10-15",
-      time: "13:10",
-      amount: "R$ 50,00",
-      package: "Pacote Explorador (25 créditos)",
-    },
-  ];
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   // Pagination logic
   const totalPages = itemsPerPage === -1 ? 1 : Math.ceil(transactions.length / itemsPerPage);
@@ -87,6 +31,82 @@ export function TransactionHistory() {
     setItemsPerPage(value);
     setCurrentPage(1);
   };
+
+  const fetchTransactions = async () => {
+    try {
+      setLoading(true);
+      setErrorMessage(null);
+
+      // 1) Pega usuário logado
+      const {
+        data: { user },
+        error: userError,
+      } = await supabase.auth.getUser();
+
+      if (userError) {
+        console.error("Erro ao buscar usuário logado:", userError);
+        setErrorMessage("Erro ao identificar usuário logado.");
+        setTransactions([]);
+        return;
+      }
+
+      if (!user) {
+        // Em teoria não chega aqui porque a rota é protegida,
+        // mas se chegar, melhor avisar:
+        setErrorMessage("Sessão expirada. Faça login novamente.");
+        setTransactions([]);
+        return;
+      }
+
+      // 2) Busca histórico em credit_transactions
+      const { data, error } = await supabase
+        .from("credit_transactions")
+        .select("id, credits_change, description, created_at")
+        .eq("user_id", user.id)
+        .order("created_at", { ascending: false });
+
+      if (error) {
+        console.error("Erro ao buscar transações:", error);
+        setErrorMessage("Erro ao carregar histórico de créditos.");
+        setTransactions([]);
+        return;
+      }
+
+      const mapped: Transaction[] = (data || []).map((row: any) => {
+        const d = new Date(row.created_at);
+
+        const date = d.toISOString(); // usamos a data completa; o render já faz toLocaleDateString
+        const time = d.toLocaleTimeString("pt-BR", {
+          hour: "2-digit",
+          minute: "2-digit",
+        });
+
+        const amount = `${row.credits_change >= 0 ? "+" : ""}${row.credits_change} créditos`;
+        const pkg = row.description || "Movimentação de créditos";
+
+        return {
+          id: row.id,
+          date,
+          time,
+          amount,
+          package: pkg,
+        };
+      });
+
+      setTransactions(mapped);
+    } catch (err) {
+      console.error("Erro inesperado ao buscar transações:", err);
+      setErrorMessage("Erro inesperado ao carregar histórico.");
+      setTransactions([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchTransactions();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   return (
     <div className="min-h-screen bg-night-sky text-moonlight-text relative">
@@ -152,8 +172,12 @@ export function TransactionHistory() {
             {/* Info bar */}
             <div className="flex items-center justify-between" style={{ marginBottom: "24px" }}>
               <div className="text-sm text-moonlight-text">
-                {transactions.length} {transactions.length === 1 ? "transação" : "transações"}
+                {loading
+                  ? "Carregando transações..."
+                  : `${transactions.length} ${transactions.length === 1 ? "transação" : "transações"}`}
               </div>
+
+              {errorMessage && <div className="text-xs text-blood-moon-error ml-4">{errorMessage}</div>}
             </div>
 
             {/* Controls Bar - Fixed (Dropdown + Link + Pagination) */}
