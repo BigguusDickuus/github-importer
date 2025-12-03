@@ -24,34 +24,34 @@ export default function App() {
           }
         />
         <Route
-          path="/historico"
+          path="/History"
           element={
             <ProtectedRoute>
-              <Historico />
+              <History />
             </ProtectedRoute>
           }
         />
         <Route
-          path="/transacoes"
+          path="/TransactionHistory"
           element={
             <ProtectedRoute>
-              <Transacoes />
+              <TransactionHistory />
             </ProtectedRoute>
           }
         />
         <Route
-          path="/creditos"
+          path="/credits"
           element={
             <ProtectedRoute>
-              <Creditos />
+              <Credits />
             </ProtectedRoute>
           }
         />
         <Route
-          path="/perfil"
+          path="/profile"
           element={
             <ProtectedRoute>
-              <Perfil />
+              <Profile />
             </ProtectedRoute>
           }
         />
