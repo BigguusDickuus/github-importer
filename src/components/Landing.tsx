@@ -31,6 +31,7 @@ export function HomeDeslogada() {
   const [emailError, setEmailError] = useState("");
   const [passwordError, setPasswordError] = useState("");
   const [passwordConfirmError, setPasswordConfirmError] = useState("");
+  const [fullNameError, setFullNameError] = useState("");
   const [birthDateError, setBirthDateError] = useState("");
   const [cpfError, setCpfError] = useState("");
   const [phoneError, setPhoneError] = useState("");
@@ -238,6 +239,14 @@ export function HomeDeslogada() {
     return email.includes("@") && email.includes(".") && email.length > 5;
   };
 
+  // Validação de nome completo
+  const validateFullName = (name: string) => {
+    const trimmedName = name.trim();
+    // Verifica se tem pelo menos nome e sobrenome (2 palavras)
+    const nameParts = trimmedName.split(" ").filter((part) => part.length > 0);
+    return nameParts.length >= 2 && trimmedName.length >= 3;
+  };
+
   // Validação de senha com requisitos
   const validatePassword = (password: string) => {
     const hasMinLength = password.length >= 8;
@@ -326,6 +335,17 @@ export function HomeDeslogada() {
       setPasswordConfirmError("");
     }
 
+    // Validar nome completo
+    if (!signupFullName) {
+      setFullNameError("Nome completo é obrigatório");
+      isValid = false;
+    } else if (!validateFullName(signupFullName)) {
+      setFullNameError("Insira nome e sobrenome");
+      isValid = false;
+    } else {
+      setFullNameError("");
+    }
+
     // Validar data de nascimento
     if (!signupBirthDate) {
       setBirthDateError("Data de nascimento é obrigatória");
@@ -390,6 +410,8 @@ export function HomeDeslogada() {
       validatePassword(signupPassword).isValid &&
       signupPasswordConfirm &&
       signupPassword === signupPasswordConfirm &&
+      signupFullName &&
+      validateFullName(signupFullName) &&
       signupBirthDate &&
       signupCPF &&
       validateCPF(signupCPF) &&
@@ -1359,6 +1381,7 @@ export function HomeDeslogada() {
                   setSignupEmail("");
                   setSignupPassword("");
                   setSignupPasswordConfirm("");
+                  setSignupFullName("");
                   setSignupBirthDate("");
                   setSignupCPF("");
                   setSignupPhone("");
@@ -1366,6 +1389,7 @@ export function HomeDeslogada() {
                   setEmailError("");
                   setPasswordError("");
                   setPasswordConfirmError("");
+                  setFullNameError("");
                   setBirthDateError("");
                   setCpfError("");
                   setPhoneError("");
@@ -1518,6 +1542,26 @@ export function HomeDeslogada() {
                       style={{ padding: "16px 20px" }}
                     />
                     {passwordConfirmError && <p className="text-sm text-oracle-ember">{passwordConfirmError}</p>}
+                  </div>
+
+                  {/* Campo Nome Completo */}
+                  <div className="flex flex-col gap-2">
+                    <input
+                      type="text"
+                      placeholder="Insira seu nome completo"
+                      value={signupFullName}
+                      onChange={(e) => setSignupFullName(e.target.value)}
+                      onBlur={() => {
+                        if (signupFullName && !validateFullName(signupFullName)) {
+                          setFullNameError("Insira nome e sobrenome");
+                        } else if (signupFullName) {
+                          setFullNameError("");
+                        }
+                      }}
+                      className="w-full bg-night-sky/50 border border-obsidian-border rounded-xl text-base text-starlight-text placeholder:text-moonlight-text/60 focus:outline-none focus:border-mystic-indigo transition-colors"
+                      style={{ padding: "16px 20px" }}
+                    />
+                    {fullNameError && <p className="text-sm text-oracle-ember">{fullNameError}</p>}
                   </div>
 
                   {/* Campo Data de Nascimento */}
