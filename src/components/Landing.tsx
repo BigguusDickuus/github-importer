@@ -19,6 +19,11 @@ export function HomeDeslogada() {
   const [activeFeatureIndex, setActiveFeatureIndex] = useState(0);
   const [activePlanIndex, setActivePlanIndex] = useState(1);
 
+  // Login form states (modal da landing)
+  const [loginEmail, setLoginEmail] = useState("");
+  const [loginPassword, setLoginPassword] = useState("");
+  const [loginLoading, setLoginLoading] = useState(false);
+
   // Signup form states
   const [signupEmail, setSignupEmail] = useState("");
   const [signupPassword, setSignupPassword] = useState("");
@@ -136,14 +141,76 @@ export function HomeDeslogada() {
     }
   };
 
-  const handleLogin = () => {
-    // TODO: implementar lógica real de login
-    // Por enquanto, simula erro
-    setLoginError(true);
-    setShakeModal(true);
-    setTimeout(() => {
+  const handleLogin = async () => {
+    // limpa erro anterior
+    setLoginError(false);
+
+    // validação bem simples antes de chamar o Supabase
+    if (!loginEmail || !loginPassword) {
+      setLoginError(true);
+      setShakeModal(true);
+      setTimeout(() => setShakeModal(false), 600);
+
+      toast({
+        title: "Preencha email e senha",
+        description: "Para entrar, você precisa informar email e senha.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setLoginLoading(true);
+    setShakeModal(false);
+
+    try {
+      const { error } = await supabase.auth.signInWithPassword({
+        email: loginEmail,
+        password: loginPassword,
+      });
+
+      if (error) {
+        console.error("Erro ao fazer login:", error);
+        setLoginError(true);
+        setShakeModal(true);
+        setTimeout(() => setShakeModal(false), 600);
+
+        toast({
+          title: "Erro ao fazer login",
+          description: error.message || "Email ou senha incorretos.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // deu bom
+      toast({
+        title: "Login realizado!",
+        description: "Bem-vindo de volta.",
+      });
+
+      // limpa estado e fecha modal
+      setShowLoginModal(false);
+      setLoginError(false);
       setShakeModal(false);
-    }, 600);
+      setLoginEmail("");
+      setLoginPassword("");
+
+      // manda pra home logada
+      navigate("/dashboard");
+    } catch (err: any) {
+      console.error("Erro inesperado no login:", err);
+      setLoginError(true);
+      setShakeModal(true);
+      setTimeout(() => setShakeModal(false), 600);
+
+      toast({
+        title: "Erro inesperado ao fazer login",
+        description: "Tente novamente em alguns instantes.",
+        variant: "destructive",
+      });
+    } finally {
+      setLoginLoading(false);
+    }
   };
 
   const simulateLoginError = () => {
@@ -1282,7 +1349,10 @@ export function HomeDeslogada() {
                     <input
                       type="email"
                       placeholder="Insira seu email"
-                      className="w-full bg-night-sky/50 border border-obsidian-border rounded-xl text-base text-starlight-text placeholder:text-moonlight-text/60 focus:outline-none focus:border-mystic-indigo transition-colors"
+                      value={loginEmail}
+                      onChange={(e) => setLoginEmail(e.target.value)}
+                      disabled={loginLoading}
+                      className="w-full bg-night-sky/50 border border-obsidian-border/60 rounded-2xl text-base text-starlight-text placeholder:text-moonlight-text/60 focus:outline-none focus:border-mystic-indigo transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
                       style={{ padding: "16px 20px" }}
                     />
                   </div>
@@ -1292,7 +1362,10 @@ export function HomeDeslogada() {
                     <input
                       type="password"
                       placeholder="Insira sua senha"
-                      className="w-full bg-night-sky/50 border border-obsidian-border rounded-xl text-base text-starlight-text placeholder:text-moonlight-text/60 focus:outline-none focus:border-mystic-indigo transition-colors"
+                      value={loginPassword}
+                      onChange={(e) => setLoginPassword(e.target.value)}
+                      disabled={loginLoading}
+                      className="w-full bg-night-sky/50 border border-obsidian-border/60 rounded-2xl text-base text-starlight-text placeholder:text-moonlight-text/60 focus:outline-none focus:border-mystic-indigo transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
                       style={{ padding: "16px 20px" }}
                     />
 
@@ -1318,10 +1391,11 @@ export function HomeDeslogada() {
 
                     <Button
                       size="lg"
-                      className="w-full bg-mystic-indigo hover:bg-mystic-indigo-dark text-starlight-text h-14 text-lg"
+                      className="w-full bg-mystic-indigo hover:bg-mystic-indigo-dark text-starlight-text h-14 text-lg disabled:opacity-60 disabled:cursor-not-allowed"
                       onClick={handleLogin}
+                      disabled={loginLoading}
                     >
-                      Entrar
+                      {loginLoading ? "Entrando..." : "Entrar"}
                     </Button>
 
                     {/* Link Cadastre-se */}
