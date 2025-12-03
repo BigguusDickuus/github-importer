@@ -15,6 +15,7 @@ export function HomeDeslogada() {
   const [showHowItWorksModal, setShowHowItWorksModal] = useState(false);
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [showSignupModal, setShowSignupModal] = useState(false);
+  const [showPasswordRecoveryModal, setShowPasswordRecoveryModal] = useState(false);
   const [showEmailConfirmationMessage, setShowEmailConfirmationMessage] = useState(false);
   const [loginError, setLoginError] = useState(false);
   const [shakeModal, setShakeModal] = useState(false);
@@ -26,6 +27,7 @@ export function HomeDeslogada() {
   // Hello Bar states
   const [showSuccessBar, setShowSuccessBar] = useState(false);
   const [showEmailValidationBar, setShowEmailValidationBar] = useState(false);
+  const [showPasswordRecoveryBar, setShowPasswordRecoveryBar] = useState(false);
   const [showErrorBar, setShowErrorBar] = useState(false);
   const [errorBarMessage, setErrorBarMessage] = useState("");
 
@@ -42,6 +44,9 @@ export function HomeDeslogada() {
   const [signupBirthDate, setSignupBirthDate] = useState("");
   const [signupCPF, setSignupCPF] = useState("");
   const [signupPhone, setSignupPhone] = useState("");
+
+  // Password recovery states
+  const [recoveryEmail, setRecoveryEmail] = useState("");
 
   // Validation errors
   const [emailError, setEmailError] = useState("");
@@ -601,6 +606,23 @@ export function HomeDeslogada() {
         variant: "destructive",
       });
     }
+  };
+
+  // Password Recovery
+  const handlePasswordRecovery = () => {
+    if (recoveryEmail && recoveryEmail.includes("@")) {
+      // TODO: implementar lógica real de recuperação de senha
+      // Fechar modal de recuperação
+      setShowPasswordRecoveryModal(false);
+      // Limpar campo
+      setRecoveryEmail("");
+      // Mostrar hello bar de recuperação (não expira automaticamente)
+      setShowPasswordRecoveryBar(true);
+    }
+  };
+
+  const isRecoveryEmailValid = () => {
+    return recoveryEmail && recoveryEmail.includes("@");
   };
 
   // Verificar se todos os campos estão preenchidos e válidos
