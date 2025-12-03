@@ -7,34 +7,25 @@ export function Credits() {
     {
       name: "Inicial",
       credits: 1,
-      price: 3.00,
+      price: 3.0,
       description: "Perfeito para experimentar",
-      features: [
-        "1 consulta completa",
-        "Acesso a todos os oráculos",
-        "Histórico salvo",
-      ],
+      features: ["1 consulta completa", "Acesso a todos os oráculos", "Histórico salvo"],
     },
     {
       name: "Popular",
       credits: 10,
-      price: 25.00,
-      originalPrice: 30.00,
+      price: 25.0,
+      originalPrice: 30.0,
       description: "Melhor custo-benefício",
       highlight: true,
       savings: "Economize 16%",
-      features: [
-        "10 consultas completas",
-        "Acesso a todos os oráculos",
-        "Histórico salvo",
-        "Suporte prioritário",
-      ],
+      features: ["10 consultas completas", "Acesso a todos os oráculos", "Histórico salvo", "Suporte prioritário"],
     },
     {
       name: "Ilimitado",
       credits: 50,
-      price: 100.00,
-      originalPrice: 150.00,
+      price: 100.0,
+      originalPrice: 150.0,
       description: "Para uso frequente",
       savings: "Economize 33%",
       features: [
@@ -48,13 +39,13 @@ export function Credits() {
   ];
 
   const recentPurchases = [
-    { date: "2025-11-15", credits: 10, amount: 25.00, status: "Concluído" },
-    { date: "2025-11-01", credits: 10, amount: 25.00, status: "Concluído" },
+    { date: "2025-11-15", credits: 10, amount: 25.0, status: "Concluído" },
+    { date: "2025-11-01", credits: 10, amount: 25.0, status: "Concluído" },
   ];
 
   return (
     <div className="min-h-screen bg-night-sky">
-      <Header isLoggedIn={true} credits={12} />
+      <Header isLoggedIn={true} />
 
       <main className="max-w-7xl mx-auto">
         {/* Header */}
@@ -67,7 +58,10 @@ export function Credits() {
 
         {/* Current Balance */}
         <div className="mb-12 max-w-md mx-auto">
-          <div className="bg-gradient-to-br from-mystic-indigo to-mystic-indigo-dark rounded-2xl text-center" style={{ padding: '32px' }}>
+          <div
+            className="bg-gradient-to-br from-mystic-indigo to-mystic-indigo-dark rounded-2xl text-center"
+            style={{ padding: "32px" }}
+          >
             <p className="text-starlight-text/80 mb-2">Saldo Atual</p>
             <p className="text-5xl text-starlight-text mb-1">12</p>
             <p className="text-starlight-text/80">créditos disponíveis</p>
@@ -77,15 +71,15 @@ export function Credits() {
         {/* Plans */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-16">
           {plans.map((plan) => (
-              <div
-                key={plan.name}
-                className={`bg-midnight-surface border rounded-2xl transition-all duration-300 flex flex-col ${
-                  plan.highlight
-                    ? "border-mystic-indigo shadow-xl shadow-mystic-indigo/20 md:scale-105"
-                    : "border-obsidian-border hover:border-mystic-indigo/50"
-                }`}
-                style={{ padding: '32px' }}
-              >
+            <div
+              key={plan.name}
+              className={`bg-midnight-surface border rounded-2xl transition-all duration-300 flex flex-col ${
+                plan.highlight
+                  ? "border-mystic-indigo shadow-xl shadow-mystic-indigo/20 md:scale-105"
+                  : "border-obsidian-border hover:border-mystic-indigo/50"
+              }`}
+              style={{ padding: "32px" }}
+            >
               {plan.savings && (
                 <div className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-oracle-ember/10 border border-oracle-ember mb-4 w-fit">
                   <span className="text-xs text-oracle-ember">{plan.savings}</span>
@@ -97,17 +91,13 @@ export function Credits() {
 
               <div className="mb-6">
                 <div className="flex items-baseline gap-2 mb-1">
-                  <span className="text-4xl text-starlight-text">
-                    R$ {plan.price.toFixed(2)}
-                  </span>
+                  <span className="text-4xl text-starlight-text">R$ {plan.price.toFixed(2)}</span>
                   {plan.originalPrice && (
-                    <span className="text-moonlight-text line-through">
-                      R$ {plan.originalPrice.toFixed(2)}
-                    </span>
+                    <span className="text-moonlight-text line-through">R$ {plan.originalPrice.toFixed(2)}</span>
                   )}
                 </div>
                 <p className="text-mystic-indigo">
-                  {plan.credits} {plan.credits === 1 ? 'crédito' : 'créditos'}
+                  {plan.credits} {plan.credits === 1 ? "crédito" : "créditos"}
                 </p>
                 <p className="text-moonlight-text text-sm mt-1">
                   R$ {(plan.price / plan.credits).toFixed(2)} por consulta
@@ -147,8 +137,8 @@ export function Credits() {
               <div>
                 <h3 className="text-starlight-text mb-2">Pagamento Seguro</h3>
                 <p className="text-moonlight-text">
-                  Todos os pagamentos são processados de forma segura. Aceitamos cartão de crédito, 
-                  débito e PIX. Seus créditos são liberados instantaneamente após a confirmação.
+                  Todos os pagamentos são processados de forma segura. Aceitamos cartão de crédito, débito e PIX. Seus
+                  créditos são liberados instantaneamente após a confirmação.
                 </p>
               </div>
             </div>
@@ -198,7 +188,7 @@ export function Credits() {
                 {recentPurchases.map((purchase, index) => (
                   <tr key={index} className="border-b border-obsidian-border last:border-0">
                     <td className="px-6 py-4 text-starlight-text">
-                      {new Date(purchase.date).toLocaleDateString('pt-BR')}
+                      {new Date(purchase.date).toLocaleDateString("pt-BR")}
                     </td>
                     <td className="px-6 py-4 text-starlight-text">{purchase.credits} créditos</td>
                     <td className="px-6 py-4 text-starlight-text">R$ {purchase.amount.toFixed(2)}</td>
@@ -223,12 +213,8 @@ export function Credits() {
                     <span className="text-xs text-verdant-success">{purchase.status}</span>
                   </span>
                 </div>
-                <p className="text-moonlight-text text-sm mb-1">
-                  R$ {purchase.amount.toFixed(2)}
-                </p>
-                <p className="text-moonlight-text text-xs">
-                  {new Date(purchase.date).toLocaleDateString('pt-BR')}
-                </p>
+                <p className="text-moonlight-text text-sm mb-1">R$ {purchase.amount.toFixed(2)}</p>
+                <p className="text-moonlight-text text-xs">{new Date(purchase.date).toLocaleDateString("pt-BR")}</p>
               </div>
             ))}
           </div>
