@@ -542,19 +542,33 @@ export function HomeDeslogada() {
         return;
       }
 
-      // --- NOVO BLOCO: tratar caso de email já cadastrado (Supabase retorna 200) ---
-      const identities = Array.isArray((data.user as any).identities) ? (data.user as any).identities : [];
+      // --- NOVO BLOCO: detectar se é usuário antigo pelo created_at ---
+      const user: any = data.user;
+      const createdAtMs = user?.created_at ? new Date(user.created_at).getTime() : null;
+      let isExistingUser = false;
 
-      const isExistingConfirmedUser = identities.length === 0;
+      if (createdAtMs !== null && Number.isFinite(createdAtMs)) {
+        const nowMs = Date.now();
+        const diffMinutes = Math.abs(nowMs - createdAtMs) / 60000;
 
-      if (isExistingConfirmedUser) {
-        console.log("Signup chamado com email já existente:", data.user.email);
+        // Se o usuário foi criado há mais de 5 minutos, consideramos "já existente"
+        if (diffMinutes > 5) {
+          isExistingUser = true;
+        }
+      }
 
-        // Hello bar vermelha
+      if (isExistingUser) {
+        console.log(
+          "Signup chamado com email já existente (created_at antigo):",
+          user.email,
+          "created_at:",
+          user.created_at,
+        );
+
         setErrorBarMessage("Este e-mail já está cadastrado. Faça login ou recupere sua senha.");
         setShowErrorBar(true);
 
-        // opcional: já troca pro modal de login
+        // opcional: já trocar pro modal de login
         setShowSignupModal(false);
         setShowLoginModal(true);
 
