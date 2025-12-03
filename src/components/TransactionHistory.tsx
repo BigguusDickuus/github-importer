@@ -86,7 +86,7 @@ export function TransactionHistory() {
 
         if (row.amount_cents == null) {
           // Sem valor financeiro → grátis
-          amount = "grátis";
+          amount = "Grátis";
         } else {
           const cents = Number(row.amount_cents);
           const value = cents / 100; // ex: 10000 -> 100.00
