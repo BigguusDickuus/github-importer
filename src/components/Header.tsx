@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useLocation } from "react-router-dom";
 import { Menu, X, Sparkles, ChevronDown } from "lucide-react";
 import { Button } from "./ui/button";
 import { SettingsModal } from "./SettingsModal";
@@ -18,6 +18,65 @@ export function Header({ isLoggedIn = false, credits = 15, onBuyCredits, onLogin
   const [settingsModalOpen, setSettingsModalOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
+  const [credits, setCredits] = useState<number | null>(null);
+  const [creditsLoading, setCreditsLoading] = useState(false);
+  const location = useLocation();
+
+  const fetchCredits = async () => {
+    try {
+      setCreditsLoading(true);
+
+      // 1) Pega usuário atual
+      const {
+        data: { user },
+        error: userError,
+      } = await supabase.auth.getUser();
+
+      if (userError) {
+        console.error("Erro ao buscar usuário logado:", userError);
+        setCredits(null);
+        return;
+      }
+
+      if (!user) {
+        // Não logado → sem saldo
+        setCredits(null);
+        return;
+      }
+
+      // 2) Pega saldo na tabela credit_balances
+      const { data, error } = await supabase
+        .from("credit_balances")
+        .select("balance")
+        .eq("user_id", user.id)
+        .maybeSingle(); // retorna null se não tiver linha
+
+      if (error) {
+        console.error("Erro ao buscar créditos:", error);
+        // Se der erro de RLS ou qualquer outra coisa, melhor mostrar 0 do que quebrar
+        setCredits(null);
+        return;
+      }
+
+      if (!data) {
+        // Sem linha -> assume saldo 0
+        setCredits(0);
+        return;
+      }
+
+      setCredits(data.balance ?? 0);
+    } catch (err) {
+      console.error("Erro inesperado ao buscar créditos:", err);
+      setCredits(null);
+    } finally {
+      setCreditsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchCredits();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location.pathname]);
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -80,7 +139,9 @@ export function Header({ isLoggedIn = false, credits = 15, onBuyCredits, onLogin
                   onClick={onBuyCredits}
                   className="flex flex-col items-center hover:opacity-80 transition-opacity cursor-pointer md:absolute md:left-1/2 md:-translate-x-1/2"
                 >
-                  <span className="text-mystic-indigo text-2xl md:text-3xl leading-none">{credits}</span>
+                  <span className="text-mystic-indigo text-2xl md:text-3xl leading-none">
+                    {creditsLoading ? "…" : credits !== null ? credits : 0}
+                  </span>
                   <span className="text-moonlight-text text-xs">créditos</span>
                 </button>
               )}
