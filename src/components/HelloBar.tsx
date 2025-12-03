@@ -3,7 +3,7 @@ import { X } from "lucide-react";
 
 interface HelloBarProps {
   message: string;
-  type: "success" | "warning";
+  type: "success" | "warning" | "error";
   show: boolean;
   onClose: () => void;
   autoCloseDelay?: number;
@@ -21,8 +21,10 @@ export function HelloBar({ message, type, show, onClose, autoCloseDelay = 5000 }
 
   if (!show) return null;
 
-  const bgColor = type === "success" ? "bg-verdant-success" : "bg-solar-warning";
-  const textColor = type === "success" ? "text-night-sky" : "text-night-sky";
+  const bgColor =
+    type === "success" ? "bg-verdant-success" : type === "warning" ? "bg-solar-warning" : "bg-oracle-ember"; // erro (vermelho/laranja)
+
+  const textColor = "text-night-sky";
 
   return (
     <div
