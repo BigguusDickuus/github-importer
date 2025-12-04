@@ -531,10 +531,14 @@ function AccountSection() {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
+
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+
+  const [hasChanges, setHasChanges] = useState(false);
+  const [confirmPassword, setConfirmPassword] = useState("");
 
   useEffect(() => {
     const fetchProfile = async () => {
@@ -565,9 +569,15 @@ function AccountSection() {
           return;
         }
 
-        setName(data?.full_name ?? "");
-        setEmail(data?.email ?? user.email ?? "");
-        setPhone(data?.phone ?? "");
+        const fullName = data?.full_name ?? "";
+        const emailValue = data?.email ?? user.email ?? "";
+        const phoneValue = data?.phone ?? "";
+
+        setName(fullName);
+        setEmail(emailValue);
+        setPhone(phoneValue);
+        setHasChanges(false);
+        setConfirmPassword("");
       } catch (err) {
         console.error("Erro inesperado ao buscar perfil:", err);
         setErrorMessage("Erro inesperado ao carregar seus dados.");
@@ -596,7 +606,25 @@ function AccountSection() {
         return;
       }
 
-      const { error } = await supabase
+      if (!confirmPassword) {
+        setErrorMessage("Informe sua senha para confirmar as alterações.");
+        return;
+      }
+
+      // 1) Revalidar senha atual
+      const { error: reauthError } = await supabase.auth.signInWithPassword({
+        email: user.email!,
+        password: confirmPassword,
+      });
+
+      if (reauthError) {
+        console.error("Erro ao revalidar senha:", reauthError);
+        setErrorMessage("Senha incorreta. Verifique e tente novamente.");
+        return;
+      }
+
+      // 2) Atualizar dados no profiles
+      const { error: updateError } = await supabase
         .from("profiles")
         .update({
           full_name: name,
@@ -604,13 +632,15 @@ function AccountSection() {
         })
         .eq("id", user.id);
 
-      if (error) {
-        console.error("Erro ao salvar perfil:", error);
+      if (updateError) {
+        console.error("Erro ao salvar perfil:", updateError);
         setErrorMessage("Erro ao salvar seus dados. Tente novamente.");
         return;
       }
 
       setSuccessMessage("Perfil atualizado com sucesso!");
+      setHasChanges(false);
+      setConfirmPassword("");
     } catch (err) {
       console.error("Erro inesperado ao salvar perfil:", err);
       setErrorMessage("Erro inesperado ao salvar seus dados.");
@@ -618,6 +648,18 @@ function AccountSection() {
       setSaving(false);
     }
   };
+
+  const onNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setName(e.target.value);
+    setHasChanges(true);
+  };
+
+  const onPhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setPhone(e.target.value);
+    setHasChanges(true);
+  };
+
+  const canSave = hasChanges && !!confirmPassword && !loading;
 
   return (
     <div className="bg-midnight-surface border border-obsidian-border rounded-2xl p-6 md:p-8">
@@ -636,7 +678,7 @@ function AccountSection() {
                 id="name"
                 className="bg-night-sky border-obsidian-border text-starlight-text"
                 value={name}
-                onChange={(e) => setName(e.target.value)}
+                onChange={onNameChange}
                 placeholder="Seu nome"
               />
             </div>
@@ -662,10 +704,29 @@ function AccountSection() {
                 id="phone"
                 className="bg-night-sky border-obsidian-border text-starlight-text"
                 value={phone}
-                onChange={(e) => setPhone(e.target.value)}
+                onChange={onPhoneChange}
                 placeholder="+55 11 99999-9999"
               />
             </div>
+
+            {hasChanges && (
+              <div>
+                <Label htmlFor="confirm-password-profile" className="text-moonlight-text mb-2 block">
+                  Senha para confirmar as alterações
+                </Label>
+                <Input
+                  id="confirm-password-profile"
+                  type="password"
+                  className="bg-night-sky border-obsidian-border text-starlight-text"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  placeholder="Informe sua senha atual"
+                />
+                <p className="text-xs text-moonlight-text mt-1">
+                  Por segurança, é necessário confirmar sua senha ao alterar dados da conta.
+                </p>
+              </div>
+            )}
 
             {errorMessage && <p className="text-sm text-blood-moon-error">{errorMessage}</p>}
             {successMessage && <p className="text-sm text-verdant-success">{successMessage}</p>}
@@ -675,7 +736,7 @@ function AccountSection() {
                 className="w-full md:w-auto bg-mystic-indigo hover:bg-mystic-indigo-dark text-starlight-text"
                 style={{ paddingLeft: "32px", paddingRight: "32px" }}
                 onClick={handleSave}
-                disabled={saving}
+                disabled={!canSave || saving}
               >
                 {saving ? "Salvando..." : "Salvar alterações"}
               </Button>
