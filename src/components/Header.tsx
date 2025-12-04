@@ -2,7 +2,6 @@ import { useState, useEffect, useRef } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import { Menu, X, Sparkles, ChevronDown } from "lucide-react";
 import { Button } from "./ui/button";
-import { SettingsModal } from "./SettingsModal";
 import { supabase } from "@/integrations/supabase/client";
 
 interface HeaderProps {
@@ -14,7 +13,6 @@ interface HeaderProps {
 export function Header({ isLoggedIn = false, onBuyCredits, onLoginClick }: HeaderProps) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [profileDropdownOpen, setProfileDropdownOpen] = useState(false);
-  const [settingsModalOpen, setSettingsModalOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
   const [credits, setCredits] = useState<number | null>(null);
@@ -187,7 +185,7 @@ export function Header({ isLoggedIn = false, onBuyCredits, onLoginClick }: Heade
                           <button
                             onClick={() => {
                               setProfileDropdownOpen(false);
-                              setSettingsModalOpen(true);
+                              navigate("/profile");
                             }}
                             className="w-full text-left text-sm text-moonlight-text hover:bg-night-sky hover:text-starlight-text transition-colors rounded-lg"
                             style={{ padding: "10px 12px", marginBottom: "4px" }}
@@ -324,7 +322,7 @@ export function Header({ isLoggedIn = false, onBuyCredits, onLoginClick }: Heade
                       className="w-full"
                       onClick={() => {
                         setMobileMenuOpen(false);
-                        setSettingsModalOpen(true);
+                        navigate("/profile");
                       }}
                       style={{ height: "44px" }}
                     >
@@ -379,9 +377,6 @@ export function Header({ isLoggedIn = false, onBuyCredits, onLoginClick }: Heade
           </div>
         </>
       )}
-
-      {/* Settings Modal */}
-      {settingsModalOpen && <SettingsModal isOpen={settingsModalOpen} onClose={() => setSettingsModalOpen(false)} />}
     </>
   );
 }
