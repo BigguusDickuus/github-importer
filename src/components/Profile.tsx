@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Header } from "./Header";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
@@ -6,6 +6,7 @@ import { Label } from "./ui/label";
 import { Switch } from "./ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs";
 import { User, Shield, CreditCard, Check, Sparkles, Settings } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
 
 export function Profile() {
   const [twoFactorEnabled, setTwoFactorEnabled] = useState(false);
@@ -527,53 +528,160 @@ export function Profile() {
 }
 
 function AccountSection() {
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [phone, setPhone] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
+
+  useEffect(() => {
+    const fetchProfile = async () => {
+      try {
+        setLoading(true);
+        setErrorMessage(null);
+
+        const {
+          data: { user },
+          error: userError,
+        } = await supabase.auth.getUser();
+
+        if (userError || !user) {
+          console.error("Erro ao buscar usuário logado:", userError);
+          setErrorMessage("Sessão expirada. Faça login novamente.");
+          return;
+        }
+
+        const { data, error } = await supabase
+          .from("profiles")
+          .select("full_name, email, phone")
+          .eq("id", user.id)
+          .maybeSingle();
+
+        if (error) {
+          console.error("Erro ao buscar perfil:", error);
+          setErrorMessage("Erro ao carregar seus dados.");
+          return;
+        }
+
+        setName(data?.full_name ?? "");
+        setEmail(data?.email ?? user.email ?? "");
+        setPhone(data?.phone ?? "");
+      } catch (err) {
+        console.error("Erro inesperado ao buscar perfil:", err);
+        setErrorMessage("Erro inesperado ao carregar seus dados.");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchProfile();
+  }, []);
+
+  const handleSave = async () => {
+    setSaving(true);
+    setErrorMessage(null);
+    setSuccessMessage(null);
+
+    try {
+      const {
+        data: { user },
+        error: userError,
+      } = await supabase.auth.getUser();
+
+      if (userError || !user) {
+        console.error("Erro ao buscar usuário logado:", userError);
+        setErrorMessage("Sessão expirada. Faça login novamente.");
+        return;
+      }
+
+      const { error } = await supabase
+        .from("profiles")
+        .update({
+          full_name: name,
+          phone: phone,
+        })
+        .eq("id", user.id);
+
+      if (error) {
+        console.error("Erro ao salvar perfil:", error);
+        setErrorMessage("Erro ao salvar seus dados. Tente novamente.");
+        return;
+      }
+
+      setSuccessMessage("Perfil atualizado com sucesso!");
+    } catch (err) {
+      console.error("Erro inesperado ao salvar perfil:", err);
+      setErrorMessage("Erro inesperado ao salvar seus dados.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
   return (
     <div className="bg-midnight-surface border border-obsidian-border rounded-2xl p-6 md:p-8">
       <h3 className="text-starlight-text mb-6">Dados da Conta</h3>
 
       <div className="space-y-6">
-        <div>
-          <Label htmlFor="name" className="text-moonlight-text mb-2 block">
-            Nome completo
-          </Label>
-          <Input
-            id="name"
-            defaultValue="João Silva"
-            className="bg-night-sky border-obsidian-border text-starlight-text"
-          />
-        </div>
+        {loading && <p className="text-sm text-moonlight-text">Carregando seus dados...</p>}
 
-        <div>
-          <Label htmlFor="email" className="text-moonlight-text mb-2 block">
-            E-mail
-          </Label>
-          <Input
-            id="email"
-            type="email"
-            defaultValue="joao@example.com"
-            className="bg-night-sky border-obsidian-border text-starlight-text"
-          />
-        </div>
+        {!loading && (
+          <>
+            <div>
+              <Label htmlFor="name" className="text-moonlight-text mb-2 block">
+                Nome completo
+              </Label>
+              <Input
+                id="name"
+                className="bg-night-sky border-obsidian-border text-starlight-text"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="Seu nome"
+              />
+            </div>
 
-        <div>
-          <Label htmlFor="phone" className="text-moonlight-text mb-2 block">
-            Telefone
-          </Label>
-          <Input
-            id="phone"
-            defaultValue="+55 11 99999-9999"
-            className="bg-night-sky border-obsidian-border text-starlight-text"
-          />
-        </div>
+            <div>
+              <Label htmlFor="email" className="text-moonlight-text mb-2 block">
+                E-mail
+              </Label>
+              <Input
+                id="email"
+                type="email"
+                className="bg-night-sky border-obsidian-border text-starlight-text opacity-70 cursor-not-allowed"
+                value={email}
+                disabled
+              />
+            </div>
 
-        <div className="pt-4">
-          <Button
-            className="w-full md:w-auto bg-mystic-indigo hover:bg-mystic-indigo-dark text-starlight-text"
-            style={{ paddingLeft: "32px", paddingRight: "32px" }}
-          >
-            Salvar alterações
-          </Button>
-        </div>
+            <div>
+              <Label htmlFor="phone" className="text-moonlight-text mb-2 block">
+                Telefone
+              </Label>
+              <Input
+                id="phone"
+                className="bg-night-sky border-obsidian-border text-starlight-text"
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+                placeholder="+55 11 99999-9999"
+              />
+            </div>
+
+            {errorMessage && <p className="text-sm text-blood-moon-error">{errorMessage}</p>}
+            {successMessage && <p className="text-sm text-verdant-success">{successMessage}</p>}
+
+            <div className="pt-4">
+              <Button
+                className="w-full md:w-auto bg-mystic-indigo hover:bg-mystic-indigo-dark text-starlight-text"
+                style={{ paddingLeft: "32px", paddingRight: "32px" }}
+                onClick={handleSave}
+                disabled={saving}
+              >
+                {saving ? "Salvando..." : "Salvar alterações"}
+              </Button>
+            </div>
+          </>
+        )}
       </div>
     </div>
   );
@@ -716,6 +824,70 @@ function SecuritySection({
   twoFactorEnabled: boolean;
   setTwoFactorEnabled: (value: boolean) => void;
 }) {
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
+
+  const handleChangePassword = async () => {
+    setErrorMessage(null);
+    setSuccessMessage(null);
+
+    if (!currentPassword) {
+      setErrorMessage("Informe sua senha atual.");
+      return;
+    }
+
+    if (!newPassword || newPassword.length < 6) {
+      setErrorMessage("A nova senha deve ter pelo menos 6 caracteres.");
+      return;
+    }
+
+    if (newPassword !== confirmPassword) {
+      setErrorMessage("A confirmação de senha não confere.");
+      return;
+    }
+
+    setSaving(true);
+
+    try {
+      const {
+        data: { user },
+        error: userError,
+      } = await supabase.auth.getUser();
+
+      if (userError || !user) {
+        console.error("Erro ao buscar usuário logado:", userError);
+        setErrorMessage("Sessão expirada. Faça login novamente.");
+        return;
+      }
+
+      // Aqui poderíamos revalidar a senha atual com um signIn silencioso,
+      // mas o Supabase permite alterar a senha diretamente.
+      const { error } = await supabase.auth.updateUser({
+        password: newPassword,
+      });
+
+      if (error) {
+        console.error("Erro ao alterar senha:", error);
+        setErrorMessage(error.message || "Erro ao alterar senha.");
+        return;
+      }
+
+      setSuccessMessage("Senha alterada com sucesso!");
+      setCurrentPassword("");
+      setNewPassword("");
+      setConfirmPassword("");
+    } catch (err) {
+      console.error("Erro inesperado ao alterar senha:", err);
+      setErrorMessage("Erro inesperado ao alterar senha.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
   return (
     <div className="bg-midnight-surface border border-obsidian-border rounded-2xl p-6 md:p-8">
       <h3 className="text-starlight-text mb-6">Segurança</h3>
@@ -730,6 +902,8 @@ function SecuritySection({
             type="password"
             placeholder="••••••••"
             className="bg-night-sky border-obsidian-border text-starlight-text"
+            value={currentPassword}
+            onChange={(e) => setCurrentPassword(e.target.value)}
           />
         </div>
 
@@ -742,6 +916,8 @@ function SecuritySection({
             type="password"
             placeholder="••••••••"
             className="bg-night-sky border-obsidian-border text-starlight-text"
+            value={newPassword}
+            onChange={(e) => setNewPassword(e.target.value)}
           />
         </div>
 
@@ -754,15 +930,22 @@ function SecuritySection({
             type="password"
             placeholder="••••••••"
             className="bg-night-sky border-obsidian-border text-starlight-text"
+            value={confirmPassword}
+            onChange={(e) => setConfirmPassword(e.target.value)}
           />
         </div>
+
+        {errorMessage && <p className="text-sm text-blood-moon-error">{errorMessage}</p>}
+        {successMessage && <p className="text-sm text-verdant-success">{successMessage}</p>}
 
         <div className="pt-4 pb-6 border-b border-obsidian-border">
           <Button
             className="w-full md:w-auto bg-mystic-indigo hover:bg-mystic-indigo-dark text-starlight-text"
             style={{ paddingLeft: "32px", paddingRight: "32px" }}
+            onClick={handleChangePassword}
+            disabled={saving}
           >
-            Alterar senha
+            {saving ? "Alterando..." : "Alterar senha"}
           </Button>
         </div>
 
@@ -783,6 +966,87 @@ function SecuritySection({
 }
 
 function BillingSection({ onPurchaseClick }: { onPurchaseClick: () => void }) {
+  const [balance, setBalance] = useState<number | null>(null);
+  const [recentPurchases, setRecentPurchases] = useState<{ date: string; credits: number; amount: string }[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  useEffect(() => {
+    const fetchBilling = async () => {
+      try {
+        setLoading(true);
+        setErrorMessage(null);
+
+        const {
+          data: { user },
+          error: userError,
+        } = await supabase.auth.getUser();
+
+        if (userError || !user) {
+          console.error("Erro ao buscar usuário logado:", userError);
+          setErrorMessage("Sessão expirada. Faça login novamente.");
+          return;
+        }
+
+        // Saldo de créditos
+        const { data: balanceRow, error: balanceError } = await supabase
+          .from("credit_balances")
+          .select("balance")
+          .eq("user_id", user.id)
+          .maybeSingle();
+
+        if (balanceError) {
+          console.error("Erro ao buscar saldo:", balanceError);
+        } else {
+          setBalance(balanceRow?.balance ?? 0);
+        }
+
+        // Compras recentes: transações com amount_cents > 0
+        const { data: txs, error: txError } = await supabase
+          .from("credit_transactions")
+          .select("credits_change, amount_cents, currency, created_at")
+          .eq("user_id", user.id)
+          .gt("amount_cents", 0)
+          .order("created_at", { ascending: false })
+          .limit(5);
+
+        if (txError) {
+          console.error("Erro ao buscar compras recentes:", txError);
+          return;
+        }
+
+        const mapped = (txs || []).map((row: any) => {
+          const d = new Date(row.created_at);
+          const date = d.toLocaleDateString("pt-BR");
+
+          const cents = Number(row.amount_cents);
+          const value = cents / 100;
+          const currencyCode = row.currency || "BRL";
+
+          const amount = new Intl.NumberFormat("pt-BR", {
+            style: "currency",
+            currency: currencyCode,
+          }).format(value);
+
+          return {
+            date,
+            credits: Number(row.credits_change),
+            amount,
+          };
+        });
+
+        setRecentPurchases(mapped);
+      } catch (err) {
+        console.error("Erro inesperado ao carregar billing:", err);
+        setErrorMessage("Erro ao carregar informações de pagamento.");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchBilling();
+  }, []);
+
   return (
     <div className="bg-midnight-surface border border-obsidian-border rounded-2xl p-6 md:p-8">
       <h3 className="text-starlight-text mb-6">Pagamentos e Créditos</h3>
@@ -790,7 +1054,7 @@ function BillingSection({ onPurchaseClick }: { onPurchaseClick: () => void }) {
       <div className="space-y-6">
         <div className="bg-gradient-to-br from-mystic-indigo to-mystic-indigo-dark rounded-xl p-6">
           <p className="text-starlight-text/80 mb-2">Saldo Atual</p>
-          <p className="text-starlight-text mb-1">12</p>
+          <p className="text-starlight-text mb-1">{balance !== null ? balance : 0}</p>
           <p className="text-starlight-text/80 mb-4">créditos disponíveis</p>
           <Button
             size="sm"
@@ -804,29 +1068,37 @@ function BillingSection({ onPurchaseClick }: { onPurchaseClick: () => void }) {
 
         <div>
           <h4 className="text-starlight-text mb-4">Compras recentes</h4>
-          <div className="space-y-3">
-            {[
-              { date: "15/11/2025", credits: 10, amount: "R$ 25,00" },
-              { date: "01/11/2025", credits: 10, amount: "R$ 25,00" },
-            ].map((purchase, index) => (
-              <div
-                key={index}
-                className="flex items-center justify-between p-4 bg-night-sky rounded-lg border border-obsidian-border"
-              >
-                <div>
-                  <p className="text-starlight-text">{purchase.credits} créditos</p>
-                  <p className="text-moonlight-text text-sm">{purchase.date}</p>
-                </div>
-                <div className="text-right">
-                  <p className="text-starlight-text">{purchase.amount}</p>
-                  <div className="flex items-center gap-1 justify-end">
-                    <Check className="w-3 h-3 text-verdant-success" />
-                    <span className="text-xs text-verdant-success">Concluído</span>
+
+          {errorMessage && <p className="text-sm text-blood-moon-error mb-2">{errorMessage}</p>}
+
+          {loading && <p className="text-sm text-moonlight-text">Carregando compras recentes...</p>}
+
+          {!loading && recentPurchases.length === 0 && !errorMessage && (
+            <p className="text-sm text-moonlight-text">Você ainda não realizou compras de créditos.</p>
+          )}
+
+          {!loading && recentPurchases.length > 0 && (
+            <div className="space-y-3">
+              {recentPurchases.map((purchase, index) => (
+                <div
+                  key={index}
+                  className="flex items-center justify-between p-4 bg-night-sky rounded-lg border border-obsidian-border"
+                >
+                  <div>
+                    <p className="text-starlight-text">{purchase.credits} créditos</p>
+                    <p className="text-moonlight-text text-sm">{purchase.date}</p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-starlight-text">{purchase.amount}</p>
+                    <div className="flex items-center gap-1 justify-end">
+                      <Check className="w-3 h-3 text-verdant-success" />
+                      <span className="text-xs text-verdant-success">Concluído</span>
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </div>
       </div>
     </div>
