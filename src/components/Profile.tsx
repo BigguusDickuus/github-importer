@@ -38,11 +38,7 @@ export function Profile() {
           return;
         }
 
-        const { data, error } = await supabase
-          .from("profiles")
-          .select("keep_context, usage_limit_credits, usage_limit_period")
-          .eq("id", user.id)
-          .maybeSingle();
+        const { data, error } = await supabase.from("profiles").select("*").eq("id", user.id).maybeSingle();
 
         if (error) {
           console.error("Erro ao carregar preferências:", error);
@@ -51,16 +47,19 @@ export function Profile() {
 
         if (!data) return;
 
+        // Cast para fugir das limitações de tipo do Supabase (colunas novas)
+        const prefs = data as any;
+
         // Manter contexto
-        if (typeof data.keep_context === "boolean") {
-          setKeepContext(data.keep_context);
+        if (typeof prefs.keep_context === "boolean") {
+          setKeepContext(prefs.keep_context);
         }
 
         // Limite de uso
-        if (data.usage_limit_credits !== null && data.usage_limit_credits !== undefined && data.usage_limit_period) {
+        if (prefs.usage_limit_credits != null && prefs.usage_limit_period) {
           setHasActiveLimit(true);
-          setActiveLimitAmount(String(data.usage_limit_credits));
-          setActiveLimitPeriod(data.usage_limit_period); // "dia" | "semana" | "mês"
+          setActiveLimitAmount(String(prefs.usage_limit_credits));
+          setActiveLimitPeriod(prefs.usage_limit_period); // "dia" | "semana" | "mês"
         } else {
           setHasActiveLimit(false);
           setActiveLimitAmount("");
@@ -77,6 +76,40 @@ export function Profile() {
 
     loadPreferences();
   }, []);
+
+  // Atualiza o estado + Supabase quando o toggle "Manter contexto" muda
+  const handleToggleKeepContext = (value: boolean) => {
+    setKeepContext(value);
+
+    (async () => {
+      try {
+        const {
+          data: { user },
+          error: userError,
+        } = await supabase.auth.getUser();
+
+        if (userError || !user) {
+          console.error("Erro ao buscar usuário logado:", userError);
+          return;
+        }
+
+        const { error } = await supabase
+          .from("profiles")
+          .update(
+            {
+              keep_context: value,
+            } as any, // <-- cast pra fugir do tipo que ainda não conhece a coluna
+          )
+          .eq("id", user.id);
+
+        if (error) {
+          console.error("Erro ao salvar keep_context:", error);
+        }
+      } catch (err) {
+        console.error("Erro inesperado ao salvar keep_context:", err);
+      }
+    })();
+  };
 
   // Função para scroll suave
   const scrollToSection = (ref: React.RefObject<HTMLDivElement>) => {
@@ -853,7 +886,7 @@ function PreferencesSection({
         .update({
           usage_limit_credits: amount,
           usage_limit_period: limitPeriod, // "dia" | "semana" | "mês"
-        })
+        } as any)
         .eq("id", user.id);
 
       if (error) {
@@ -862,7 +895,6 @@ function PreferencesSection({
         return;
       }
 
-      // Atualiza estado local
       setHasActiveLimit(true);
       setActiveLimitAmount(limitAmount);
       setActiveLimitPeriod(limitPeriod);
@@ -894,7 +926,7 @@ function PreferencesSection({
         .update({
           usage_limit_credits: null,
           usage_limit_period: null,
-        })
+        } as any)
         .eq("id", user.id);
 
       if (error) {
