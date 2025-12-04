@@ -5,7 +5,7 @@ import { Input } from "./ui/input";
 import { Label } from "./ui/label";
 import { Switch } from "./ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs";
-import { User, Shield, Bell, CreditCard, Check } from "lucide-react";
+import { User, Shield, Bell, CreditCard, Check, Sparkles } from "lucide-react";
 
 export function Profile() {
   const [twoFactorEnabled, setTwoFactorEnabled] = useState(false);
@@ -16,10 +16,28 @@ export function Profile() {
     <div className="min-h-screen bg-night-sky">
       <Header isLoggedIn={true} />
 
-      <main className="max-w-7xl mx-auto">
-        <div className="mb-8">
-          <h1 className="text-starlight-text mb-2">Meu Perfil</h1>
-          <p className="text-moonlight-text">Gerencie suas informações e preferências</p>
+      <main
+        className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8"
+        style={{ marginTop: "calc(64px + 24px + 40px)", paddingBottom: "48px" }}
+      >
+        <style>{`
+          @media (min-width: 768px) {
+            main {
+              margin-top: calc(80px + 24px + 40px) !important;
+              padding-left: 32px !important;
+              padding-right: 32px !important;
+            }
+          }
+          @media (min-width: 1024px) {
+            main {
+              padding-left: 64px !important;
+              padding-right: 64px !important;
+            }
+          }
+        `}</style>
+        <div className="mb-8 flex flex-col items-center">
+          <h1 className="text-starlight-text mb-2 text-center">Meu Perfil</h1>
+          <p className="text-moonlight-text text-center">Gerencie suas informações e preferências</p>
         </div>
 
         {/* Mobile: Tabs as dropdown style */}
@@ -118,6 +136,150 @@ export function Profile() {
           </div>
         </div>
       </main>
+
+      {/* Footer */}
+      <footer className="relative z-10 border-t border-obsidian-border bg-midnight-surface/50 backdrop-blur-sm">
+        <style>{`
+          @media (max-width: 767px) {
+            .footer-container {
+              padding-left: 5% !important;
+              padding-right: 5% !important;
+            }
+          }
+          @media (min-width: 768px) and (max-width: 922px) {
+            .footer-container {
+              padding-left: 5% !important;
+              padding-right: 5% !important;
+            }
+          }
+          @media (min-width: 923px) {
+            .footer-container {
+              padding-left: 64px !important;
+              padding-right: 64px !important;
+            }
+          }
+        `}</style>
+        <div className="footer-container w-full" style={{ paddingTop: "48px", paddingBottom: "48px" }}>
+          <div className="max-w-[1400px] mx-auto">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-12" style={{ marginBottom: "80px" }}>
+              {/* Logo e descrição */}
+              <div>
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-mystic-indigo to-oracle-ember flex items-center justify-center">
+                    <Sparkles className="w-5 h-5 text-starlight-text" />
+                  </div>
+                  <span className="text-xl text-starlight-text">Tarot Online</span>
+                </div>
+                <small className="block text-moonlight-text/70 leading-relaxed">
+                  Consultas de Tarot, Tarot Cigano e Cartomancia Clássica disponíveis 24/7 com interpretações profundas
+                  e personalizadas.
+                </small>
+              </div>
+
+              {/* Links - Serviços */}
+              <div>
+                <h3 className="text-base text-starlight-text mb-4">Serviços</h3>
+                <ul className="space-y-3">
+                  <li>
+                    <button
+                      onClick={() => {
+                        /* TODO: implementar navegação */
+                      }}
+                      className="text-sm text-moonlight-text/70 hover:text-mystic-indigo transition-colors"
+                    >
+                      Tarot
+                    </button>
+                  </li>
+                  <li>
+                    <button
+                      onClick={() => {
+                        /* TODO: implementar navegação */
+                      }}
+                      className="text-sm text-moonlight-text/70 hover:text-mystic-indigo transition-colors"
+                    >
+                      Tarot Cigano
+                    </button>
+                  </li>
+                  <li>
+                    <button
+                      onClick={() => {
+                        /* TODO: implementar navegação */
+                      }}
+                      className="text-sm text-moonlight-text/70 hover:text-mystic-indigo transition-colors"
+                    >
+                      Cartomancia Clássica
+                    </button>
+                  </li>
+                  <li>
+                    <button
+                      onClick={() => {
+                        /* TODO: implementar modal */
+                      }}
+                      className="text-sm text-moonlight-text/70 hover:text-mystic-indigo transition-colors"
+                    >
+                      Como funciona
+                    </button>
+                  </li>
+                </ul>
+              </div>
+
+              {/* Links - Informações */}
+              <div>
+                <h3 className="text-base text-starlight-text mb-4">Informações</h3>
+                <ul className="space-y-3">
+                  <li>
+                    <button
+                      onClick={() => {
+                        /* TODO: implementar página */
+                      }}
+                      className="text-sm text-moonlight-text/70 hover:text-mystic-indigo transition-colors"
+                    >
+                      Sobre nós
+                    </button>
+                  </li>
+                  <li>
+                    <button
+                      onClick={() => {
+                        /* TODO: implementar página */
+                      }}
+                      className="text-sm text-moonlight-text/70 hover:text-mystic-indigo transition-colors"
+                    >
+                      Termos de uso
+                    </button>
+                  </li>
+                  <li>
+                    <button
+                      onClick={() => {
+                        /* TODO: implementar página */
+                      }}
+                      className="text-sm text-moonlight-text/70 hover:text-mystic-indigo transition-colors"
+                    >
+                      Política de privacidade
+                    </button>
+                  </li>
+                  <li>
+                    <button
+                      onClick={() => {
+                        /* TODO: implementar página */
+                      }}
+                      className="text-sm text-moonlight-text/70 hover:text-mystic-indigo transition-colors"
+                    >
+                      Contato
+                    </button>
+                  </li>
+                </ul>
+              </div>
+            </div>
+
+            {/* Copyright */}
+            <div className="pt-8">
+              <small className="block text-center text-moonlight-text/70">
+                © 2024 Tarot Online. Todos os direitos reservados.
+              </small>
+            </div>
+          </div>
+        </div>
+      </footer>
     </div>
   );
 }
