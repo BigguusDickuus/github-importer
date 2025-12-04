@@ -925,8 +925,19 @@ function SecuritySection({
         return;
       }
 
-      // Aqui poderíamos revalidar a senha atual com um signIn silencioso,
-      // mas o Supabase permite alterar a senha diretamente.
+      // 1) Revalidar a senha atual
+      const { error: reauthError } = await supabase.auth.signInWithPassword({
+        email: user.email!,
+        password: currentPassword,
+      });
+
+      if (reauthError) {
+        console.error("Erro ao revalidar senha atual:", reauthError);
+        setErrorMessage("Senha atual incorreta. Verifique e tente novamente.");
+        return;
+      }
+
+      // 2) Atualizar senha
       const { error } = await supabase.auth.updateUser({
         password: newPassword,
       });
