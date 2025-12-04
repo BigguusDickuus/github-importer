@@ -24,6 +24,65 @@ export function Profile() {
   const securityRef = useRef<HTMLDivElement>(null);
   const billingRef = useRef<HTMLDivElement>(null);
 
+  // Carrega o keep_context do Supabase ao abrir /profile
+  useEffect(() => {
+    const loadPreferences = async () => {
+      try {
+        const {
+          data: { user },
+          error: userError,
+        } = await supabase.auth.getUser();
+
+        if (userError || !user) {
+          console.error("Erro ao buscar usuário logado:", userError);
+          return;
+        }
+
+        const { data, error } = await supabase.from("profiles").select("keep_context").eq("id", user.id).maybeSingle();
+
+        if (error) {
+          console.error("Erro ao carregar keep_context:", error);
+          return;
+        }
+
+        if (data && typeof data.keep_context === "boolean") {
+          setKeepContext(data.keep_context);
+        }
+      } catch (err) {
+        console.error("Erro inesperado ao carregar preferências:", err);
+      }
+    };
+
+    loadPreferences();
+  }, []);
+
+  // Atualiza o estado + Supabase quando o toggle "Manter contexto" muda
+  const handleToggleKeepContext = (value: boolean) => {
+    setKeepContext(value);
+
+    (async () => {
+      try {
+        const {
+          data: { user },
+          error: userError,
+        } = await supabase.auth.getUser();
+
+        if (userError || !user) {
+          console.error("Erro ao buscar usuário logado:", userError);
+          return;
+        }
+
+        const { error } = await supabase.from("profiles").update({ keep_context: value }).eq("id", user.id);
+
+        if (error) {
+          console.error("Erro ao salvar keep_context:", error);
+        }
+      } catch (err) {
+        console.error("Erro inesperado ao salvar keep_context:", err);
+      }
+    })();
+  };
+
   // Função para scroll suave
   const scrollToSection = (ref: React.RefObject<HTMLDivElement>) => {
     if (ref.current) {
@@ -104,7 +163,7 @@ export function Profile() {
               <TabsContent value="preferences">
                 <PreferencesSection
                   keepContext={keepContext}
-                  setKeepContext={setKeepContext}
+                  setKeepContext={handleToggleKeepContext}
                   limitAmount={limitAmount}
                   setLimitAmount={setLimitAmount}
                   limitPeriod={limitPeriod}
@@ -171,7 +230,7 @@ export function Profile() {
             <div ref={preferencesRef}>
               <PreferencesSection
                 keepContext={keepContext}
-                setKeepContext={setKeepContext}
+                setKeepContext={handleToggleKeepContext}
                 limitAmount={limitAmount}
                 setLimitAmount={setLimitAmount}
                 limitPeriod={limitPeriod}
