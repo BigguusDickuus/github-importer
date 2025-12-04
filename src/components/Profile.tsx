@@ -24,7 +24,7 @@ export function Profile() {
   const securityRef = useRef<HTMLDivElement>(null);
   const billingRef = useRef<HTMLDivElement>(null);
 
-  // Carrega o keep_context do Supabase ao abrir /profile
+  // Carrega preferências (manter contexto + limite de uso) ao abrir /profile
   useEffect(() => {
     const loadPreferences = async () => {
       try {
@@ -38,16 +38,38 @@ export function Profile() {
           return;
         }
 
-        const { data, error } = await supabase.from("profiles").select("keep_context").eq("id", user.id).maybeSingle();
+        const { data, error } = await supabase
+          .from("profiles")
+          .select("keep_context, usage_limit_credits, usage_limit_period")
+          .eq("id", user.id)
+          .maybeSingle();
 
         if (error) {
-          console.error("Erro ao carregar keep_context:", error);
+          console.error("Erro ao carregar preferências:", error);
           return;
         }
 
-        if (data && typeof data.keep_context === "boolean") {
+        if (!data) return;
+
+        // Manter contexto
+        if (typeof data.keep_context === "boolean") {
           setKeepContext(data.keep_context);
         }
+
+        // Limite de uso
+        if (data.usage_limit_credits !== null && data.usage_limit_credits !== undefined && data.usage_limit_period) {
+          setHasActiveLimit(true);
+          setActiveLimitAmount(String(data.usage_limit_credits));
+          setActiveLimitPeriod(data.usage_limit_period); // "dia" | "semana" | "mês"
+        } else {
+          setHasActiveLimit(false);
+          setActiveLimitAmount("");
+          setActiveLimitPeriod("dia");
+        }
+
+        // Inputs do formulário começam limpos / default
+        setLimitAmount("");
+        setLimitPeriod("dia");
       } catch (err) {
         console.error("Erro inesperado ao carregar preferências:", err);
       }
@@ -55,33 +77,6 @@ export function Profile() {
 
     loadPreferences();
   }, []);
-
-  // Atualiza o estado + Supabase quando o toggle "Manter contexto" muda
-  const handleToggleKeepContext = (value: boolean) => {
-    setKeepContext(value);
-
-    (async () => {
-      try {
-        const {
-          data: { user },
-          error: userError,
-        } = await supabase.auth.getUser();
-
-        if (userError || !user) {
-          console.error("Erro ao buscar usuário logado:", userError);
-          return;
-        }
-
-        const { error } = await supabase.from("profiles").update({ keep_context: value }).eq("id", user.id);
-
-        if (error) {
-          console.error("Erro ao salvar keep_context:", error);
-        }
-      } catch (err) {
-        console.error("Erro inesperado ao salvar keep_context:", err);
-      }
-    })();
-  };
 
   // Função para scroll suave
   const scrollToSection = (ref: React.RefObject<HTMLDivElement>) => {
@@ -834,26 +829,91 @@ function PreferencesSection({
   activeLimitPeriod: string;
   setActiveLimitPeriod: (value: string) => void;
 }) {
-  const handleApplyLimit = () => {
-    const amount = parseInt(limitAmount);
-    if (!limitAmount || amount < 1 || amount > 999) {
+  const handleApplyLimit = async () => {
+    const amount = parseInt(limitAmount, 10);
+    if (!limitAmount || Number.isNaN(amount) || amount < 1 || amount > 999) {
       alert("Por favor, insira um valor entre 1 e 999");
       return;
     }
 
-    setHasActiveLimit(true);
-    setActiveLimitAmount(limitAmount);
-    setActiveLimitPeriod(limitPeriod);
-    setLimitAmount("");
-    setLimitPeriod("dia");
-    alert(`Limite ativado: ${limitAmount} créditos por ${limitPeriod}`);
+    try {
+      const {
+        data: { user },
+        error: userError,
+      } = await supabase.auth.getUser();
+
+      if (userError || !user) {
+        console.error("Erro ao buscar usuário logado:", userError);
+        alert("Sessão expirada. Faça login novamente.");
+        return;
+      }
+
+      const { error } = await supabase
+        .from("profiles")
+        .update({
+          usage_limit_credits: amount,
+          usage_limit_period: limitPeriod, // "dia" | "semana" | "mês"
+        })
+        .eq("id", user.id);
+
+      if (error) {
+        console.error("Erro ao salvar limite de uso:", error);
+        alert("Erro ao salvar limite. Tente novamente.");
+        return;
+      }
+
+      // Atualiza estado local
+      setHasActiveLimit(true);
+      setActiveLimitAmount(limitAmount);
+      setActiveLimitPeriod(limitPeriod);
+      setLimitAmount("");
+      setLimitPeriod("dia");
+
+      alert(`Limite ativado: ${amount} créditos por ${limitPeriod}`);
+    } catch (err) {
+      console.error("Erro inesperado ao salvar limite de uso:", err);
+      alert("Erro inesperado ao salvar limite. Tente novamente.");
+    }
   };
 
-  const handleRemoveLimit = () => {
-    setHasActiveLimit(false);
-    setActiveLimitAmount("");
-    setActiveLimitPeriod("dia");
-    alert("Limite desativado com sucesso!");
+  const handleRemoveLimit = async () => {
+    try {
+      const {
+        data: { user },
+        error: userError,
+      } = await supabase.auth.getUser();
+
+      if (userError || !user) {
+        console.error("Erro ao buscar usuário logado:", userError);
+        alert("Sessão expirada. Faça login novamente.");
+        return;
+      }
+
+      const { error } = await supabase
+        .from("profiles")
+        .update({
+          usage_limit_credits: null,
+          usage_limit_period: null,
+        })
+        .eq("id", user.id);
+
+      if (error) {
+        console.error("Erro ao desativar limite de uso:", error);
+        alert("Erro ao desativar limite. Tente novamente.");
+        return;
+      }
+
+      setHasActiveLimit(false);
+      setActiveLimitAmount("");
+      setActiveLimitPeriod("dia");
+      setLimitAmount("");
+      setLimitPeriod("dia");
+
+      alert("Limite desativado com sucesso!");
+    } catch (err) {
+      console.error("Erro inesperado ao desativar limite de uso:", err);
+      alert("Erro inesperado ao desativar limite. Tente novamente.");
+    }
   };
 
   return (
