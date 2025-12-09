@@ -103,8 +103,50 @@ export function HomeLogada() {
   const [showOracleSelectionModal, setShowOracleSelectionModal] = useState(false);
   const [showCardSelectionModal, setShowCardSelectionModal] = useState(false);
 
-  // Simular créditos - TODO: pegar do backend/context
-  const [credits, setCredits] = useState(0);
+  // Saldo real de créditos do usuário
+  const [credits, setCredits] = useState<number | null>(null);
+  const [creditsLoading, setCreditsLoading] = useState(false);
+
+  useEffect(() => {
+    const fetchCredits = async () => {
+      try {
+        setCreditsLoading(true);
+
+        const {
+          data: { user },
+          error: userError,
+        } = await supabase.auth.getUser();
+
+        if (userError || !user) {
+          console.error("Erro ao obter usuário logado:", userError);
+          // HomeLogada é rota protegida, mas em caso de erro assume 0
+          setCredits(0);
+          return;
+        }
+
+        const { data, error } = await supabase
+          .from("credit_balances")
+          .select("balance")
+          .eq("user_id", user.id)
+          .maybeSingle();
+
+        if (error) {
+          console.error("Erro ao buscar saldo de créditos:", error);
+          setCredits(0);
+          return;
+        }
+
+        setCredits(data?.balance ?? 0);
+      } catch (err) {
+        console.error("Erro inesperado ao buscar saldo de créditos:", err);
+        setCredits(0);
+      } finally {
+        setCreditsLoading(false);
+      }
+    };
+
+    fetchCredits();
+  }, []);
 
   // Plans carousel ref and state
   const plansRef = useRef<HTMLDivElement>(null);
@@ -145,14 +187,17 @@ export function HomeLogada() {
   const [oracleDecks, setOracleDecks] = useState<RandomizedOracleDeck[]>([]);
   const [isRandomizing, setIsRandomizing] = useState(false);
 
+  const hasCredits = (credits ?? 0) > 0;
+
   const handleFieldClick = () => {
-    if (credits === 0) {
+    if (!hasCredits) {
       setShowNoCreditsModal(true);
     }
+    // se tiver créditos, não faz nada especial – o campo continua normal
   };
 
   const handleConsultOracle = () => {
-    if (credits === 0) {
+    if (!hasCredits) {
       setShowNoCreditsModal(true);
     } else {
       setShowOracleSelectionModal(true);
