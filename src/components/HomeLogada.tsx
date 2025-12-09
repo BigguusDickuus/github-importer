@@ -69,7 +69,7 @@ const getSpreadCode = (oracleType: FrontOracleType, method: string): string => {
       case "linha_5":
         return "lenormand_5_linha";
       case "retrato_3x3":
-        return "lenormand_9_retrato_3x3`;
+        return "lenormand_9_retrato_3x3";
       case "relacionamento":
         return "lenormand_7_relacionamento";
       case "grand_tableau":
@@ -95,7 +95,6 @@ const getSpreadCode = (oracleType: FrontOracleType, method: string): string => {
       return `cartomancy_${method}`;
   }
 };
-
 
 export function HomeLogada() {
   const [question, setQuestion] = useState("");
@@ -145,7 +144,7 @@ export function HomeLogada() {
   // Decks embaralhados vindos do back (init-randomization)
   const [oracleDecks, setOracleDecks] = useState<RandomizedOracleDeck[]>([]);
   const [isRandomizing, setIsRandomizing] = useState(false);
-  
+
   const handleFieldClick = () => {
     if (credits === 0) {
       setShowNoCreditsModal(true);
@@ -217,12 +216,9 @@ export function HomeLogada() {
         spread_code: getSpreadCode(item.type, item.method),
       }));
 
-      const { data, error } = await supabase.functions.invoke<InitRandomizationResponse>(
-        "init-randomization",
-        {
-          body: { oracles: payloadOracles },
-        }
-      );
+      const { data, error } = await supabase.functions.invoke<InitRandomizationResponse>("init-randomization", {
+        body: { oracles: payloadOracles },
+      });
 
       if (error) {
         console.error("Erro ao chamar init-randomization:", error);
@@ -286,9 +282,7 @@ export function HomeLogada() {
     }));
 
     // Se já temos decks do back, loga os codes das cartas selecionadas (para debug / próximo passo)
-    const currentDeck = oracleDecks.find(
-      (o) => o.type === currentOracle.type && o.method === currentOracle.method
-    );
+    const currentDeck = oracleDecks.find((o) => o.type === currentOracle.type && o.method === currentOracle.method);
 
     if (currentDeck) {
       const selectedCodes = selectedCards.map((idx) => currentDeck.deck[idx]?.code);
