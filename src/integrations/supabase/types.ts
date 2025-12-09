@@ -77,6 +77,7 @@ export type Database = {
           description: string | null
           id: string
           metadata: Json | null
+          status: Database["public"]["Enums"]["credit_tx_status"]
           stripe_session_id: string | null
           tx_type: string
           user_id: string
@@ -89,6 +90,7 @@ export type Database = {
           description?: string | null
           id?: string
           metadata?: Json | null
+          status?: Database["public"]["Enums"]["credit_tx_status"]
           stripe_session_id?: string | null
           tx_type: string
           user_id: string
@@ -101,6 +103,7 @@ export type Database = {
           description?: string | null
           id?: string
           metadata?: Json | null
+          status?: Database["public"]["Enums"]["credit_tx_status"]
           stripe_session_id?: string | null
           tx_type?: string
           user_id?: string
@@ -116,7 +119,10 @@ export type Database = {
           full_name: string | null
           id: string
           is_admin: boolean | null
+          keep_context: boolean
           phone: string | null
+          usage_limit_credits: number | null
+          usage_limit_period: string | null
         }
         Insert: {
           birthday?: string | null
@@ -126,7 +132,10 @@ export type Database = {
           full_name?: string | null
           id: string
           is_admin?: boolean | null
+          keep_context?: boolean
           phone?: string | null
+          usage_limit_credits?: number | null
+          usage_limit_period?: string | null
         }
         Update: {
           birthday?: string | null
@@ -136,7 +145,10 @@ export type Database = {
           full_name?: string | null
           id?: string
           is_admin?: boolean | null
+          keep_context?: boolean
           phone?: string | null
+          usage_limit_credits?: number | null
+          usage_limit_period?: string | null
         }
         Relationships: []
       }
@@ -201,6 +213,7 @@ export type Database = {
           required: number
         }[]
       }
+      check_usage_limit: { Args: { p_cost: number }; Returns: boolean }
       create_reading: {
         Args: {
           _oracle_types: Database["public"]["Enums"]["oracle_type"][]
@@ -219,7 +232,6 @@ export type Database = {
         Args: { _limit?: number }
         Returns: {
           created_at: string
-          id: string
           oracle_types: Database["public"]["Enums"]["oracle_type"][]
           oracles: Json
           question: string
@@ -227,8 +239,8 @@ export type Database = {
         }[]
       }
       grant_signup_bonus:
-        | { Args: { p_user_id?: string }; Returns: undefined }
         | { Args: never; Returns: undefined }
+        | { Args: { p_user_id?: string }; Returns: undefined }
     }
     Enums: {
       credit_transaction_type:
@@ -236,6 +248,7 @@ export type Database = {
         | "purchase"
         | "reading"
         | "manual_adjustment"
+      credit_tx_status: "completed" | "pending" | "failed" | "canceled"
       oracle_type: "tarot" | "lenormand" | "cartomancy"
       reading_status: "pending" | "completed" | "error"
     }
@@ -371,6 +384,7 @@ export const Constants = {
         "reading",
         "manual_adjustment",
       ],
+      credit_tx_status: ["completed", "pending", "failed", "canceled"],
       oracle_type: ["tarot", "lenormand", "cartomancy"],
       reading_status: ["pending", "completed", "error"],
     },
