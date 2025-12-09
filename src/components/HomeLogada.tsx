@@ -5,6 +5,97 @@ import { Link } from "react-router-dom";
 import { Sparkles } from "lucide-react";
 import { OracleSelectionModal } from "./OracleSelectionModal";
 import { CardSelectionModal } from "./CardSelectionModal";
+import { supabase } from "@/integrations/supabase/client";
+
+type FrontOracleType = "tarot" | "lenormand" | "cartomancia";
+type BackendOracleType = "tarot" | "lenormand" | "cartomancy";
+
+type RandomizedOracleDeck = {
+  type: FrontOracleType;
+  method: string;
+  spreadCode: string;
+  deck: { code: string }[];
+};
+
+type InitRandomizationOracleResponse = {
+  oracle_type: BackendOracleType;
+  spread_code: string;
+  deck: { code: string }[];
+};
+
+type InitRandomizationResponse = {
+  ok: boolean;
+  current_balance: number;
+  required_credits: number;
+  oracles: InitRandomizationOracleResponse[];
+};
+
+const frontToBackendOracleType = (type: FrontOracleType): BackendOracleType =>
+  type === "cartomancia" ? "cartomancy" : type;
+
+const backendToFrontOracleType = (type: BackendOracleType): FrontOracleType =>
+  type === "cartomancy" ? "cartomancia" : type;
+
+const getSpreadCode = (oracleType: FrontOracleType, method: string): string => {
+  if (oracleType === "tarot") {
+    switch (method) {
+      case "carta_dia":
+        return "tarot_1_carta_dia";
+      case "tres_ppp":
+        return "tarot_3_passado_presente_futuro";
+      case "tres_sct":
+        return "tarot_3_situacao_conselho_tendencia";
+      case "cruz_celta":
+        return "tarot_10_cruz_celta";
+      case "dois_caminhos":
+        return "tarot_7_dois_caminhos";
+      case "relacionamento":
+        return "tarot_7_relacionamento";
+      case "linha_tempo":
+        return "tarot_6_linha_tempo";
+      case "mandala":
+        return "tarot_12_mandala_geral";
+      default:
+        return `tarot_${method}`;
+    }
+  }
+
+  if (oracleType === "lenormand") {
+    switch (method) {
+      case "carta_dia":
+        return "lenormand_1_carta_dia";
+      case "linha_3":
+        return "lenormand_3_linha";
+      case "linha_5":
+        return "lenormand_5_linha";
+      case "retrato_3x3":
+        return "lenormand_9_retrato_3x3`;
+      case "relacionamento":
+        return "lenormand_7_relacionamento";
+      case "grand_tableau":
+        return "lenormand_36_grand_tableau";
+      default:
+        return `lenormand_${method}`;
+    }
+  }
+
+  // Cartomancia
+  switch (method) {
+    case "carta_dia":
+      return "cartomancy_1_carta_dia";
+    case "tres_cartas":
+      return "cartomancy_3_situacao_obstaculo_conselho";
+    case "cruz_simples":
+      return "cartomancy_5_cruz_simples";
+    case "ferradura":
+      return "cartomancy_7_ferradura";
+    case "relacionamento":
+      return "cartomancy_7_relacionamento";
+    default:
+      return `cartomancy_${method}`;
+  }
+};
+
 
 export function HomeLogada() {
   const [question, setQuestion] = useState("");
@@ -51,6 +142,10 @@ export function HomeLogada() {
   const [currentOracleIndex, setCurrentOracleIndex] = useState(0);
   const [allSelectedCards, setAllSelectedCards] = useState<Record<string, number[]>>({});
 
+  // Decks embaralhados vindos do back (init-randomization)
+  const [oracleDecks, setOracleDecks] = useState<RandomizedOracleDeck[]>([]);
+  const [isRandomizing, setIsRandomizing] = useState(false);
+  
   const handleFieldClick = () => {
     if (credits === 0) {
       setShowNoCreditsModal(true);
@@ -91,28 +186,94 @@ export function HomeLogada() {
     }));
   };
 
-  const handleOracleSelectionProceed = () => {
-    // Criar fila de oráculos selecionados
+  const handleOracleSelectionProceed = async () => {
+    // Monta fila de oráculos selecionados (frontend)
     const queue: Array<{
-      type: "tarot" | "lenormand" | "cartomancia";
+      type: FrontOracleType;
       method: string;
     }> = [];
 
-    if (selectedOracles.tarot) {
+    if (selectedOracles.tarot && selectedMethods.tarot) {
       queue.push({ type: "tarot", method: selectedMethods.tarot });
     }
-    if (selectedOracles.lenormand) {
+    if (selectedOracles.lenormand && selectedMethods.lenormand) {
       queue.push({ type: "lenormand", method: selectedMethods.lenormand });
     }
-    if (selectedOracles.cartomancia) {
+    if (selectedOracles.cartomancia && selectedMethods.cartomancia) {
       queue.push({ type: "cartomancia", method: selectedMethods.cartomancia });
     }
 
-    setCurrentOracleQueue(queue);
-    setCurrentOracleIndex(0);
-    setAllSelectedCards({});
-    setShowOracleSelectionModal(false);
-    setShowCardSelectionModal(true);
+    if (queue.length === 0) {
+      alert("Selecione pelo menos um oráculo e um método para continuar.");
+      return;
+    }
+
+    try {
+      setIsRandomizing(true);
+
+      // Monta payload para a edge function init-randomization
+      const payloadOracles = queue.map((item) => ({
+        oracle_type: frontToBackendOracleType(item.type),
+        spread_code: getSpreadCode(item.type, item.method),
+      }));
+
+      const { data, error } = await supabase.functions.invoke<InitRandomizationResponse>(
+        "init-randomization",
+        {
+          body: { oracles: payloadOracles },
+        }
+      );
+
+      if (error) {
+        console.error("Erro ao chamar init-randomization:", error);
+
+        // Tenta extrair contexto de erro (ex.: INSUFFICIENT_CREDITS) se o client expuser
+        const ctx = (error as any)?.context as any;
+        if (ctx?.error === "INSUFFICIENT_CREDITS") {
+          // Sem créditos suficientes -> volta pro fluxo de compra
+          setShowOracleSelectionModal(false);
+          setShowNoCreditsModal(true);
+          return;
+        }
+
+        alert("Não foi possível iniciar a tiragem. Tente novamente em alguns instantes.");
+        return;
+      }
+
+      if (!data?.ok || !data.oracles?.length) {
+        console.error("Resposta inesperada de init-randomization:", data);
+        alert("Ocorreu um problema ao iniciar a tiragem. Tente novamente.");
+        return;
+      }
+
+      // Mapeia decks retornados para o shape que o front entende
+      const mappedDecks: RandomizedOracleDeck[] = data.oracles.map((oracleResult, index) => {
+        const frontItem = queue[index];
+        return {
+          type: frontItem.type,
+          method: frontItem.method,
+          spreadCode: oracleResult.spread_code,
+          deck: oracleResult.deck,
+        };
+      });
+
+      setOracleDecks(mappedDecks);
+
+      // TODO (próximo passo): sincronizar credits com data.current_balance
+      // setCredits(data.current_balance);
+
+      // Atualiza fila e abre seleção de cartas
+      setCurrentOracleQueue(queue);
+      setCurrentOracleIndex(0);
+      setAllSelectedCards({});
+      setShowOracleSelectionModal(false);
+      setShowCardSelectionModal(true);
+    } catch (err) {
+      console.error("Erro inesperado ao iniciar tiragem:", err);
+      alert("Erro inesperado ao iniciar a tiragem. Tente novamente.");
+    } finally {
+      setIsRandomizing(false);
+    }
   };
 
   const handleCardSelectionComplete = (selectedCards: number[]) => {
@@ -124,13 +285,23 @@ export function HomeLogada() {
       [key]: selectedCards,
     }));
 
+    // Se já temos decks do back, loga os codes das cartas selecionadas (para debug / próximo passo)
+    const currentDeck = oracleDecks.find(
+      (o) => o.type === currentOracle.type && o.method === currentOracle.method
+    );
+
+    if (currentDeck) {
+      const selectedCodes = selectedCards.map((idx) => currentDeck.deck[idx]?.code);
+      console.log("Cartas selecionadas para", key, selectedCodes);
+    }
+
     // Se houver mais oráculos na fila, vai para o próximo
     if (currentOracleIndex < currentOracleQueue.length - 1) {
       setCurrentOracleIndex((prev) => prev + 1);
     } else {
       // Finalizou todas as seleções
       setShowCardSelectionModal(false);
-      // TODO: Aqui vai para a tela de resultados/interpretação
+      // TODO: próximo passo -> chamar confirm-reading com decks + índices selecionados
       console.log("Consulta completa:", {
         question,
         oracles: currentOracleQueue,
