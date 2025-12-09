@@ -1222,6 +1222,7 @@ export function HomeLogada() {
         currentOracleIndex={currentOracleIndex}
         allSelectedCards={allSelectedCards}
         onComplete={handleCardSelectionComplete}
+        oracleDecks={oracleDecks}
       />
 
       {/* Footer */}
