@@ -312,6 +312,8 @@ export function CardSelectionModal({
                     flippedCards={flippedCards}
                     selectedCards={selectedCards}
                     onCardClick={handleCardClick}
+                    oracleType={oracleType as OracleType}
+                    currentDeck={currentDeck}
                   />
                 ) : (
                   <div
@@ -567,9 +569,23 @@ interface GrandTableauGridProps {
   flippedCards: Set<number>;
   selectedCards: number[];
   onCardClick: (cardIndex: number) => void;
+  oracleType: OracleType;
+  currentDeck: {
+    code: string;
+    reversed?: boolean;
+    is_reversed?: boolean;
+    orientation?: string;
+  }[];
 }
 
-function GrandTableauGrid({ shuffleKey, flippedCards, selectedCards, onCardClick }: GrandTableauGridProps) {
+function GrandTableauGrid({
+  shuffleKey,
+  flippedCards,
+  selectedCards,
+  onCardClick,
+  oracleType,
+  currentDeck,
+}: GrandTableauGridProps) {
   // Tamanho das cartas no Grand Tableau
   const cardWidth = 70; // px
   const cardHeight = cardWidth * 1.5; // aspect ratio 2:3
@@ -594,6 +610,8 @@ function GrandTableauGrid({ shuffleKey, flippedCards, selectedCards, onCardClick
                 onClick={() => onCardClick(cardIndex)}
                 delay={cardIndex * 0.008}
                 cardWidth={cardWidth}
+                oracleType={oracleType}
+                currentDeck={currentDeck}
               />
             );
           })}
@@ -616,6 +634,8 @@ function GrandTableauGrid({ shuffleKey, flippedCards, selectedCards, onCardClick
               onClick={() => onCardClick(cardIndex)}
               delay={cardIndex * 0.008}
               cardWidth={cardWidth}
+              oracleType={oracleType}
+              currentDeck={currentDeck}
             />
           );
         })}
@@ -633,6 +653,13 @@ interface GrandTableauCardProps {
   onClick: () => void;
   delay: number;
   cardWidth: number;
+  oracleType: OracleType;
+  currentDeck: {
+    code: string;
+    reversed?: boolean;
+    is_reversed?: boolean;
+    orientation?: string;
+  }[];
 }
 
 function GrandTableauCard({
@@ -643,14 +670,29 @@ function GrandTableauCard({
   onClick,
   delay,
   cardWidth,
+  oracleType,
+  currentDeck,
 }: GrandTableauCardProps) {
   const cardHeight = cardWidth * 1.5;
+
+  // Pega a carta correspondente no deck retornado pela edge function
+  const deckCard = (currentDeck[cardIndex] as any) || undefined;
+  const cardCode = deckCard?.code as string | undefined;
+
+  const isReversed =
+    oracleType === "tarot" && !!(deckCard?.reversed || deckCard?.is_reversed || deckCard?.orientation === "reversed");
+
+  const backUrl = getCardBackImageUrl(oracleType);
+  const frontUrl = cardCode ? getCardImageUrl(cardCode) : null;
+
+  const [backLoaded, setBackLoaded] = useState(false);
+  const [frontLoaded, setFrontLoaded] = useState(false);
 
   return (
     <div
       className="flex flex-col items-center gap-2"
       style={{
-        width: `${cardWidth}px`, // Largura fixa garante espaçamento uniforme
+        width: `${cardWidth}px`,
         flexShrink: 0,
       }}
     >
@@ -683,55 +725,48 @@ function GrandTableauCard({
           }}
         >
           {/* Verso da carta */}
-          <div
-            className="absolute inset-0 rounded-lg border-2 border-mystic-indigo/30 shadow-lg overflow-hidden"
-            style={{
-              backfaceVisibility: "hidden",
-              background: "linear-gradient(135deg, #1a1f3a 0%, #0f1423 100%)",
-            }}
-          >
-            <div className="w-full h-full flex items-center justify-center relative">
-              <div
-                className="absolute inset-0"
-                style={{
-                  border: "6px solid",
-                  borderImage: "linear-gradient(135deg, #6366F1, #F97316) 1",
-                  borderRadius: "8px",
-                  margin: "6px",
-                }}
-              />
-              <div className="relative z-10 flex flex-col items-center justify-center">
-                <Sparkles className="w-6 h-6" style={{ color: "#6366F1", marginBottom: "6px" }} />
-                <div className="w-5 h-5" style={{ borderRadius: "50%", border: "2px solid #F97316" }} />
-              </div>
-              <div
-                className="absolute inset-0 opacity-10"
-                style={{
-                  backgroundImage: `
-                    radial-gradient(circle at 50% 50%, #6366F1 1px, transparent 1px),
-                    radial-gradient(circle at 75% 25%, #F97316 1px, transparent 1px)
-                  `,
-                  backgroundSize: "15px 15px",
-                }}
-              />
-            </div>
+          <div className="absolute inset-0" style={{ backfaceVisibility: "hidden" }}>
+            {!backLoaded && <div className="w-full h-full bg-black border border-neutral-700" />}
+
+            <img
+              src={backUrl}
+              alt="Verso da carta"
+              className="w-full h-full object-contain"
+              style={{ display: backLoaded ? "block" : "none" }}
+              onLoad={() => setBackLoaded(true)}
+              loading="lazy"
+            />
           </div>
 
           {/* Frente da carta */}
           <div
-            className="absolute inset-0 rounded-lg border-2 border-mystic-indigo shadow-lg overflow-hidden"
+            className="absolute inset-0"
             style={{
               backfaceVisibility: "hidden",
               transform: "rotateY(180deg)",
-              background: "linear-gradient(135deg, #f9fafb 0%, #e5e7eb 100%)",
             }}
           >
-            <div className="w-full h-full flex items-center justify-center p-2">
-              <div className="text-center">
-                <div className="text-xl text-night-sky mb-1">🃏</div>
-                <div className="text-xs text-night-sky/70">Carta {cardIndex + 1}</div>
+            {!frontLoaded && <div className="w-full h-full bg-black border border-neutral-700" />}
+
+            {frontUrl && (
+              <img
+                src={frontUrl}
+                alt={cardCode ?? `Carta ${cardIndex + 1}`}
+                className="w-full h-full object-contain"
+                style={{
+                  display: frontLoaded ? "block" : "none",
+                  ...(oracleType === "tarot" && isReversed ? { transform: "rotate(180deg)" } : {}),
+                }}
+                onLoad={() => setFrontLoaded(true)}
+                loading="lazy"
+              />
+            )}
+
+            {!frontUrl && !frontLoaded && (
+              <div className="w-full h-full flex items-center justify-center bg-black border border-neutral-700 text-xs text-starlight-text/60">
+                {cardIndex + 1}
               </div>
-            </div>
+            )}
           </div>
         </motion.div>
 
@@ -748,11 +783,11 @@ function GrandTableauCard({
         )}
       </motion.div>
 
-      {/* Legenda da casa (sempre visível) - com largura fixa e quebra de linha */}
+      {/* Legenda da casa (sempre visível) */}
       <div
         className="text-center"
         style={{
-          width: `${cardWidth}px`, // Mesma largura da carta
+          width: `${cardWidth}px`,
         }}
       >
         <p className="text-xs text-mystic-indigo leading-tight">
