@@ -5,6 +5,10 @@ export type OracleType = "tarot" | "lenormand" | "cartomancia";
 
 const ORACLE_BUCKET = "oracle-cards";
 
+// Cache simples em memória pra não ficar chamando getPublicUrl toda hora
+const cardUrlCache = new Map<string, string>();
+const backUrlCache = new Map<OracleType, string>();
+
 export function getCardStoragePath(code: string): string {
   // TAROT – MAIORES
   if (code.startsWith("tarot_major_")) {
@@ -30,11 +34,10 @@ export function getCardStoragePath(code: string): string {
 
   // LENORMAND
   if (code.startsWith("lenormand_")) {
-    // Ex.: lenormand_01_rider → lenormand/lenormand_01_rider.png
     return `lenormand/${code}.png`;
   }
 
-  // CARTOMANCY
+  // CARTOMANCIA
   if (code.startsWith("cartomancy_clubs_")) {
     return `cartomancy/clubs/${code}.png`;
   }
@@ -71,13 +74,23 @@ export function getCardBackStoragePath(oracleType: OracleType): string {
 }
 
 export function getCardImageUrl(code: string): string {
+  const cached = cardUrlCache.get(code);
+  if (cached) return cached;
+
   const path = getCardStoragePath(code);
   const { data } = supabase.storage.from(ORACLE_BUCKET).getPublicUrl(path);
-  return data.publicUrl;
+  const url = data.publicUrl;
+  cardUrlCache.set(code, url);
+  return url;
 }
 
 export function getCardBackImageUrl(oracleType: OracleType): string {
+  const cached = backUrlCache.get(oracleType);
+  if (cached) return cached;
+
   const path = getCardBackStoragePath(oracleType);
   const { data } = supabase.storage.from(ORACLE_BUCKET).getPublicUrl(path);
-  return data.publicUrl;
+  const url = data.publicUrl;
+  backUrlCache.set(oracleType, url);
+  return url;
 }
