@@ -304,7 +304,54 @@ export function CardSelectionModal({
                     transform: totalCards > 52 ? "translateX(-12px)" : "translateX(-16px)",
                   }}
                 >
-                  {/* ... resto do map de cartas que já existia ... */}
+                  {Array.from({ length: totalCards }, (_, i) => {
+                    const cardSize: "small" | "medium" = totalCards > 52 ? "small" : "medium";
+                    const cardWidth = cardSize === "small" ? 60 : 80;
+                    const visiblePart = cardWidth * 0.6;
+
+                    const deckCard = currentDeck[i] as any | undefined;
+                    const cardCode = deckCard?.code as string | undefined;
+                    const isReversed =
+                      oracleType === "tarot" &&
+                      !!(deckCard?.reversed || deckCard?.is_reversed || deckCard?.orientation === "reversed");
+
+                    return (
+                      <div
+                        key={`${shuffleKey}-${i}`}
+                        style={{
+                          width: `${visiblePart}px`,
+                          height: `${cardWidth * 1.5}px`,
+                          marginTop: "12px",
+                          marginBottom: "12px",
+                          position: "relative",
+                          flexShrink: 0,
+                        }}
+                      >
+                        <div
+                          style={{
+                            width: `${cardWidth}px`,
+                            height: `${cardWidth * 1.5}px`,
+                            position: "absolute",
+                            left: 0,
+                            top: 0,
+                            zIndex: selectedCards.includes(i) ? 20 : 10,
+                          }}
+                        >
+                          <Card
+                            index={i}
+                            isFlipped={flippedCards.has(i)}
+                            isSelected={selectedCards.includes(i)}
+                            onClick={() => handleCardClick(i)}
+                            delay={i * 0.008}
+                            oracleType={oracleType as OracleType}
+                            cardSize={cardSize}
+                            cardCode={cardCode}
+                            isReversed={isReversed}
+                          />
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
               )}
             </div>
