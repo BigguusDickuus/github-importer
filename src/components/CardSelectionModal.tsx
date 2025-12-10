@@ -195,6 +195,20 @@ export function CardSelectionModal({
 
   const canProceed = selectedCards.length === cardsNeeded || (isGrandTableau && hasFlippedAny);
 
+  // Quando o usuário termina de escolher as cartas (exceto Grand Tableau),
+  // mostramos o preview em destaque
+  const [showSelectionPreview, setShowSelectionPreview] = useState(false);
+
+  useEffect(() => {
+    if (!isGrandTableau && cardsNeeded > 0 && selectedCards.length === cardsNeeded) {
+      setShowSelectionPreview(true);
+    } else if (selectedCards.length < cardsNeeded) {
+      // Se por algum motivo voltarmos a ter menos cartas (reset, embaralhar, outro método),
+      // some o preview
+      setShowSelectionPreview(false);
+    }
+  }, [selectedCards, cardsNeeded, isGrandTableau]);
+
   if (!isOpen) return null;
 
   return (
@@ -278,80 +292,140 @@ export function CardSelectionModal({
             }}
             onClick={(e) => e.stopPropagation()}
           >
-            <div style={{ padding: "24px 32px" }}>
+            <div style={{ padding: "24px 32px" }} className="relative">
               {/* Pré-carrega o verso do baralho atual */}
               <img src={getCardBackImageUrl(oracleType as OracleType)} alt="" className="hidden" />
 
-              {/* Renderização condicional: Grand Tableau vs outros métodos */}
-              {isGrandTableau ? (
-                // Layout especial do Grand Tableau: 8x4 + 4
-                <GrandTableauGrid
-                  shuffleKey={shuffleKey}
-                  flippedCards={flippedCards}
-                  selectedCards={selectedCards}
-                  onCardClick={handleCardClick}
-                />
-              ) : (
-                <div
-                  style={{
-                    position: "relative",
-                    display: "flex",
-                    flexWrap: "wrap",
-                    justifyContent: "center",
-                    alignItems: "flex-start",
-                    gap: "0",
-                    margin: "0 auto",
-                    transform: totalCards > 52 ? "translateX(-12px)" : "translateX(-16px)",
-                  }}
-                >
-                  {Array.from({ length: totalCards }, (_, i) => {
-                    const cardSize: "small" | "medium" = totalCards > 52 ? "small" : "medium";
-                    const cardWidth = cardSize === "small" ? 60 : 80;
-                    const visiblePart = cardWidth * 0.6;
+              {/* CONTAINER DA MESA: recebe blur quando o preview está ativo (exceto Grand Tableau) */}
+              <div
+                className={
+                  !isGrandTableau && showSelectionPreview
+                    ? "transition-all duration-300 blur-sm pointer-events-none"
+                    : "transition-all duration-300"
+                }
+              >
+                {/* Renderização condicional: Grand Tableau vs outros métodos */}
+                {isGrandTableau ? (
+                  // Layout especial do Grand Tableau: 8x4 + 4
+                  <GrandTableauGrid
+                    shuffleKey={shuffleKey}
+                    flippedCards={flippedCards}
+                    selectedCards={selectedCards}
+                    onCardClick={handleCardClick}
+                  />
+                ) : (
+                  <div
+                    style={{
+                      position: "relative",
+                      display: "flex",
+                      flexWrap: "wrap",
+                      justifyContent: "center",
+                      alignItems: "flex-start",
+                      gap: "0",
+                      margin: "0 auto",
+                      transform: totalCards > 52 ? "translateX(-12px)" : "translateX(-16px)",
+                    }}
+                  >
+                    {Array.from({ length: totalCards }, (_, i) => {
+                      const cardSize: "small" | "medium" = totalCards > 52 ? "small" : "medium";
+                      const cardWidth = cardSize === "small" ? 60 : 80;
+                      const visiblePart = cardWidth * 0.6;
 
-                    const deckCard = currentDeck[i] as any | undefined;
-                    const cardCode = deckCard?.code as string | undefined;
-                    const isReversed =
-                      oracleType === "tarot" &&
-                      !!(deckCard?.reversed || deckCard?.is_reversed || deckCard?.orientation === "reversed");
+                      const deckCard = currentDeck[i] as any | undefined;
+                      const cardCode = deckCard?.code as string | undefined;
+                      const isReversed =
+                        oracleType === "tarot" &&
+                        !!(deckCard?.reversed || deckCard?.is_reversed || deckCard?.orientation === "reversed");
 
-                    return (
-                      <div
-                        key={`${shuffleKey}-${i}`}
-                        style={{
-                          width: `${visiblePart}px`,
-                          height: `${cardWidth * 1.5}px`,
-                          marginTop: "12px",
-                          marginBottom: "12px",
-                          position: "relative",
-                          flexShrink: 0,
-                        }}
-                      >
+                      return (
                         <div
+                          key={`${shuffleKey}-${i}`}
                           style={{
-                            width: `${cardWidth}px`,
+                            width: `${visiblePart}px`,
                             height: `${cardWidth * 1.5}px`,
-                            position: "absolute",
-                            left: 0,
-                            top: 0,
-                            zIndex: selectedCards.includes(i) ? 20 : 10,
+                            marginTop: "12px",
+                            marginBottom: "12px",
+                            position: "relative",
+                            flexShrink: 0,
                           }}
                         >
-                          <Card
-                            index={i}
-                            isFlipped={flippedCards.has(i)}
-                            isSelected={selectedCards.includes(i)}
-                            onClick={() => handleCardClick(i)}
-                            delay={i * 0.008}
-                            oracleType={oracleType as OracleType}
-                            cardSize={cardSize}
-                            cardCode={cardCode}
-                            isReversed={isReversed}
-                          />
+                          <div
+                            style={{
+                              width: `${cardWidth}px`,
+                              height: `${cardWidth * 1.5}px`,
+                              position: "absolute",
+                              left: 0,
+                              top: 0,
+                              zIndex: selectedCards.includes(i) ? 20 : 10,
+                            }}
+                          >
+                            <Card
+                              index={i}
+                              isFlipped={flippedCards.has(i)}
+                              isSelected={selectedCards.includes(i)}
+                              onClick={() => handleCardClick(i)}
+                              delay={i * 0.008}
+                              oracleType={oracleType as OracleType}
+                              cardSize={cardSize}
+                              cardCode={cardCode}
+                              isReversed={isReversed}
+                            />
+                          </div>
                         </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+
+              {/* OVERLAY DE PREVIEW DAS CARTAS SELECIONADAS (somente se NÃO for Grand Tableau) */}
+              {!isGrandTableau && showSelectionPreview && selectedCards.length > 0 && (
+                <div className="pointer-events-auto absolute inset-0 flex items-center justify-center">
+                  <div className="relative max-w-4xl w-full mx-auto">
+                    {/* Fundo esfumado */}
+                    <div className="absolute inset-0 bg-night-sky/80 backdrop-blur-xl rounded-3xl border border-obsidian-border shadow-2xl" />
+
+                    <div className="relative z-10 flex flex-col items-center gap-4 p-6 md:p-8">
+                      <p className="text-sm md:text-base text-moonlight-text/80 text-center">Cartas selecionadas</p>
+
+                      <div className="flex flex-wrap justify-center gap-3 md:gap-4">
+                        {selectedCards.map((cardIndex) => {
+                          const deckCard = (currentDeck[cardIndex] as any) || undefined;
+                          const cardCode = deckCard?.code as string | undefined;
+
+                          const isReversed =
+                            oracleType === "tarot" &&
+                            !!(deckCard?.reversed || deckCard?.is_reversed || deckCard?.orientation === "reversed");
+
+                          const frontUrl = cardCode ? getCardImageUrl(cardCode) : null;
+
+                          return (
+                            <div
+                              key={`preview-${cardIndex}`}
+                              className="relative"
+                              style={{ width: "110px", height: "176px" }} // 2:3
+                            >
+                              {/* Moldura do preview */}
+                              <div className="absolute inset-0 rounded-xl bg-black/80 border border-obsidian-border shadow-xl" />
+
+                              {frontUrl ? (
+                                <img
+                                  src={frontUrl}
+                                  alt={cardCode ?? `Carta ${cardIndex + 1}`}
+                                  className="relative z-10 w-full h-full object-contain rounded-lg"
+                                  style={oracleType === "tarot" && isReversed ? { transform: "rotate(180deg)" } : {}}
+                                />
+                              ) : (
+                                <div className="relative z-10 w-full h-full flex items-center justify-center text-xs text-starlight-text/70">
+                                  {cardIndex + 1}
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
                       </div>
-                    );
-                  })}
+                    </div>
+                  </div>
                 </div>
               )}
             </div>
