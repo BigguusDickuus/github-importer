@@ -436,7 +436,7 @@ function Card({ index, isFlipped, isSelected, onClick, delay, oracleType, cardSi
           className="absolute inset-0 rounded-xl shadow-lg overflow-hidden border border-obsidian-border bg-night-sky"
           style={{ backfaceVisibility: "hidden" }}
         >
-          <img src={backUrl} alt="Verso da carta" className="w-full h-full object-contain" />
+          <img src={backUrl} alt="Verso da carta" className="w-full h-full object-contain" loading="lazy" />
         </div>
 
         {/* Frente da carta */}
@@ -452,6 +452,7 @@ function Card({ index, isFlipped, isSelected, onClick, delay, oracleType, cardSi
               alt={cardCode ?? `Carta ${index + 1}`}
               className="w-full h-full object-contain"
               style={oracleType === "tarot" && isReversed ? { transform: "rotate(180deg)" } : undefined}
+              loading="lazy"
             />
           ) : (
             <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-mystic-indigo to-mystic-indigo-dark text-xs text-starlight-text/60">
