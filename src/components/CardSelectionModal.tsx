@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "./ui/button";
 import { Shuffle, Sparkles } from "lucide-react";
 import { getCardImageUrl, getCardBackImageUrl } from "@/utils/oracleCards";
+import { supabase } from "@/integrations/supabase/client";
 
 type OracleType = "tarot" | "lenormand" | "cartomancia";
 
@@ -130,9 +131,18 @@ export function CardSelectionModal({
   const { type: oracleType, method } = currentOracleQueue[currentOracleIndex];
   const isGrandTableau = method === "grand_tableau";
 
-  // Deck embaralhado vindo do backend para este oráculo/método
-  const currentDeckEntry = oracleDecks?.find((d) => d.type === oracleType && d.method === method);
-  const currentDeck = currentDeckEntry?.deck ?? [];
+  // Deck que efetivamente está sendo exibido na mesa
+  // (começa vazio, será sincronizado com o que veio do backend via oracleDecks)
+  const [localDeck, setLocalDeck] = useState<any[]>([]);
+
+  const [selectedCards, setSelectedCards] = useState<number[]>([]);
+  const [flippedCards, setFlippedCards] = useState<Set<number>>(new Set());
+  const [hasFlippedAny, setHasFlippedAny] = useState(false);
+  const [shuffleKey, setShuffleKey] = useState(0);
+  const [isShuffling, setIsShuffling] = useState(false);
+
+  // Deck "corrente" que o resto do componente já usa (inclusive GrandTableauGrid)
+  const currentDeck = localDeck;
 
   // Número total de cartas na mesa
   // PRIORIDADE: usar sempre o tamanho do deck retornado pela edge function.
@@ -142,20 +152,30 @@ export function CardSelectionModal({
   // Quantidade de cartas que o usuário precisa escolher para esse método
   const cardsNeeded = CARDS_PER_METHOD[method] || 1;
 
-  const [selectedCards, setSelectedCards] = useState<number[]>([]);
-  const [flippedCards, setFlippedCards] = useState<Set<number>>(new Set());
-  const [hasFlippedAny, setHasFlippedAny] = useState(false);
-  const [shuffleKey, setShuffleKey] = useState(0);
-
-  // Reset state when modal opens or method changes
+  // Sempre que abrirmos o modal OU trocar o método/oráculo,
+  // sincroniza o deck local com o que veio do backend e reseta estado.
   useEffect(() => {
-    if (isOpen) {
+    if (!isOpen) return;
+
+    const entry = oracleDecks?.find((d) => d.type === oracleType && d.method === method);
+    const deckFromBackend = entry?.deck ?? [];
+
+    if (!deckFromBackend.length) {
+      // fallback: zera deck local, mas não quebra o layout
+      setLocalDeck([]);
       setSelectedCards([]);
       setFlippedCards(new Set());
       setHasFlippedAny(false);
       setShuffleKey((prev) => prev + 1);
+      return;
     }
-  }, [isOpen, method]);
+
+    setLocalDeck(deckFromBackend);
+    setSelectedCards([]);
+    setFlippedCards(new Set());
+    setHasFlippedAny(false);
+    setShuffleKey((prev) => prev + 1);
+  }, [isOpen, method, oracleType, oracleDecks]);
 
   const handleCardClick = (cardIndex: number) => {
     // Grand Tableau: ao clicar em qualquer carta, vira todas
@@ -183,8 +203,46 @@ export function CardSelectionModal({
   };
 
   const handleShuffle = () => {
-    if (hasFlippedAny) return; // Não pode embaralhar após virar primeira carta
-    setShuffleKey((prev) => prev + 1);
+    // Não pode embaralhar após virar primeira carta
+    // e não dispara de novo enquanto já está reembaralhando
+    if (hasFlippedAny || isShuffling) return;
+
+    setIsShuffling(true);
+
+    try {
+      // Embaralha o deck localmente, reaproveitando as mesmas cartas
+      setLocalDeck((prev) => {
+        // Se por algum motivo ainda não temos deck local, tenta buscar de novo do backend
+        if (!prev || prev.length === 0) {
+          const entry = oracleDecks?.find((d) => d.type === oracleType && d.method === method);
+          const base = entry?.deck ?? [];
+          const arr = [...base];
+          for (let i = arr.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [arr[i], arr[j]] = [arr[j], arr[i]];
+          }
+          return arr;
+        }
+
+        const arr = [...prev];
+        for (let i = arr.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1));
+          [arr[i], arr[j]] = [arr[j], arr[i]];
+        }
+        return arr;
+      });
+
+      // Reseta seleção/animação
+      setSelectedCards([]);
+      setFlippedCards(new Set());
+      setHasFlippedAny(false);
+      setShuffleKey((prev) => prev + 1);
+    } finally {
+      // Pequeno delay só pra não "piscar" instantâneo
+      setTimeout(() => {
+        setIsShuffling(false);
+      }, 300);
+    }
   };
 
   const handleProceed = () => {
@@ -313,7 +371,7 @@ export function CardSelectionModal({
                     selectedCards={selectedCards}
                     onCardClick={handleCardClick}
                     oracleType={oracleType as OracleType}
-                    currentDeck={currentDeck}
+                    currentDeck={localDeck}
                   />
                 ) : (
                   <div
@@ -333,7 +391,7 @@ export function CardSelectionModal({
                       const cardWidth = cardSize === "small" ? 60 : 80;
                       const visiblePart = cardWidth * 0.6;
 
-                      const deckCard = currentDeck[i] as any | undefined;
+                      const deckCard = localDeck[i] as any | undefined;
                       const cardCode = deckCard?.code as string | undefined;
                       const isReversed =
                         oracleType === "tarot" &&
@@ -444,10 +502,10 @@ export function CardSelectionModal({
                 className="w-full sm:w-auto bg-oracle-ember/90 hover:bg-oracle-ember border-2 border-oracle-ember text-starlight-text disabled:opacity-30 disabled:cursor-not-allowed disabled:bg-obsidian-border disabled:border-obsidian-border"
                 style={{ padding: "16px 32px" }}
                 onClick={handleShuffle}
-                disabled={hasFlippedAny}
+                disabled={hasFlippedAny || isShuffling}
               >
                 <Shuffle className="mr-2 w-5 h-5" />
-                Embaralhar
+                {isShuffling ? "Reembaralhando..." : "Embaralhar"}
               </Button>
 
               <Button
