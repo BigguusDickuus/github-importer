@@ -98,11 +98,7 @@ export function getCardImageUrl(code: string): string {
   if (cached) return cached;
 
   const path = getCardStoragePath(code);
-  const { data, error } = supabase.storage.from(ORACLE_BUCKET).getPublicUrl(path);
-
-  if (error) {
-    console.error("Erro ao gerar URL pública da carta:", code, error);
-  }
+  const { data } = supabase.storage.from(ORACLE_BUCKET).getPublicUrl(path);
 
   const url = data.publicUrl;
   cardUrlCache.set(code, url);
@@ -117,11 +113,7 @@ export function getCardBackImageUrl(oracleType: OracleType): string {
   if (cached) return cached;
 
   const path = getCardBackStoragePath(oracleType);
-  const { data, error } = supabase.storage.from(ORACLE_BUCKET).getPublicUrl(path);
-
-  if (error) {
-    console.error("Erro ao gerar URL pública do verso:", oracleType, error);
-  }
+  const { data } = supabase.storage.from(ORACLE_BUCKET).getPublicUrl(path);
 
   const url = data.publicUrl;
   backUrlCache.set(oracleType, url);
