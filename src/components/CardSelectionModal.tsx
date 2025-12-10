@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion } from "framer-motion";
 import { Button } from "./ui/button";
 import { Shuffle, Sparkles } from "lucide-react";
 import { getCardImageUrl, getCardBackImageUrl } from "@/utils/oracleCards";
@@ -14,7 +14,7 @@ interface OracleDeck {
     code: string;
     reversed?: boolean;
     is_reversed?: boolean;
-    orientation?: string; // "reversed" ou "upright", se você escolher esse formato
+    orientation?: string; // "reversed" | "upright"
   }[];
 }
 
@@ -22,17 +22,16 @@ interface CardSelectionModalProps {
   isOpen: boolean;
   onClose: () => void;
   currentOracleQueue: Array<{
-    type: "tarot" | "lenormand" | "cartomancia";
+    type: OracleType;
     method: string;
   }>;
   currentOracleIndex: number;
   allSelectedCards: Record<string, number[]>;
   onCardSelect?: (oracleType: string, cardIndex: number) => void;
   onComplete: (selectedCards: number[]) => void;
-  oracleDecks?: OracleDeck[]; // <- NOVO
+  oracleDecks?: OracleDeck[];
 }
 
-// Mapeamento de métodos para número de cartas necessárias
 const CARDS_PER_METHOD: Record<string, number> = {
   // Tarot
   carta_dia: 1,
@@ -43,13 +42,11 @@ const CARDS_PER_METHOD: Record<string, number> = {
   relacionamento: 7,
   linha_tempo: 6,
   mandala: 12,
-
   // Lenormand
   linha_3: 3,
   linha_5: 5,
   retrato_3x3: 9,
   grand_tableau: 36,
-
   // Cartomancia
   tres_cartas: 3,
   cruz_simples: 4,
@@ -57,14 +54,12 @@ const CARDS_PER_METHOD: Record<string, number> = {
   nove_cartas: 9,
 };
 
-// Número total de cartas por oráculo
 const TOTAL_CARDS: Record<string, number> = {
   tarot: 78,
   lenormand: 36,
   cartomancia: 52,
 };
 
-// Casas fixas do Grand Tableau (Lenormand)
 const GRAND_TABLEAU_HOUSES = [
   { number: 1, name: "Cavaleiro", meaning: "notícias, chegada, movimento" },
   { number: 2, name: "Trevo", meaning: "sorte, oportunidade, alívio" },
@@ -104,7 +99,6 @@ const GRAND_TABLEAU_HOUSES = [
   { number: 36, name: "Cruz", meaning: "peso, destino, prova" },
 ];
 
-// Nomes dos oráculos para exibição
 const ORACLE_NAMES: Record<string, string> = {
   tarot: "Tarot",
   lenormand: "Lenormand",
@@ -121,25 +115,20 @@ export function CardSelectionModal({
   onComplete,
   oracleDecks,
 }: CardSelectionModalProps) {
-  // Verifica se há um oráculo na fila antes de continuar
+  if (!isOpen) return null;
   if (!currentOracleQueue || currentOracleQueue.length === 0 || !currentOracleQueue[currentOracleIndex]) {
     return null;
   }
 
-  // Tipo de oráculo e método atual
   const { type: oracleType, method } = currentOracleQueue[currentOracleIndex];
   const isGrandTableau = method === "grand_tableau";
 
-  // Deck embaralhado vindo do backend para este oráculo/método
   const currentDeckEntry = oracleDecks?.find((d) => d.type === oracleType && d.method === method);
   const currentDeck = currentDeckEntry?.deck ?? [];
 
-  // Número total de cartas na mesa
-  // PRIORIDADE: usar sempre o tamanho do deck retornado pela edge function.
-  // Se por algum motivo vier vazio, cai no mapping estático como fallback.
+  // prioridade: tamanho vindo da Edge Function; fallback: TOTAL_CARDS
   const totalCards = (currentDeck && currentDeck.length > 0 ? currentDeck.length : TOTAL_CARDS[oracleType]) || 0;
 
-  // Quantidade de cartas que o usuário precisa escolher para esse método
   const cardsNeeded = CARDS_PER_METHOD[method] || 1;
 
   const [selectedCards, setSelectedCards] = useState<number[]>([]);
@@ -147,7 +136,6 @@ export function CardSelectionModal({
   const [hasFlippedAny, setHasFlippedAny] = useState(false);
   const [shuffleKey, setShuffleKey] = useState(0);
 
-  // Reset state when modal opens or method changes
   useEffect(() => {
     if (isOpen) {
       setSelectedCards([]);
@@ -158,57 +146,51 @@ export function CardSelectionModal({
   }, [isOpen, method]);
 
   const handleCardClick = (cardIndex: number) => {
-    // Grand Tableau: ao clicar em qualquer carta, vira todas
     if (isGrandTableau && !hasFlippedAny) {
-      const allCards = Array.from({ length: totalCards }, (_, i) => i);
-      setSelectedCards(allCards);
-      setFlippedCards(new Set(allCards));
+      const all = Array.from({ length: totalCards }, (_, i) => i);
+      setSelectedCards(all);
+      setFlippedCards(new Set(all));
       setHasFlippedAny(true);
       return;
     }
 
-    // Se já está virada, não faz nada
     if (flippedCards.has(cardIndex)) return;
-
-    // Se já selecionou o número necessário de cartas, não permite mais
     if (selectedCards.length >= cardsNeeded) return;
 
-    // Adiciona carta à seleção
     setSelectedCards((prev) => [...prev, cardIndex]);
     setFlippedCards((prev) => new Set([...prev, cardIndex]));
     setHasFlippedAny(true);
+
     if (onCardSelect) {
       onCardSelect(oracleType, cardIndex);
     }
   };
 
   const handleShuffle = () => {
-    if (hasFlippedAny) return; // Não pode embaralhar após virar primeira carta
+    if (hasFlippedAny) return;
     setShuffleKey((prev) => prev + 1);
   };
 
   const handleProceed = () => {
-    if (selectedCards.length === cardsNeeded || isGrandTableau) {
+    if (selectedCards.length === cardsNeeded || (isGrandTableau && hasFlippedAny)) {
       onComplete(selectedCards);
     }
   };
 
   const canProceed = selectedCards.length === cardsNeeded || (isGrandTableau && hasFlippedAny);
 
-  if (!isOpen) return null;
-
   return (
     <>
-      {/* Backdrop com blur */}
+      {/* overlay */}
       <div className="fixed inset-0 z-50 bg-night-sky/90 backdrop-blur-md" onClick={onClose} />
 
-      {/* Modal */}
+      {/* container principal */}
       <div
         className="fixed inset-0 z-50 flex items-center justify-center pointer-events-none"
         style={{ padding: "16px" }}
       >
         <div className="relative pointer-events-auto w-full max-w-7xl flex flex-col" style={{ maxHeight: "90vh" }}>
-          {/* Botão X fora do modal */}
+          {/* Botão X */}
           <button
             onClick={onClose}
             className="absolute -top-4 -right-4 w-10 h-10 rounded-full bg-midnight-surface border border-obsidian-border text-moonlight-text hover:text-starlight-text hover:border-mystic-indigo transition-colors flex items-center justify-center z-10"
@@ -225,12 +207,12 @@ export function CardSelectionModal({
               strokeLinecap="round"
               strokeLinejoin="round"
             >
-              <line x1="18" y1="6" x2="6" y2="18"></line>
-              <line x1="6" y1="6" x2="18" y2="18"></line>
+              <line x1="18" y1="6" x2="6" y2="18" />
+              <line x1="6" y1="6" x2="18" y2="18" />
             </svg>
           </button>
 
-          {/* Header fixo */}
+          {/* HEADER */}
           <div
             className="bg-midnight-surface border border-obsidian-border rounded-t-3xl shadow-2xl"
             style={{ padding: "24px" }}
@@ -252,39 +234,37 @@ export function CardSelectionModal({
             </div>
           </div>
 
-          {/* Área de cartas com textura de feltro - scrollável */}
+          {/* MESA DE CARTAS */}
           <div
             className="flex-1 overflow-y-auto bg-midnight-surface border-x border-obsidian-border"
             style={{
               background: `
-      radial-gradient(ellipse at center, rgba(16, 19, 34, 0.95) 0%, rgba(5, 8, 22, 0.98) 100%),
-      repeating-linear-gradient(
-        0deg,
-        rgba(99, 102, 241, 0.03) 0px,
-        transparent 1px,
-        transparent 2px,
-        rgba(99, 102, 241, 0.03) 3px
-      ),
-      repeating-linear-gradient(
-        90deg,
-        rgba(249, 115, 22, 0.02) 0px,
-        transparent 1px,
-        transparent 2px,
-        rgba(249, 115, 22, 0.02) 3px
-      ),
-      linear-gradient(135deg, #0a0e1a 0%, #050816 50%, #0a0e1a 100%)
-    `,
+                radial-gradient(ellipse at center, rgba(16, 19, 34, 0.95) 0%, rgba(5, 8, 22, 0.98) 100%),
+                repeating-linear-gradient(
+                  0deg,
+                  rgba(99, 102, 241, 0.03) 0px,
+                  transparent 1px,
+                  transparent 2px,
+                  rgba(99, 102, 241, 0.03) 3px
+                ),
+                repeating-linear-gradient(
+                  90deg,
+                  rgba(249, 115, 22, 0.02) 0px,
+                  transparent 1px,
+                  transparent 2px,
+                  rgba(249, 115, 22, 0.02) 3px
+                ),
+                linear-gradient(135deg, #0a0e1a 0%, #050816 50%, #0a0e1a 100%)
+              `,
               boxShadow: "inset 0 2px 10px rgba(0, 0, 0, 0.5)",
             }}
             onClick={(e) => e.stopPropagation()}
           >
             <div style={{ padding: "24px 32px" }}>
-              {/* Pré-carrega o verso do baralho atual */}
+              {/* pré-carrega o verso do baralho atual para acelerar */}
               <img src={getCardBackImageUrl(oracleType as OracleType)} alt="" className="hidden" />
 
-              {/* Renderização condicional: Grand Tableau vs outros métodos */}
               {isGrandTableau ? (
-                // Layout especial do Grand Tableau: 8x4 + 4
                 <GrandTableauGrid
                   shuffleKey={shuffleKey}
                   flippedCards={flippedCards}
@@ -292,64 +272,29 @@ export function CardSelectionModal({
                   onCardClick={handleCardClick}
                 />
               ) : (
-                <div
-                  style={{
-                    position: "relative",
-                    display: "flex",
-                    flexWrap: "wrap",
-                    justifyContent: "center",
-                    alignItems: "flex-start",
-                    gap: "0",
-                    margin: "0 auto",
-                    transform: totalCards > 52 ? "translateX(-12px)" : "translateX(-16px)",
-                  }}
-                >
+                <div className="flex flex-wrap justify-center gap-2 md:gap-3">
                   {Array.from({ length: totalCards }, (_, i) => {
                     const cardSize: "small" | "medium" = totalCards > 52 ? "small" : "medium";
-                    const cardWidth = cardSize === "small" ? 60 : 80;
-                    const visiblePart = cardWidth * 0.6;
 
-                    const deckCard = currentDeck[i] as any | undefined;
+                    const deckCard = (currentDeck[i] as any) || undefined;
                     const cardCode = deckCard?.code as string | undefined;
                     const isReversed =
                       oracleType === "tarot" &&
                       !!(deckCard?.reversed || deckCard?.is_reversed || deckCard?.orientation === "reversed");
 
                     return (
-                      <div
+                      <Card
                         key={`${shuffleKey}-${i}`}
-                        style={{
-                          width: `${visiblePart}px`,
-                          height: `${cardWidth * 1.5}px`,
-                          marginTop: "12px",
-                          marginBottom: "12px",
-                          position: "relative",
-                          flexShrink: 0,
-                        }}
-                      >
-                        <div
-                          style={{
-                            width: `${cardWidth}px`,
-                            height: `${cardWidth * 1.5}px`,
-                            position: "absolute",
-                            left: 0,
-                            top: 0,
-                            zIndex: selectedCards.includes(i) ? 20 : 10,
-                          }}
-                        >
-                          <Card
-                            index={i}
-                            isFlipped={flippedCards.has(i)}
-                            isSelected={selectedCards.includes(i)}
-                            onClick={() => handleCardClick(i)}
-                            delay={i * 0.008}
-                            oracleType={oracleType as OracleType}
-                            cardSize={cardSize}
-                            cardCode={cardCode}
-                            isReversed={isReversed}
-                          />
-                        </div>
-                      </div>
+                        index={i}
+                        isFlipped={flippedCards.has(i)}
+                        isSelected={selectedCards.includes(i)}
+                        onClick={() => handleCardClick(i)}
+                        delay={i * 0.008}
+                        oracleType={oracleType as OracleType}
+                        cardSize={cardSize}
+                        cardCode={cardCode}
+                        isReversed={isReversed}
+                      />
                     );
                   })}
                 </div>
@@ -357,7 +302,7 @@ export function CardSelectionModal({
             </div>
           </div>
 
-          {/* Footer fixo com botões */}
+          {/* FOOTER */}
           <div
             className="bg-midnight-surface border border-obsidian-border rounded-b-3xl shadow-2xl"
             style={{ padding: "24px" }}
@@ -399,7 +344,6 @@ export function CardSelectionModal({
   );
 }
 
-// Componente individual da carta com animação de flip 3D
 interface CardProps {
   index: number;
   isFlipped: boolean;
@@ -413,8 +357,8 @@ interface CardProps {
 }
 
 function Card({ index, isFlipped, isSelected, onClick, delay, oracleType, cardSize, cardCode, isReversed }: CardProps) {
-  const width = cardSize === "small" ? "60px" : "80px";
-  const height = cardSize === "small" ? "96px" : "128px";
+  const width = cardSize === "small" ? 56 : 80;
+  const height = Math.round(width * 1.6);
 
   const backUrl = getCardBackImageUrl(oracleType);
   const frontUrl = cardCode ? getCardImageUrl(cardCode) : null;
@@ -441,26 +385,25 @@ function Card({ index, isFlipped, isSelected, onClick, delay, oracleType, cardSi
         animate={{ rotateY: isFlipped ? 180 : 0 }}
         transition={{ duration: 0.6, ease: "easeInOut" }}
       >
-        {/* VERSO DA CARTA */}
+        {/* VERSO */}
         <div className="absolute inset-0" style={{ backfaceVisibility: "hidden" }}>
-          {/* placeholder enquanto o verso não carrega */}
-          {!backLoaded && <div className="w-full h-full rounded-xl bg-black border border-neutral-700" />}
+          {!backLoaded && <div className="w-full h-full rounded-lg bg-black border border-neutral-700" />}
 
           <img
             src={backUrl}
             alt="Verso da carta"
-            className="w-full h-full rounded-xl object-contain border border-neutral-700"
+            className="w-full h-full rounded-lg object-contain border border-neutral-700"
             style={{ display: backLoaded ? "block" : "none" }}
             onLoad={() => setBackLoaded(true)}
             loading="lazy"
           />
         </div>
 
-        {/* FRENTE DA CARTA */}
+        {/* FRENTE */}
         <div className="absolute inset-0" style={{ backfaceVisibility: "hidden", transform: "rotateY(180deg)" }}>
           {!frontLoaded && (
             <div
-              className={`w-full h-full rounded-xl bg-black border ${
+              className={`w-full h-full rounded-lg bg-black border ${
                 isSelected ? "border-verdant-success" : "border-neutral-700"
               }`}
             />
@@ -470,7 +413,7 @@ function Card({ index, isFlipped, isSelected, onClick, delay, oracleType, cardSi
             <img
               src={frontUrl}
               alt={cardCode ?? `Carta ${index + 1}`}
-              className={`w-full h-full rounded-xl object-contain border ${
+              className={`w-full h-full rounded-lg object-contain border ${
                 isSelected ? "border-verdant-success" : "border-neutral-700"
               }`}
               style={{
@@ -482,9 +425,9 @@ function Card({ index, isFlipped, isSelected, onClick, delay, oracleType, cardSi
             />
           )}
 
-          {/* fallback se por algum motivo não tiver frontUrl */}
+          {/* fallback se não tiver frontUrl */}
           {!frontUrl && !frontLoaded && (
-            <div className="w-full h-full flex items-center justify-center rounded-xl bg-black border border-neutral-700 text-xs text-starlight-text/60">
+            <div className="w-full h-full flex items-center justify-center rounded-lg bg-black border border-neutral-700 text-xs text-starlight-text/60">
               {index + 1}
             </div>
           )}
@@ -494,27 +437,24 @@ function Card({ index, isFlipped, isSelected, onClick, delay, oracleType, cardSi
   );
 }
 
-// Componente para o layout especial do Grand Tableau
 interface GrandTableauGridProps {
   shuffleKey: number;
   flippedCards: Set<number>;
   selectedCards: number[];
-  onCardClick: (cardIndex: number) => void;
+  onCardClick: (idx: number) => void;
 }
 
 function GrandTableauGrid({ shuffleKey, flippedCards, selectedCards, onCardClick }: GrandTableauGridProps) {
-  // Tamanho das cartas no Grand Tableau
-  const cardWidth = 70; // px
-  const cardHeight = cardWidth * 1.5; // aspect ratio 2:3
-  const gap = 12; // gap entre cartas
+  const cardWidth = 70;
+  const cardHeight = cardWidth * 1.5;
 
   return (
     <div className="flex flex-col items-center gap-6">
-      {/* Primeiras 4 linhas: 8 cartas cada em desktop, responsivo em mobile */}
+      {/* 4 linhas de 8 cartas */}
       {[0, 1, 2, 3].map((row) => (
         <div key={`row-${row}`} className="flex flex-wrap justify-center gap-3 max-w-full">
           {Array.from({ length: 8 }, (_, col) => {
-            const cardIndex = row * 8 + col; // 0-31
+            const cardIndex = row * 8 + col;
             const house = GRAND_TABLEAU_HOUSES[cardIndex];
 
             return (
@@ -527,16 +467,17 @@ function GrandTableauGrid({ shuffleKey, flippedCards, selectedCards, onCardClick
                 onClick={() => onCardClick(cardIndex)}
                 delay={cardIndex * 0.008}
                 cardWidth={cardWidth}
+                cardHeight={cardHeight}
               />
             );
           })}
         </div>
       ))}
 
-      {/* 5ª linha: 4 cartas centralizadas */}
+      {/* última linha com 4 cartas */}
       <div className="flex flex-wrap justify-center gap-3">
         {Array.from({ length: 4 }, (_, col) => {
-          const cardIndex = 32 + col; // 32-35
+          const cardIndex = 32 + col;
           const house = GRAND_TABLEAU_HOUSES[cardIndex];
 
           return (
@@ -549,6 +490,7 @@ function GrandTableauGrid({ shuffleKey, flippedCards, selectedCards, onCardClick
               onClick={() => onCardClick(cardIndex)}
               delay={cardIndex * 0.008}
               cardWidth={cardWidth}
+              cardHeight={cardHeight}
             />
           );
         })}
@@ -557,7 +499,6 @@ function GrandTableauGrid({ shuffleKey, flippedCards, selectedCards, onCardClick
   );
 }
 
-// Componente individual para carta do Grand Tableau com legenda de casa
 interface GrandTableauCardProps {
   cardIndex: number;
   house: { number: number; name: string; meaning: string };
@@ -566,6 +507,7 @@ interface GrandTableauCardProps {
   onClick: () => void;
   delay: number;
   cardWidth: number;
+  cardHeight: number;
 }
 
 function GrandTableauCard({
@@ -576,24 +518,16 @@ function GrandTableauCard({
   onClick,
   delay,
   cardWidth,
+  cardHeight,
 }: GrandTableauCardProps) {
-  const cardHeight = cardWidth * 1.5;
-
   return (
-    <div
-      className="flex flex-col items-center gap-2"
-      style={{
-        width: `${cardWidth}px`, // Largura fixa garante espaçamento uniforme
-        flexShrink: 0,
-      }}
-    >
-      {/* Carta com flip 3D */}
+    <div className="flex flex-col items-center gap-2" style={{ width: `${cardWidth}px` }}>
       <motion.div
         initial={{ opacity: 0, scale: 0.8, y: 20 }}
         animate={{ opacity: 1, scale: isSelected ? 1.05 : 1, y: 0 }}
         transition={{
           duration: 0.3,
-          delay: delay,
+          delay,
           ease: "easeOut",
         }}
         className="relative cursor-pointer"
@@ -606,16 +540,11 @@ function GrandTableauCard({
       >
         <motion.div
           className="relative w-full h-full"
-          style={{
-            transformStyle: "preserve-3d",
-          }}
+          style={{ transformStyle: "preserve-3d" }}
           animate={{ rotateY: isFlipped ? 180 : 0 }}
-          transition={{
-            duration: 0.6,
-            ease: "easeInOut",
-          }}
+          transition={{ duration: 0.6, ease: "easeInOut" }}
         >
-          {/* Verso da carta */}
+          {/* VERSO / placeholder do GT */}
           <div
             className="absolute inset-0 rounded-lg border-2 border-mystic-indigo/30 shadow-lg overflow-hidden"
             style={{
@@ -635,7 +564,13 @@ function GrandTableauCard({
               />
               <div className="relative z-10 flex flex-col items-center justify-center">
                 <Sparkles className="w-6 h-6" style={{ color: "#6366F1", marginBottom: "6px" }} />
-                <div className="w-5 h-5" style={{ borderRadius: "50%", border: "2px solid #F97316" }} />
+                <div
+                  className="w-5 h-5"
+                  style={{
+                    borderRadius: "50%",
+                    border: "2px solid #F97316",
+                  }}
+                />
               </div>
               <div
                 className="absolute inset-0 opacity-10"
@@ -650,7 +585,7 @@ function GrandTableauCard({
             </div>
           </div>
 
-          {/* Frente da carta */}
+          {/* FRENTE SIMPLIFICADA (por enquanto só marcador genérico) */}
           <div
             className="absolute inset-0 rounded-lg border-2 border-mystic-indigo shadow-lg overflow-hidden"
             style={{
@@ -668,7 +603,6 @@ function GrandTableauCard({
           </div>
         </motion.div>
 
-        {/* Indicador de seleção */}
         {isSelected && (
           <motion.div
             initial={{ scale: 0 }}
@@ -681,13 +615,8 @@ function GrandTableauCard({
         )}
       </motion.div>
 
-      {/* Legenda da casa (sempre visível) - com largura fixa e quebra de linha */}
-      <div
-        className="text-center"
-        style={{
-          width: `${cardWidth}px`, // Mesma largura da carta
-        }}
-      >
+      {/* legenda da casa */}
+      <div className="text-center" style={{ width: `${cardWidth}px` }}>
         <p className="text-xs text-mystic-indigo leading-tight">
           {house.number}. {house.name}
         </p>
