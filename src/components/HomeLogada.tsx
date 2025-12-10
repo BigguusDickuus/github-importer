@@ -5,6 +5,7 @@ import { Link } from "react-router-dom";
 import { Sparkles } from "lucide-react";
 import { OracleSelectionModal } from "./OracleSelectionModal";
 import { CardSelectionModal } from "./CardSelectionModal";
+import { ReadingResultModal } from "./ReadingResultModal";
 import { supabase } from "@/integrations/supabase/client";
 
 type FrontOracleType = "tarot" | "lenormand" | "cartomancia";
@@ -14,7 +15,12 @@ type RandomizedOracleDeck = {
   type: FrontOracleType;
   method: string;
   spreadCode: string;
-  deck: { code: string }[];
+  deck: {
+    code: string;
+    reversed?: boolean;
+    is_reversed?: boolean;
+    orientation?: string;
+  }[];
 };
 
 type InitRandomizationOracleResponse = {
@@ -96,6 +102,95 @@ const getSpreadCode = (oracleType: FrontOracleType, method: string): string => {
   }
 };
 
+// Nome bonitinho de cada oráculo
+const getOracleDisplayName = (type: FrontOracleType): string => {
+  switch (type) {
+    case "tarot":
+      return "Tarot";
+    case "lenormand":
+      return "Lenormand";
+    case "cartomancia":
+      return "Cartomancia Clássica";
+    default:
+      return type;
+  }
+};
+
+// Nome bonitinho de cada método (para GPT e modal)
+const getSpreadDisplayName = (oracleType: FrontOracleType, method: string): string => {
+  if (oracleType === "tarot") {
+    switch (method) {
+      case "carta_dia":
+        return "Carta do Dia";
+      case "tres_ppp":
+        return "Passado, Presente e Futuro";
+      case "tres_sct":
+        return "Situação, Conselho e Tendência";
+      case "cruz_celta":
+        return "Cruz Celta";
+      case "dois_caminhos":
+        return "Dois Caminhos";
+      case "relacionamento":
+        return "Relacionamento";
+      case "linha_tempo":
+        return "Linha do Tempo";
+      case "mandala":
+        return "Mandala Geral";
+      default:
+        return method;
+    }
+  }
+
+  if (oracleType === "lenormand") {
+    switch (method) {
+      case "carta_dia":
+        return "Carta do Dia";
+      case "linha_3":
+        return "Linha de 3";
+      case "linha_5":
+        return "Linha de 5";
+      case "retrato_3x3":
+        return "Retrato 3x3";
+      case "relacionamento":
+        return "Relacionamento";
+      case "grand_tableau":
+        return "Grand Tableau";
+      default:
+        return method;
+    }
+  }
+
+  // Cartomancia
+  switch (method) {
+    case "carta_dia":
+      return "Carta do Dia";
+    case "tres_cartas":
+      return "Três Cartas";
+    case "cruz_simples":
+      return "Cruz Simples";
+    case "ferradura":
+      return "Ferradura";
+    case "relacionamento":
+      return "Relacionamento";
+    default:
+      return method;
+  }
+};
+
+// Label compacta combinando todos os spreads usados na leitura
+const buildCombinedSpreadLabel = (
+  queue: Array<{
+    type: FrontOracleType;
+    method: string;
+  }>,
+): string => {
+  if (!queue.length) return "Consulta personalizada";
+
+  return queue
+    .map((item) => `${getOracleDisplayName(item.type)} – ${getSpreadDisplayName(item.type, item.method)}`)
+    .join(" + ");
+};
+
 export function HomeLogada() {
   const [question, setQuestion] = useState("");
   const [showPaymentModal, setShowPaymentModal] = useState(false);
@@ -107,8 +202,18 @@ export function HomeLogada() {
   const [credits, setCredits] = useState<number | null>(null);
   const [creditsLoading, setCreditsLoading] = useState(false);
 
+  // Preferência de contexto do usuário (profiles.keep_context)
+  const [keepContext, setKeepContext] = useState<boolean>(false);
+
+  // Estado do resultado da leitura (ReadingResultModal)
+  const [showReadingResultModal, setShowReadingResultModal] = useState(false);
+  const [readingIsLoading, setReadingIsLoading] = useState(false);
+  const [readingResponse, setReadingResponse] = useState<string | undefined>(undefined);
+  const [readingSpreadLabel, setReadingSpreadLabel] = useState<string>("Consulta personalizada");
+  const [readingSelectedCards, setReadingSelectedCards] = useState<number[]>([]);
+
   useEffect(() => {
-    const fetchCredits = async () => {
+    const fetchCreditsAndPreferences = async () => {
       try {
         setCreditsLoading(true);
 
@@ -119,33 +224,45 @@ export function HomeLogada() {
 
         if (userError || !user) {
           console.error("Erro ao obter usuário logado:", userError);
-          // HomeLogada é rota protegida, mas em caso de erro assume 0
           setCredits(0);
           return;
         }
 
-        const { data, error } = await supabase
+        // Saldo de créditos
+        const { data: balanceData, error: balanceError } = await supabase
           .from("credit_balances")
           .select("balance")
           .eq("user_id", user.id)
           .maybeSingle();
 
-        if (error) {
-          console.error("Erro ao buscar saldo de créditos:", error);
+        if (balanceError) {
+          console.error("Erro ao buscar saldo de créditos:", balanceError);
           setCredits(0);
-          return;
+        } else {
+          setCredits(balanceData?.balance ?? 0);
         }
 
-        setCredits(data?.balance ?? 0);
+        // Preferência de contexto (keep_context) no profiles
+        const { data: profileData, error: profileError } = await supabase
+          .from("profiles")
+          .select("keep_context")
+          .eq("id", user.id)
+          .maybeSingle();
+
+        if (profileError) {
+          console.error("Erro ao buscar preferências de perfil:", profileError);
+        } else if (profileData) {
+          setKeepContext(!!profileData.keep_context);
+        }
       } catch (err) {
-        console.error("Erro inesperado ao buscar saldo de créditos:", err);
+        console.error("Erro inesperado ao buscar saldo de créditos e preferências:", err);
         setCredits(0);
       } finally {
         setCreditsLoading(false);
       }
     };
 
-    fetchCredits();
+    fetchCreditsAndPreferences();
   }, []);
 
   // Plans carousel ref and state
@@ -176,7 +293,7 @@ export function HomeLogada() {
   // Card selection flow state
   const [currentOracleQueue, setCurrentOracleQueue] = useState<
     Array<{
-      type: "tarot" | "lenormand" | "cartomancia";
+      type: FrontOracleType;
       method: string;
     }>
   >([]);
@@ -300,7 +417,7 @@ export function HomeLogada() {
 
       setOracleDecks(mappedDecks);
 
-      // TODO (próximo passo): sincronizar credits com data.current_balance
+      // TODO (futuro): sincronizar credits com data.current_balance, se fizer sentido
       // setCredits(data.current_balance);
 
       // Atualiza fila e abre seleção de cartas
@@ -317,16 +434,188 @@ export function HomeLogada() {
     }
   };
 
+  // Monta payload de oracles para o GPT (OraclePayload[])
+  const buildOraclesPayload = (
+    queue: Array<{ type: FrontOracleType; method: string }>,
+    selections: Record<string, number[]>,
+    decks: RandomizedOracleDeck[],
+  ) => {
+    return queue.map((item) => {
+      const backendType = frontToBackendOracleType(item.type);
+      const key = `${item.type}_${item.method}`;
+      const selectedIndices = selections[key] ?? [];
+
+      const deckEntry = decks.find((d) => d.type === item.type && d.method === item.method);
+      const deck = deckEntry?.deck ?? [];
+      const spreadCode = deckEntry?.spreadCode || getSpreadCode(item.type, item.method);
+      const spreadName = getSpreadDisplayName(item.type, item.method);
+
+      const positions = selectedIndices.map((deckIndex, posIndex) => {
+        const raw = deck[deckIndex] as any | undefined;
+        const code: string | undefined = raw?.code;
+        const reversed =
+          item.type === "tarot" && !!(raw?.reversed || raw?.is_reversed || raw?.orientation === "reversed");
+
+        return {
+          index: posIndex + 1,
+          role: `position_${posIndex + 1}`,
+          label: `Carta ${posIndex + 1}`,
+          card: {
+            code,
+            // Para não reinventar nomes, usamos o próprio code como "name"
+            name: code,
+            reversed,
+          },
+        };
+      });
+
+      return {
+        oracle_type: backendType,
+        spread_code: spreadCode,
+        spread_name: spreadName,
+        positions,
+      };
+    });
+  };
+
+  // Monta deckLog (ReadingOraclesPayload) para auditoria
+  const buildDeckLog = (
+    queue: Array<{ type: FrontOracleType; method: string }>,
+    selections: Record<string, number[]>,
+    decks: RandomizedOracleDeck[],
+  ) => {
+    const logQueue = queue.map((item) => {
+      const backendType = frontToBackendOracleType(item.type);
+      const key = `${item.type}_${item.method}`;
+      const selectedIndices = selections[key] ?? [];
+
+      const deckEntry = decks.find((d) => d.type === item.type && d.method === item.method);
+      const deck = deckEntry?.deck ?? [];
+      const spreadCode = deckEntry?.spreadCode || getSpreadCode(item.type, item.method);
+
+      const finalDeck = deck.map((c) => {
+        const isReversed = !!(c?.reversed || c?.is_reversed || c?.orientation === "reversed");
+        return {
+          code: c.code,
+          orientation: isReversed ? "reversed" : "upright",
+        };
+      });
+
+      const selectedCards = selectedIndices.map((idx) => {
+        const card = deck[idx] as any | undefined;
+        const isReversed = !!(card?.reversed || card?.is_reversed || card?.orientation === "reversed");
+
+        return {
+          code: card?.code,
+          orientation: isReversed ? "reversed" : "upright",
+          index: idx,
+        };
+      });
+
+      return {
+        oracle_type: backendType,
+        method: item.method,
+        spread_code: spreadCode,
+        initial_deck: undefined, // não estamos logando o deck inicial separadamente
+        final_deck: finalDeck,
+        rerolls: [], // não estamos rastreando reembaralhamentos ainda
+        selected_indices: selectedIndices,
+        selected_cards: selectedCards,
+      };
+    });
+
+    const deckLog: any = {
+      queue: logQueue,
+    };
+
+    return deckLog;
+  };
+
+  // Dispara a Edge Function confirm-reading com base nas seleções finais
+  const triggerConfirmReading = async (finalSelections: Record<string, number[]>) => {
+    if (!question.trim()) {
+      return;
+    }
+
+    // Monta label combinada para o modal
+    const combinedSpreadLabel = buildCombinedSpreadLabel(currentOracleQueue);
+    const flattenedSelection = Object.values(finalSelections).flat();
+
+    setReadingSpreadLabel(combinedSpreadLabel);
+    setReadingSelectedCards(flattenedSelection);
+    setReadingResponse(undefined);
+    setReadingIsLoading(true);
+    setShowReadingResultModal(true);
+
+    try {
+      const oracleTypes = currentOracleQueue.map((item) => frontToBackendOracleType(item.type));
+      const oraclesPayload = buildOraclesPayload(currentOracleQueue, finalSelections, oracleDecks);
+      const deckLog = buildDeckLog(currentOracleQueue, finalSelections, oracleDecks);
+
+      const { data, error } = await supabase.functions.invoke("confirm-reading", {
+        body: {
+          question: question.trim(),
+          oracleTypes,
+          oracles: oraclesPayload,
+          useHistory: keepContext,
+          deckLog,
+        },
+      });
+
+      if (error) {
+        console.error("Erro ao chamar confirm-reading:", error);
+
+        const ctx = (error as any)?.context as any;
+        if (ctx?.error === "INSUFFICIENT_CREDITS") {
+          setReadingResponse(
+            "Você não possui créditos suficientes para concluir esta leitura. Por favor, adquira mais créditos e tente novamente.",
+          );
+        } else if (ctx?.error === "USAGE_LIMIT_EXCEEDED") {
+          setReadingResponse(
+            "Você atingiu o limite de uso configurado para o seu período. Tente novamente mais tarde ou ajuste suas preferências de uso.",
+          );
+        } else if (ctx?.error === "NOT_AUTHENTICATED") {
+          setReadingResponse("Sua sessão expirou. Faça login novamente para continuar.");
+        } else {
+          setReadingResponse(
+            "Não foi possível gerar a interpretação desta leitura. Tente novamente em alguns instantes.",
+          );
+        }
+
+        setReadingIsLoading(false);
+        return;
+      }
+
+      const typedData = data as any;
+      const responseText: string | undefined = typedData?.response;
+      // const readingId: string | undefined = typedData?.readingId; // disponível se você quiser usar depois
+
+      setReadingResponse(
+        responseText && responseText.trim().length > 0
+          ? responseText
+          : "Não foi possível carregar a interpretação desta leitura. Tente novamente em alguns instantes.",
+      );
+      setReadingIsLoading(false);
+    } catch (err) {
+      console.error("Erro inesperado ao confirmar leitura:", err);
+      setReadingResponse("Ocorreu um erro inesperado ao gerar sua leitura. Tente novamente em alguns instantes.");
+      setReadingIsLoading(false);
+    }
+  };
+
   const handleCardSelectionComplete = (selectedCards: number[]) => {
     const currentOracle = currentOracleQueue[currentOracleIndex];
     const key = `${currentOracle.type}_${currentOracle.method}`;
 
-    setAllSelectedCards((prev) => ({
-      ...prev,
+    // Monta o objeto completo de seleções, incluindo o oráculo atual
+    const nextSelected: Record<string, number[]> = {
+      ...allSelectedCards,
       [key]: selectedCards,
-    }));
+    };
 
-    // Se já temos decks do back, loga os codes das cartas selecionadas (para debug / próximo passo)
+    setAllSelectedCards(nextSelected);
+
+    // Se já temos decks do back, loga os codes das cartas selecionadas (para debug)
     const currentDeck = oracleDecks.find((o) => o.type === currentOracle.type && o.method === currentOracle.method);
 
     if (currentDeck) {
@@ -338,14 +627,9 @@ export function HomeLogada() {
     if (currentOracleIndex < currentOracleQueue.length - 1) {
       setCurrentOracleIndex((prev) => prev + 1);
     } else {
-      // Finalizou todas as seleções
+      // Finalizou todas as seleções: fecha modal de cartas e dispara confirm-reading
       setShowCardSelectionModal(false);
-      // TODO: próximo passo -> chamar confirm-reading com decks + índices selecionados
-      console.log("Consulta completa:", {
-        question,
-        oracles: currentOracleQueue,
-        selectedCards: allSelectedCards,
-      });
+      triggerConfirmReading(nextSelected);
     }
   };
 
@@ -1268,6 +1552,17 @@ export function HomeLogada() {
         allSelectedCards={allSelectedCards}
         onComplete={handleCardSelectionComplete}
         oracleDecks={oracleDecks}
+      />
+
+      {/* Reading Result Modal */}
+      <ReadingResultModal
+        isOpen={showReadingResultModal}
+        onClose={() => setShowReadingResultModal(false)}
+        spread={readingSpreadLabel}
+        question={question}
+        selectedCards={readingSelectedCards}
+        response={readingResponse}
+        isLoading={readingIsLoading}
       />
 
       {/* Footer */}
