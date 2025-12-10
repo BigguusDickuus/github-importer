@@ -272,6 +272,13 @@ export function CardSelectionModal({
             onClick={(e) => e.stopPropagation()}
           >
             <div style={{ padding: "24px 32px" }}>
+    {/* PRÉ-CARREGA O VERSO DO BARALHO ATUAL */}
+    <img
+      src={getCardBackImageUrl(oracleType as OracleType)}
+      alt=""
+      className="hidden"
+    />
+            <div style={{ padding: "24px 32px" }}>
               {/* Renderização condicional: Grand Tableau vs outros métodos */}
               {isGrandTableau ? (
                 // Layout especial do Grand Tableau: 8x4 + 4
