@@ -202,7 +202,7 @@ export function CardSelectionModal({
     }
   };
 
-  const handleShuffle = () => {
+  const handleShuffle = async () => {
     // Não pode embaralhar após virar primeira carta
     // e não dispara de novo enquanto já está reembaralhando
     if (hasFlippedAny || isShuffling) return;
@@ -210,38 +210,53 @@ export function CardSelectionModal({
     setIsShuffling(true);
 
     try {
-      // Embaralha o deck localmente, reaproveitando as mesmas cartas
-      setLocalDeck((prev) => {
-        // Se por algum motivo ainda não temos deck local, tenta buscar de novo do backend
-        if (!prev || prev.length === 0) {
-          const entry = oracleDecks?.find((d) => d.type === oracleType && d.method === method);
-          const base = entry?.deck ?? [];
-          const arr = [...base];
-          for (let i = arr.length - 1; i > 0; i--) {
-            const j = Math.floor(Math.random() * (i + 1));
-            [arr[i], arr[j]] = [arr[j], arr[i]];
-          }
-          return arr;
-        }
+      // Descobre o "entry" desse oráculo/método no array oracleDecks
+      const entry = oracleDecks?.find((d) => d.type === oracleType && d.method === method);
 
-        const arr = [...prev];
-        for (let i = arr.length - 1; i > 0; i--) {
-          const j = Math.floor(Math.random() * (i + 1));
-          [arr[i], arr[j]] = [arr[j], arr[i]];
-        }
-        return arr;
+      // spread_code que vamos mandar para a função (se tiver no entry, usa; senão cai no method)
+      const spreadCode = (entry as any)?.spreadCode || method;
+
+      // Chama a edge function rerandomize-oracle
+      const { data, error } = await supabase.functions.invoke("rerandomize-oracle", {
+        body: {
+          oracle_type: oracleType,
+          spread_code: spreadCode,
+        },
       });
 
-      // Reseta seleção/animação
+      if (error) {
+        console.error("Erro ao chamar rerandomize-oracle:", error);
+        return;
+      }
+
+      const newDeck = (data as any)?.deck ?? [];
+
+      if (!newDeck.length) {
+        console.error("rerandomize-oracle retornou deck vazio:", data);
+        return;
+      }
+
+      // Opcional, mas importante: atualiza o objeto dentro de oracleDecks
+      // para que quem usar esse deck depois (GPT, interpretação, etc.) veja o novo deck.
+      if (entry) {
+        (entry as any).deck = newDeck;
+        if ((data as any)?.spread_code) {
+          (entry as any).spreadCode = (data as any).spread_code;
+        }
+      }
+
+      // Atualiza o deck local que a mesa está usando
+      setLocalDeck(newDeck);
+
+      // Reseta seleção/animação e força a animação de spread de novo
       setSelectedCards([]);
       setFlippedCards(new Set());
       setHasFlippedAny(false);
       setShuffleKey((prev) => prev + 1);
+    } catch (err) {
+      console.error("Erro inesperado ao reembaralhar:", err);
     } finally {
-      // Pequeno delay só pra não "piscar" instantâneo
-      setTimeout(() => {
-        setIsShuffling(false);
-      }, 300);
+      setIsShuffling(false);
     }
   };
 
