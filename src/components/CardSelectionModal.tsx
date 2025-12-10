@@ -444,12 +444,12 @@ function Card({ index, isFlipped, isSelected, onClick, delay, oracleType, cardSi
         {/* VERSO DA CARTA */}
         <div className="absolute inset-0" style={{ backfaceVisibility: "hidden" }}>
           {/* placeholder enquanto o verso não carrega */}
-          {!backLoaded && <div className="w-full h-full rounded-xl bg-black border border-neutral-700" />}
+          {!backLoaded && <div className="w-full h-full bg-black border border-neutral-700" />}
 
           <img
             src={backUrl}
             alt="Verso da carta"
-            className="w-full h-full rounded-xl object-contain border border-neutral-700"
+            className="w-full h-full object-contain"
             style={{ display: backLoaded ? "block" : "none" }}
             onLoad={() => setBackLoaded(true)}
             loading="lazy"
@@ -458,21 +458,14 @@ function Card({ index, isFlipped, isSelected, onClick, delay, oracleType, cardSi
 
         {/* FRENTE DA CARTA */}
         <div className="absolute inset-0" style={{ backfaceVisibility: "hidden", transform: "rotateY(180deg)" }}>
-          {!frontLoaded && (
-            <div
-              className={`w-full h-full rounded-xl bg-black border ${
-                isSelected ? "border-verdant-success" : "border-neutral-700"
-              }`}
-            />
-          )}
+          {/* placeholder enquanto a frente não carrega */}
+          {!frontLoaded && <div className="w-full h-full bg-black border border-neutral-700" />}
 
           {frontUrl && (
             <img
               src={frontUrl}
               alt={cardCode ?? `Carta ${index + 1}`}
-              className={`w-full h-full rounded-xl object-contain border ${
-                isSelected ? "border-verdant-success" : "border-neutral-700"
-              }`}
+              className="w-full h-full object-contain"
               style={{
                 display: frontLoaded ? "block" : "none",
                 ...(oracleType === "tarot" && isReversed ? { transform: "rotate(180deg)" } : {}),
@@ -484,7 +477,7 @@ function Card({ index, isFlipped, isSelected, onClick, delay, oracleType, cardSi
 
           {/* fallback se por algum motivo não tiver frontUrl */}
           {!frontUrl && !frontLoaded && (
-            <div className="w-full h-full flex items-center justify-center rounded-xl bg-black border border-neutral-700 text-xs text-starlight-text/60">
+            <div className="w-full h-full flex items-center justify-center bg-black border border-neutral-700 text-xs text-starlight-text/60">
               {index + 1}
             </div>
           )}
