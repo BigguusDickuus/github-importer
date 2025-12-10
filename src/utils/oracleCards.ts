@@ -85,12 +85,26 @@ export function getCardImageUrl(code: string): string {
 }
 
 export function getCardBackImageUrl(oracleType: OracleType): string {
-  const cached = backUrlCache.get(oracleType);
-  if (cached) return cached;
-
-  const path = getCardBackStoragePath(oracleType);
-  const { data } = supabase.storage.from(ORACLE_BUCKET).getPublicUrl(path);
-  const url = data.publicUrl;
-  backUrlCache.set(oracleType, url);
-  return url;
+  // Usa assets estáticos da pasta /public/cards
+  switch (oracleType) {
+    case "tarot":
+      return "/cards/tarot_back.png";
+    case "lenormand":
+      return "/cards/lenormand_back.png";
+    case "cartomancia":
+      return "/cards/cartomancy_back.png";
+    default:
+      return "/cards/tarot_back.png";
+  }
 }
+
+//export function getCardBackImageUrl(oracleType: OracleType): string {
+//  const cached = backUrlCache.get(oracleType);
+//  if (cached) return cached;
+
+//  const path = getCardBackStoragePath(oracleType);
+//  const { data } = supabase.storage.from(ORACLE_BUCKET).getPublicUrl(path);
+//  const url = data.publicUrl;
+//  backUrlCache.set(oracleType, url);
+//  return url;
+//}

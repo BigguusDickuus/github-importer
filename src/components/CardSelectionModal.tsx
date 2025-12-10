@@ -412,6 +412,9 @@ function Card({ index, isFlipped, isSelected, onClick, delay, oracleType, cardSi
   const backUrl = getCardBackImageUrl(oracleType);
   const frontUrl = cardCode ? getCardImageUrl(cardCode) : null;
 
+  const [backLoaded, setBackLoaded] = useState(false);
+  const [frontLoaded, setFrontLoaded] = useState(false);
+
   return (
     <motion.div
       initial={{ opacity: 0, scale: 0.8, y: 20 }}
@@ -431,31 +434,50 @@ function Card({ index, isFlipped, isSelected, onClick, delay, oracleType, cardSi
         animate={{ rotateY: isFlipped ? 180 : 0 }}
         transition={{ duration: 0.6, ease: "easeInOut" }}
       >
-        {/* Verso da carta */}
-        <div
-          className="absolute inset-0 rounded-xl shadow-lg overflow-hidden border border-obsidian-border bg-night-sky"
-          style={{ backfaceVisibility: "hidden" }}
-        >
-          <img src={backUrl} alt="Verso da carta" className="w-full h-full object-contain" loading="lazy" />
+        {/* VERSO DA CARTA */}
+        <div className="absolute inset-0" style={{ backfaceVisibility: "hidden" }}>
+          {/* placeholder enquanto o verso não carrega */}
+          {!backLoaded && <div className="w-full h-full rounded-xl bg-black border border-neutral-700" />}
+
+          <img
+            src={backUrl}
+            alt="Verso da carta"
+            className="w-full h-full rounded-xl object-contain border border-neutral-700"
+            style={{ display: backLoaded ? "block" : "none" }}
+            onLoad={() => setBackLoaded(true)}
+            loading="lazy"
+          />
         </div>
 
-        {/* Frente da carta */}
-        <div
-          className={`absolute inset-0 rounded-xl shadow-lg overflow-hidden border ${
-            isSelected ? "border-verdant-success" : "border-obsidian-border"
-          } bg-midnight-surface`}
-          style={{ backfaceVisibility: "hidden", transform: "rotateY(180deg)" }}
-        >
-          {frontUrl ? (
+        {/* FRENTE DA CARTA */}
+        <div className="absolute inset-0" style={{ backfaceVisibility: "hidden", transform: "rotateY(180deg)" }}>
+          {!frontLoaded && (
+            <div
+              className={`w-full h-full rounded-xl bg-black border ${
+                isSelected ? "border-verdant-success" : "border-neutral-700"
+              }`}
+            />
+          )}
+
+          {frontUrl && (
             <img
               src={frontUrl}
               alt={cardCode ?? `Carta ${index + 1}`}
-              className="w-full h-full object-contain"
-              style={oracleType === "tarot" && isReversed ? { transform: "rotate(180deg)" } : undefined}
+              className={`w-full h-full rounded-xl object-contain border ${
+                isSelected ? "border-verdant-success" : "border-neutral-700"
+              }`}
+              style={{
+                display: frontLoaded ? "block" : "none",
+                ...(oracleType === "tarot" && isReversed ? { transform: "rotate(180deg)" } : {}),
+              }}
+              onLoad={() => setFrontLoaded(true)}
               loading="lazy"
             />
-          ) : (
-            <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-mystic-indigo to-mystic-indigo-dark text-xs text-starlight-text/60">
+          )}
+
+          {/* fallback se por algum motivo não tiver frontUrl */}
+          {!frontUrl && !frontLoaded && (
+            <div className="w-full h-full flex items-center justify-center rounded-xl bg-black border border-neutral-700 text-xs text-starlight-text/60">
               {index + 1}
             </div>
           )}
