@@ -5,9 +5,15 @@ import { Save, Sparkles, RefreshCw } from "lucide-react";
 interface ReadingResultModalProps {
   isOpen: boolean;
   onClose: () => void;
+
+  // já existiam
   spread: string;
   question: string;
   selectedCards: number[];
+
+  // NOVOS
+  response?: string; // texto vindo do GPT
+  isLoading?: boolean; // true enquanto o GPT está respondendo
 }
 
 export function ReadingResultModal({
@@ -16,26 +22,19 @@ export function ReadingResultModal({
   spread,
   question,
   selectedCards,
+  response,
+  isLoading = false,
 }: ReadingResultModalProps) {
-  // Mock card names for demonstration
-  const cardNames = [
-    "O Louco",
-    "O Mago",
-    "A Sacerdotisa",
-    "A Imperatriz",
-    "O Imperador",
-    "O Hierofante",
-    "Os Amantes",
-    "O Carro",
-    "A Força",
-    "O Eremita",
-  ];
-
-  const getSpreadName = () => {
-    if (spread.includes("tres-cartas")) return "3 Cartas";
-    if (spread.includes("cruz-celta")) return "Cruz Celta";
-    return "Tarot";
-  };
+  const now = new Date();
+  const formattedDate = now.toLocaleDateString("pt-BR", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  });
+  const formattedTime = now.toLocaleTimeString("pt-BR", {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
 
   return (
     <Modal
@@ -49,144 +48,64 @@ export function ReadingResultModal({
             <Save className="w-4 h-4 mr-2" />
             Salvar leitura
           </Button>
+
           <Button variant="outline" className="flex-1">
             <RefreshCw className="w-4 h-4 mr-2" />
             Nova pergunta
-          </Button>
-          <Button variant="outline" className="flex-1" onClick={onClose}>
-            Ver histórico
           </Button>
         </div>
       }
     >
       <div className="space-y-6">
-        {/* Question */}
-        <div className="p-4 bg-night-sky rounded-xl border border-obsidian-border">
-          <p className="text-sm text-moonlight-text mb-1">Sua pergunta:</p>
-          <p className="text-starlight-text">{question}</p>
+        {/* Cabeçalho com contexto da leitura */}
+        <div className="space-y-3">
+          <p className="text-sm text-amber-300/90 flex items-center gap-2">
+            <Sparkles className="w-4 h-4" />
+            Interpretação gerada por IA, personalizada para o seu jogo.
+          </p>
+
+          <div className="bg-midnight-surface border border-obsidian-border rounded-xl px-4 py-3 text-sm">
+            <div className="text-xs text-slate-400 mb-1">Pergunta</div>
+            <div className="text-slate-100 leading-snug">{question}</div>
+
+            <div className="mt-2 flex items-center justify-between text-xs text-slate-500">
+              <span>Método: {spread}</span>
+              <span>Cartas selecionadas: {selectedCards && selectedCards.length > 0 ? selectedCards.length : 0}</span>
+            </div>
+          </div>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Left: Card Spread */}
-          <div className="space-y-4">
-            <h4 className="text-starlight-text flex items-center gap-2">
-              <Sparkles className="w-5 h-5 text-mystic-indigo" />
-              Spread: {getSpreadName()}
-            </h4>
+        {/* Conteúdo principal: loading ou resposta do GPT */}
+        {isLoading ? (
+          <div className="bg-midnight-surface border border-obsidian-border rounded-xl px-6 py-10 flex flex-col items-center justify-center gap-4 text-sm text-slate-200">
+            <RefreshCw className="w-6 h-6 animate-spin text-amber-300" />
+            <p>Analisando seu jogo... isso pode levar alguns segundos.</p>
+            <p className="text-xs text-slate-500 text-center max-w-md">
+              Mantenha esta janela aberta enquanto geramos uma interpretação detalhada com base nas cartas e na sua
+              pergunta.
+            </p>
+          </div>
+        ) : (
+          <div className="bg-midnight-surface border border-obsidian-border rounded-xl px-6 py-5 max-h-[420px] overflow-y-auto">
+            <h3 className="text-sm font-semibold text-starlight-text mb-3">Resultado da leitura</h3>
 
-            {/* Card Display */}
-            <div className="bg-gradient-to-br from-midnight-surface to-night-sky rounded-xl p-6 border border-obsidian-border">
-              {spread.includes("tres-cartas") ? (
-                // 3 Cards Layout
-                <div className="flex justify-center gap-4">
-                  {selectedCards.slice(0, 3).map((cardIndex, i) => (
-                    <div key={i} className="flex flex-col items-center gap-2">
-                      <div className="w-20 h-32 rounded-lg bg-mystic-indigo/20 border-2 border-mystic-indigo flex items-center justify-center">
-                        <span className="text-xs text-center text-mystic-indigo px-2">
-                          {cardNames[cardIndex % cardNames.length]}
-                        </span>
-                      </div>
-                      <span className="text-xs text-moonlight-text">
-                        {i === 0 ? "Passado" : i === 1 ? "Presente" : "Futuro"}
-                      </span>
-                    </div>
-                  ))}
-                </div>
+            <div className="prose prose-invert prose-sm max-w-none whitespace-pre-line text-slate-100 leading-relaxed">
+              {response && response.trim().length > 0 ? (
+                response
               ) : (
-                // Cruz Celta Layout
-                <div className="grid grid-cols-4 gap-3 max-w-md mx-auto">
-                  {selectedCards.slice(0, 10).map((cardIndex, i) => (
-                    <div
-                      key={i}
-                      className={`aspect-[2/3] rounded-lg bg-mystic-indigo/20 border-2 border-mystic-indigo flex items-center justify-center p-2 ${
-                        i === 0 ? "col-start-2" : ""
-                      } ${i === 1 ? "col-start-2 -mt-16" : ""} ${i === 2 ? "col-start-1 row-start-1" : ""} ${
-                        i === 3 ? "col-start-3 row-start-1" : ""
-                      }`}
-                    >
-                      <span className="text-[10px] text-center text-mystic-indigo">
-                        {cardNames[cardIndex % cardNames.length]}
-                      </span>
-                    </div>
-                  ))}
-                </div>
+                <span className="text-slate-400">
+                  Não foi possível carregar a interpretação desta leitura. Tente novamente em alguns instantes.
+                </span>
               )}
             </div>
-
-            {/* Mobile: Show cards list */}
-            <div className="lg:hidden space-y-2">
-              {selectedCards.map((cardIndex, i) => (
-                <div
-                  key={i}
-                  className="flex items-center gap-3 p-3 bg-midnight-surface border border-obsidian-border rounded-lg"
-                >
-                  <div className="w-12 h-12 rounded-lg bg-mystic-indigo/20 border border-mystic-indigo flex items-center justify-center flex-shrink-0">
-                    <span className="text-xs text-mystic-indigo">{i + 1}</span>
-                  </div>
-                  <div>
-                    <p className="text-starlight-text text-sm">{cardNames[cardIndex % cardNames.length]}</p>
-                    <p className="text-moonlight-text text-xs">Posição {i + 1}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
           </div>
+        )}
 
-          {/* Right: Interpretation */}
-          <div className="space-y-4">
-            <h4 className="text-starlight-text flex items-center gap-2">
-              <Sparkles className="w-5 h-5 text-mystic-indigo" />
-              Interpretação
-            </h4>
-
-            <div className="bg-midnight-surface border border-obsidian-border rounded-xl p-6 space-y-4 max-h-[500px] overflow-y-auto">
-              <div className="flex items-start gap-2 p-3 rounded-lg bg-mystic-indigo/10 border border-mystic-indigo">
-                <Sparkles className="w-5 h-5 text-mystic-indigo flex-shrink-0 mt-0.5" />
-                <p className="text-sm text-mystic-indigo">
-                  Interpretação gerada por IA baseada em sua pergunta e nas cartas selecionadas.
-                </p>
-              </div>
-
-              <div>
-                <h4 className="text-starlight-text mb-2">Visão Geral</h4>
-                <p className="text-moonlight-text">
-                  As cartas revelam um momento de transição importante em sua vida. A energia presente 
-                  sugere que você está no caminho certo, mas é necessário manter o foco e a determinação.
-                </p>
-              </div>
-
-              <div>
-                <h4 className="text-starlight-text mb-2">Análise Detalhada</h4>
-                <div className="space-y-3">
-                  {selectedCards.slice(0, 3).map((cardIndex, i) => (
-                    <div key={i} className="p-3 bg-night-sky rounded-lg border border-obsidian-border">
-                      <p className="text-sm text-mystic-indigo mb-1">
-                        {cardNames[cardIndex % cardNames.length]}
-                      </p>
-                      <p className="text-sm text-moonlight-text">
-                        Esta carta representa {i === 0 ? "as influências do passado" : i === 1 ? "sua situação atual" : "as possibilidades futuras"}. 
-                        Ela indica um período de crescimento e aprendizado, onde suas escolhas terão impacto significativo.
-                      </p>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              <div>
-                <h4 className="text-starlight-text mb-2">Conselho Final</h4>
-                <p className="text-moonlight-text">
-                  Confie em sua intuição e não tenha medo de seguir novos caminhos. O momento é propício 
-                  para mudanças positivas, mas lembre-se de manter o equilíbrio e a paciência.
-                </p>
-              </div>
-
-              <div className="pt-4 border-t border-obsidian-border">
-                <p className="text-xs text-moonlight-text">
-                  Esta leitura foi gerada em {new Date().toLocaleDateString('pt-BR')} às {new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
-                </p>
-              </div>
-            </div>
-          </div>
+        {/* Rodapé com data/hora da leitura */}
+        <div className="flex items-center justify-between text-[11px] text-slate-500 pt-2 border-t border-obsidian-border">
+          <span>
+            Leitura gerada em {formattedDate} às {formattedTime}
+          </span>
         </div>
       </div>
     </Modal>
