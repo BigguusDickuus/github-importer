@@ -126,14 +126,21 @@ export function CardSelectionModal({
     return null;
   }
 
+  // Tipo de oráculo e método atual
   const { type: oracleType, method } = currentOracleQueue[currentOracleIndex];
-  const totalCards = TOTAL_CARDS[oracleType];
-  const cardsNeeded = CARDS_PER_METHOD[method] || 1;
   const isGrandTableau = method === "grand_tableau";
 
   // Deck embaralhado vindo do backend para este oráculo/método
   const currentDeckEntry = oracleDecks?.find((d) => d.type === oracleType && d.method === method);
   const currentDeck = currentDeckEntry?.deck ?? [];
+
+  // Número total de cartas na mesa
+  // PRIORIDADE: usar sempre o tamanho do deck retornado pela edge function.
+  // Se por algum motivo vier vazio, cai no mapping estático como fallback.
+  const totalCards = (currentDeck && currentDeck.length > 0 ? currentDeck.length : TOTAL_CARDS[oracleType]) || 0;
+
+  // Quantidade de cartas que o usuário precisa escolher para esse método
+  const cardsNeeded = CARDS_PER_METHOD[method] || 1;
 
   const [selectedCards, setSelectedCards] = useState<number[]>([]);
   const [flippedCards, setFlippedCards] = useState<Set<number>>(new Set());
