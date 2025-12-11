@@ -100,7 +100,7 @@ export function History() {
             hour: "2-digit",
             minute: "2-digit",
           });
-
+        }
           const oracleTypes = row.oracle_types || [];
 
           // label bonitinho do oráculo
