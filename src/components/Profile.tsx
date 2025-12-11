@@ -1143,6 +1143,7 @@ function SecuritySection({
 
   // --------- ALTERAR SENHA (NUA, SEM 2FA) ---------
   const handleChangePasswordCore = async () => {
+    // Fluxo sem 2FA: revalida senha + troca senha
     setErrorMessage(null);
     setSuccessMessage(null);
     setSaving(true);
@@ -1263,8 +1264,36 @@ function SecuritySection({
     }
 
     setPasswordTotpVerifying(true);
+    setSaving(true);
 
     try {
+      // 1) Buscar usuário logado
+      const {
+        data: { user },
+        error: userError,
+      } = await supabase.auth.getUser();
+
+      if (userError || !user) {
+        if (!(userError as any)?.message?.includes("Auth session missing")) {
+          console.error("Erro ao buscar usuário logado (2FA senha):", userError);
+        }
+        setPasswordTotpError("Sessão expirada. Faça login novamente.");
+        return;
+      }
+
+      // 2) Revalidar a senha atual (sessão AAL1 “limpa”)
+      const { error: reauthError } = await supabase.auth.signInWithPassword({
+        email: user.email!,
+        password: currentPassword,
+      });
+
+      if (reauthError) {
+        console.error("Erro ao revalidar senha atual (2FA):", reauthError);
+        setPasswordTotpError("Senha atual incorreta. Verifique e tente novamente.");
+        return;
+      }
+
+      // 3) Subir sessão para AAL2 com TOTP
       const { error: verifyError } = await supabase.auth.mfa.challengeAndVerify({
         factorId: passwordFactorId,
         code: passwordTotpCode.trim(),
@@ -1276,10 +1305,23 @@ function SecuritySection({
         return;
       }
 
-      // TOTP ok -> agora sim troca a senha
-      await handleChangePasswordCore();
+      // 4) Agora sim, com AAL2, atualizar a senha
+      const { error: updateError } = await supabase.auth.updateUser({
+        password: newPassword,
+      });
 
-      // Independente de sucesso/erro na troca, fechamos o modal de 2FA
+      if (updateError) {
+        console.error("Erro ao alterar senha (com 2FA):", updateError);
+        setPasswordTotpError(updateError.message || "Erro ao alterar senha.");
+        return;
+      }
+
+      // Sucesso
+      setSuccessMessage("Senha alterada com sucesso!");
+      setCurrentPassword("");
+      setNewPassword("");
+      setConfirmPassword("");
+
       setShowPassword2FAModal(false);
       resetPassword2FAState();
     } catch (err) {
@@ -1287,6 +1329,7 @@ function SecuritySection({
       setPasswordTotpError("Erro inesperado ao validar o 2FA. Tente novamente.");
     } finally {
       setPasswordTotpVerifying(false);
+      setSaving(false);
     }
   };
 
