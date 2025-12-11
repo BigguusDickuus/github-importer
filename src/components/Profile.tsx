@@ -51,7 +51,6 @@ export function Profile() {
         const prefs = data as any;
 
         // Manter contexto
-        const prefs = data as any;
 
         if (typeof prefs.keep_context === "boolean") {
           setKeepContext(prefs.keep_context);
