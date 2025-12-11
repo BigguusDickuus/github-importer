@@ -29,11 +29,11 @@ type ReadingRow = {
   id: string;
   question: string | null;
   response: string | null;
-  oracle_types: OracleType[] | null;
+  oracle_types: string[] | null;
   oracles: any;
   created_at: string;
   completed_at: string | null;
-  is_deleted?: boolean | null;
+  status: string;
 };
 
 export function History() {
@@ -55,89 +55,112 @@ export function History() {
         setLoading(true);
         setErrorMessage(null);
 
-        const { data, error } = await supabase
-          .from("readings")
-          .select("id, question, response, oracle_types, oracles, created_at, completed_at, is_deleted")
-          .eq("status", "completed")
-          .eq("is_deleted", false)
-          .order("created_at", { ascending: false });
+        // 1) Usuário logado
+        const {
+          data: { user },
+          error: userError,
+        } = await supabase.auth.getUser();
 
-        if (error) {
-          console.error("Erro ao carregar leituras:", error);
-          setErrorMessage("Não foi possível carregar o histórico de leituras.");
+        if (userError) {
+          console.error("Erro ao buscar usuário logado:", userError);
+          setErrorMessage("Erro ao identificar usuário logado.");
+          setReadings([]);
           return;
         }
 
-        const rows: ReadingRow[] = (data as ReadingRow[] | null) ?? [];
+        if (!user) {
+          setErrorMessage("Sessão expirada. Faça login novamente.");
+          setReadings([]);
+          return;
+        }
+
+        // 2) Busca leituras concluídas
+        const { data, error } = await supabase
+          .from("readings")
+          .select("id, question, response, oracle_types, oracles, created_at, completed_at, status")
+          .eq("user_id", user.id)
+          .eq("status", "completed")
+          .order("completed_at", { ascending: false, nullsFirst: false })
+          .order("created_at", { ascending: false });
+
+        if (error) {
+          console.error("Erro ao buscar leituras:", error);
+          setErrorMessage("Erro ao carregar histórico de leituras.");
+          setReadings([]);
+          return;
+        }
+
+        const rows = (data || []) as ReadingRow[];
 
         const mapped: Reading[] = rows.map((row) => {
-          const baseDate = row.completed_at ?? row.created_at;
-          const d = new Date(baseDate);
-          const dateIso = d.toISOString();
-          const time = d.toLocaleTimeString("pt-BR", {
+          const dateObj = row.completed_at ? new Date(row.completed_at) : new Date(row.created_at);
+
+          const date = dateObj.toISOString().slice(0, 10); // "YYYY-MM-DD"
+          const time = dateObj.toLocaleTimeString("pt-BR", {
             hour: "2-digit",
             minute: "2-digit",
           });
 
-          const oracleTypes = (row.oracle_types ?? []) as OracleType[];
+          const oracleTypes = row.oracle_types || [];
 
-          const oracleLabels = oracleTypes.map((t) => {
-            switch (t) {
-              case "tarot":
-                return "Tarot";
-              case "lenormand":
-                return "Tarot Cigano";
-              case "cartomancy":
-                return "Cartomancia Clássica";
-              default:
-                return t;
-            }
-          });
+          // label bonitinho do oráculo
+          let oracleLabel = "Tarot";
+          if (oracleTypes.length > 0) {
+            const t = oracleTypes[0];
+            if (t === "tarot") oracleLabel = "Tarot";
+            else if (t === "lenormand") oracleLabel = "Tarot Cigano";
+            else if (t === "cartomancy") oracleLabel = "Cartomancia Clássica";
+            else oracleLabel = t;
+          }
 
-          const oracleLabel = oracleLabels.length === 0 ? "Oráculo" : oracleLabels.join(" + ");
-
-          let spreadLabel = "Leitura";
-          const oraclesJson = row.oracles as any;
-
+          // spread a partir do JSON de oracles
+          let spread = "Leitura anterior";
           try {
-            const spreads = Array.isArray(oraclesJson)
-              ? oraclesJson
-              : oraclesJson?.spreads && Array.isArray(oraclesJson.spreads)
-                ? oraclesJson.spreads
-                : null;
+            const oracles = row.oracles;
+            let spreads: any[] | null = null;
+
+            if (Array.isArray(oracles)) {
+              spreads = oracles;
+            } else if (oracles && Array.isArray(oracles.spreads)) {
+              spreads = oracles.spreads;
+            }
 
             if (spreads && spreads.length > 0) {
               const first = spreads[0];
               if (first?.spread_name) {
-                spreadLabel = String(first.spread_name);
+                spread = String(first.spread_name);
               } else if (first?.spread_code) {
-                spreadLabel = String(first.spread_code);
+                spread = String(first.spread_code);
               }
             }
           } catch (e) {
             console.warn("Não foi possível interpretar spreads da leitura:", e);
           }
 
-          const fullReading = row.response ?? "";
-          const preview = fullReading.length > 140 ? fullReading.slice(0, 140).trimEnd() + "..." : fullReading;
+          const question = row.question || "Pergunta não registrada";
+          const fullReading = row.response || "";
+          const previewBase = fullReading || "Não há resposta registrada para esta leitura.";
+
+          const preview = previewBase.length > 140 ? previewBase.slice(0, 140).trimEnd() + "..." : previewBase;
 
           return {
             id: row.id,
-            date: dateIso,
+            date,
             time,
-            oracleLabel,
-            spreadLabel,
-            question: row.question ?? "",
+            oracle: oracleLabel,
+            spread,
+            question,
             preview,
-            fullReading: fullReading || "Não há resposta registrada para esta leitura.",
-            oracleTypes,
+            fullReading,
+            cards: [], // se quiser guardar cartas depois, podemos popular isso
           };
         });
 
         setReadings(mapped);
       } catch (err) {
-        console.error("Erro inesperado ao carregar leituras:", err);
-        setErrorMessage("Ocorreu um erro ao carregar o histórico de leituras.");
+        console.error("Erro inesperado ao buscar leituras:", err);
+        setErrorMessage("Erro inesperado ao carregar histórico de leituras.");
+        setReadings([]);
       } finally {
         setLoading(false);
       }
@@ -153,26 +176,23 @@ export function History() {
 
   const handleDeleteConfirm = async () => {
     if (!deleteReading) return;
+
     try {
-      setDeleteLoading(true);
-      // Soft delete: marca is_deleted = true para manter auditoria
-      const { error } = await supabase.from("readings").update({ is_deleted: true }).eq("id", deleteReading.id);
+      const { error } = await supabase.from("readings").delete().eq("id", deleteReading.id);
 
       if (error) {
-        console.error("Erro ao excluir leitura:", error);
-        // Mantém na tela, mas fecha o modal
-        setDeleteReading(null);
+        console.error("Erro ao apagar leitura:", error);
+        setErrorMessage("Erro ao apagar leitura. Tente novamente.");
         return;
       }
 
       // Remove da lista local
-      setReadings((prev) => prev.filter((reading) => reading.id !== deleteReading.id));
-      setDeleteReading(null);
+      setReadings((prev) => prev.filter((r) => r.id !== deleteReading.id));
     } catch (err) {
-      console.error("Erro inesperado ao excluir leitura:", err);
-      setDeleteReading(null);
+      console.error("Erro inesperado ao apagar leitura:", err);
+      setErrorMessage("Erro inesperado ao apagar leitura.");
     } finally {
-      setDeleteLoading(false);
+      setDeleteReading(null);
     }
   };
 
