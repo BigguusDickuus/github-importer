@@ -798,13 +798,24 @@ export function HomeLogada() {
     }
   };
 
-  const plans = [
+  const plans: {
+    name: string;
+    credits: number;
+    price: string;
+    pricePerCredit: string;
+    description: string;
+    highlight?: boolean;
+    badge?: string;
+    savings?: string;
+    slug: "credits_10" | "credits_25" | "credits_60";
+  }[] = [
     {
       name: "Iniciante",
       credits: 10,
       price: "R$ 25",
       pricePerCredit: "R$ 2,50 por consulta",
       description: "Perfeito para experimentar",
+      slug: "credits_10",
     },
     {
       name: "Explorador",
@@ -815,6 +826,7 @@ export function HomeLogada() {
       highlight: true,
       badge: "Mais Popular",
       savings: "Economize até 20%",
+      slug: "credits_25",
     },
     {
       name: "Místico",
@@ -823,6 +835,7 @@ export function HomeLogada() {
       pricePerCredit: "R$ 1,66 por consulta",
       description: "Para uso frequente",
       savings: "Economize até 33%",
+      slug: "credits_60",
     },
   ];
 
@@ -1103,9 +1116,10 @@ export function HomeLogada() {
                               ? "bg-mystic-indigo hover:bg-mystic-indigo-dark text-starlight-text"
                               : "bg-midnight-surface border border-obsidian-border text-moonlight-text hover:bg-mystic-indigo/10 hover:border-mystic-indigo/50"
                           }`}
-                          onClick={() => setShowPaymentModal(true)}
+                          onClick={() => handlePlanCheckout(plan.slug)}
+                          disabled={checkoutLoadingSlug !== null}
                         >
-                          Comprar créditos
+                          {checkoutLoadingSlug === plan.slug ? "Redirecionando..." : "Comprar créditos"}
                         </Button>
                       </div>
                     </div>
