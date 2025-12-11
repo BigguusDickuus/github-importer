@@ -1566,9 +1566,10 @@ export function HomeLogada() {
                     </div>
                     <Button
                       className="plan-button w-full bg-mystic-indigo hover:bg-mystic-indigo-dark text-starlight-text mt-auto"
-                      onClick={handleBuyFromNoCredits}
+                      onClick={() => handlePlanCheckout("credits_10")}
+                      disabled={checkoutLoadingSlug !== null}
                     >
-                      Escolher
+                      {checkoutLoadingSlug === "credits_10" ? "Redirecionando..." : "Escolher"}
                     </Button>
                   </div>
 
@@ -1598,9 +1599,10 @@ export function HomeLogada() {
                     </div>
                     <Button
                       className="plan-button w-full bg-mystic-indigo hover:bg-mystic-indigo-dark text-starlight-text mt-auto"
-                      onClick={handleBuyFromNoCredits}
+                      onClick={() => handlePlanCheckout("credits_25")}
+                      disabled={checkoutLoadingSlug !== null}
                     >
-                      Escolher
+                      {checkoutLoadingSlug === "credits_25" ? "Redirecionando..." : "Escolher"}
                     </Button>
                   </div>
 
@@ -1624,9 +1626,10 @@ export function HomeLogada() {
                     </div>
                     <Button
                       className="plan-button w-full bg-mystic-indigo hover:bg-mystic-indigo-dark text-starlight-text mt-auto"
-                      onClick={handleBuyFromNoCredits}
+                      onClick={() => handlePlanCheckout("credits_60")}
+                      disabled={checkoutLoadingSlug !== null}
                     >
-                      Escolher
+                      {checkoutLoadingSlug === "credits_60" ? "Redirecionando..." : "Escolher"}
                     </Button>
                   </div>
                 </div>
