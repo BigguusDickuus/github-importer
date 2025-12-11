@@ -175,8 +175,8 @@ export function HomeDeslogada() {
       setTimeout(() => setShakeModal(false), 600);
 
       toast({
-        title: "Preencha email e senha",
-        description: "Para entrar, você precisa informar email e senha.",
+        title: "Não foi possível entrar",
+        description: "Verifique seus dados e tente novamente.",
         variant: "destructive",
       });
       return;
@@ -199,7 +199,8 @@ export function HomeDeslogada() {
 
         const msg = (error.message || "").toLowerCase();
 
-        // Casos típicos do Supabase para email não confirmado
+        // Se for claramente caso de email não confirmado, só ligamos a HelloBar,
+        // mas continuamos com mensagem genérica de erro
         if (
           msg.includes("email not confirmed") ||
           msg.includes("email confirmation") ||
@@ -209,8 +210,8 @@ export function HomeDeslogada() {
         }
 
         toast({
-          title: "Erro ao fazer login",
-          description: error.message || "Email ou senha incorretos.",
+          title: "Não foi possível entrar",
+          description: "Verifique seus dados e tente novamente.",
           variant: "destructive",
         });
         return;
@@ -222,9 +223,9 @@ export function HomeDeslogada() {
 
         if (aalError) {
           console.error("Erro ao obter AAL:", aalError);
-          // Se der erro aqui, seguimos como login normal (sem 2FA)
+          // Se der erro aqui, seguimos como login normal (sem 2FA explícito)
           toast({
-            title: "Login realizado!",
+            title: "Login realizado",
             description: "Bem-vindo de volta.",
           });
 
@@ -250,7 +251,7 @@ export function HomeDeslogada() {
           setMfaError(null);
 
           toast({
-            title: "Confirme seu 2FA",
+            title: "Confirmação adicional necessária",
             description: "Digite o código do seu app autenticador para concluir o login.",
           });
 
@@ -259,7 +260,7 @@ export function HomeDeslogada() {
 
         // Caso comum: ou não tem MFA, ou já está em aal2
         toast({
-          title: "Login realizado!",
+          title: "Login realizado",
           description: "Bem-vindo de volta.",
         });
 
@@ -280,132 +281,7 @@ export function HomeDeslogada() {
       setTimeout(() => setShakeModal(false), 600);
 
       toast({
-        title: "Erro ao fazer login",
-        description: "Ocorreu um erro inesperado. Tente novamente.",
-        variant: "destructive",
-      });
-    } finally {
-      setLoginLoading(false);
-    }
-  };
-
-  const handleLogin = async () => {
-    // limpa erro anterior
-    setLoginError(false);
-
-    // validação simples
-    if (!loginEmail || !loginPassword) {
-      setLoginError(true);
-      setShakeModal(true);
-      setTimeout(() => setShakeModal(false), 600);
-
-      toast({
-        title: "Preencha email e senha",
-        description: "Para entrar, você precisa informar email e senha.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    setLoginLoading(true);
-    setShakeModal(false);
-
-    try {
-      const { error } = await supabase.auth.signInWithPassword({
-        email: loginEmail,
-        password: loginPassword,
-      });
-
-      if (error) {
-        console.error("Erro ao fazer login:", error);
-        setLoginError(true);
-        setShakeModal(true);
-        setTimeout(() => setShakeModal(false), 600);
-
-        const msg = (error.message || "").toLowerCase();
-
-        // Casos típicos do Supabase para email não confirmado
-        if (
-          msg.includes("email not confirmed") ||
-          msg.includes("email confirmation") ||
-          (msg.includes("confirm") && msg.includes("email"))
-        ) {
-          setShowEmailValidationBar(true);
-        }
-
-        toast({
-          title: "Erro ao fazer login",
-          description: error.message || "Email ou senha incorretos.",
-          variant: "destructive",
-        });
-        return;
-      }
-
-      // Login com senha deu certo, agora checamos se precisa de MFA (AAL2)
-      try {
-        const { data: aalData, error: aalError } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
-
-        if (aalError) {
-          console.error("Erro ao obter AAL:", aalError);
-          // Se der erro aqui, seguimos como login normal (sem 2FA)
-          toast({
-            title: "Login realizado!",
-            description: "Bem-vindo de volta.",
-          });
-
-          setShowLoginModal(false);
-          setLoginError(false);
-          setShakeModal(false);
-          setLoginEmail("");
-          setLoginPassword("");
-
-          navigate("/dashboard");
-          return;
-        }
-
-        const currentLevel = aalData?.currentLevel;
-        const nextLevel = aalData?.nextLevel;
-
-        // Se o usuário tem MFA configurado mas ainda não está no nível aal2,
-        // mostramos o modal de 2FA
-        if (nextLevel === "aal2" && nextLevel !== currentLevel) {
-          setShowLoginModal(false);
-          setShowMfaModal(true);
-          setMfaCode("");
-          setMfaError(null);
-
-          toast({
-            title: "Confirme seu 2FA",
-            description: "Digite o código do seu app autenticador para concluir o login.",
-          });
-
-          return;
-        }
-
-        // Caso comum: ou não tem MFA, ou já está em aal2
-        toast({
-          title: "Login realizado!",
-          description: "Bem-vindo de volta.",
-        });
-
-        setShowLoginModal(false);
-        setLoginError(false);
-        setShakeModal(false);
-        setLoginEmail("");
-        setLoginPassword("");
-
-        navigate("/dashboard");
-      } finally {
-        setLoginLoading(false);
-      }
-    } catch (err: any) {
-      console.error("Erro inesperado no login:", err);
-      setLoginError(true);
-      setShakeModal(true);
-      setTimeout(() => setShakeModal(false), 600);
-
-      toast({
-        title: "Erro ao fazer login",
+        title: "Não foi possível entrar",
         description: "Ocorreu um erro inesperado. Tente novamente.",
         variant: "destructive",
       });
