@@ -19,6 +19,13 @@ export function HomeDeslogada() {
   const [showEmailConfirmationMessage, setShowEmailConfirmationMessage] = useState(false);
   const [loginError, setLoginError] = useState(false);
   const [shakeModal, setShakeModal] = useState(false);
+
+  // --- Estados para MFA (2FA) no login ---
+  const [showMfaModal, setShowMfaModal] = useState(false);
+  const [mfaCode, setMfaCode] = useState("");
+  const [mfaError, setMfaError] = useState<string | null>(null);
+  const [mfaLoading, setMfaLoading] = useState(false);
+
   const howItWorksRef = useRef<HTMLDivElement>(null);
   const plansRef = useRef<HTMLDivElement>(null);
   const [activeFeatureIndex, setActiveFeatureIndex] = useState(0);
@@ -161,7 +168,7 @@ export function HomeDeslogada() {
     // limpa erro anterior
     setLoginError(false);
 
-    // validação bem simples antes de chamar o Supabase
+    // validação simples
     if (!loginEmail || !loginPassword) {
       setLoginError(true);
       setShakeModal(true);
@@ -198,7 +205,6 @@ export function HomeDeslogada() {
           msg.includes("email confirmation") ||
           (msg.includes("confirm") && msg.includes("email"))
         ) {
-          // Mostra Hello Bar amarela
           setShowEmailValidationBar(true);
         }
 
@@ -210,21 +216,63 @@ export function HomeDeslogada() {
         return;
       }
 
-      // deu bom
-      toast({
-        title: "Login realizado!",
-        description: "Bem-vindo de volta.",
-      });
+      // Login com senha deu certo, agora checamos se precisa de MFA (AAL2)
+      try {
+        const { data: aalData, error: aalError } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
 
-      // limpa estado e fecha modal
-      setShowLoginModal(false);
-      setLoginError(false);
-      setShakeModal(false);
-      setLoginEmail("");
-      setLoginPassword("");
+        if (aalError) {
+          console.error("Erro ao obter AAL:", aalError);
+          // Se der erro aqui, seguimos como login normal (sem 2FA)
+          toast({
+            title: "Login realizado!",
+            description: "Bem-vindo de volta.",
+          });
 
-      // manda pra home logada
-      navigate("/dashboard");
+          setShowLoginModal(false);
+          setLoginError(false);
+          setShakeModal(false);
+          setLoginEmail("");
+          setLoginPassword("");
+
+          navigate("/dashboard");
+          return;
+        }
+
+        const currentLevel = aalData?.currentLevel;
+        const nextLevel = aalData?.nextLevel;
+
+        // Se o usuário tem MFA configurado mas ainda não está no nível aal2,
+        // mostramos o modal de 2FA
+        if (nextLevel === "aal2" && nextLevel !== currentLevel) {
+          setShowLoginModal(false);
+          setShowMfaModal(true);
+          setMfaCode("");
+          setMfaError(null);
+
+          toast({
+            title: "Confirme seu 2FA",
+            description: "Digite o código do seu app autenticador para concluir o login.",
+          });
+
+          return;
+        }
+
+        // Caso comum: ou não tem MFA, ou já está em aal2
+        toast({
+          title: "Login realizado!",
+          description: "Bem-vindo de volta.",
+        });
+
+        setShowLoginModal(false);
+        setLoginError(false);
+        setShakeModal(false);
+        setLoginEmail("");
+        setLoginPassword("");
+
+        navigate("/dashboard");
+      } finally {
+        setLoginLoading(false);
+      }
     } catch (err: any) {
       console.error("Erro inesperado no login:", err);
       setLoginError(true);
@@ -232,8 +280,8 @@ export function HomeDeslogada() {
       setTimeout(() => setShakeModal(false), 600);
 
       toast({
-        title: "Erro inesperado ao fazer login",
-        description: "Tente novamente em alguns instantes.",
+        title: "Erro ao fazer login",
+        description: "Ocorreu um erro inesperado. Tente novamente.",
         variant: "destructive",
       });
     } finally {
@@ -241,12 +289,216 @@ export function HomeDeslogada() {
     }
   };
 
-  const simulateLoginError = () => {
-    setLoginError(true);
-    setShakeModal(true);
-    setTimeout(() => {
-      setShakeModal(false);
-    }, 600);
+  const handleLogin = async () => {
+    // limpa erro anterior
+    setLoginError(false);
+
+    // validação simples
+    if (!loginEmail || !loginPassword) {
+      setLoginError(true);
+      setShakeModal(true);
+      setTimeout(() => setShakeModal(false), 600);
+
+      toast({
+        title: "Preencha email e senha",
+        description: "Para entrar, você precisa informar email e senha.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setLoginLoading(true);
+    setShakeModal(false);
+
+    try {
+      const { error } = await supabase.auth.signInWithPassword({
+        email: loginEmail,
+        password: loginPassword,
+      });
+
+      if (error) {
+        console.error("Erro ao fazer login:", error);
+        setLoginError(true);
+        setShakeModal(true);
+        setTimeout(() => setShakeModal(false), 600);
+
+        const msg = (error.message || "").toLowerCase();
+
+        // Casos típicos do Supabase para email não confirmado
+        if (
+          msg.includes("email not confirmed") ||
+          msg.includes("email confirmation") ||
+          (msg.includes("confirm") && msg.includes("email"))
+        ) {
+          setShowEmailValidationBar(true);
+        }
+
+        toast({
+          title: "Erro ao fazer login",
+          description: error.message || "Email ou senha incorretos.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // Login com senha deu certo, agora checamos se precisa de MFA (AAL2)
+      try {
+        const { data: aalData, error: aalError } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+
+        if (aalError) {
+          console.error("Erro ao obter AAL:", aalError);
+          // Se der erro aqui, seguimos como login normal (sem 2FA)
+          toast({
+            title: "Login realizado!",
+            description: "Bem-vindo de volta.",
+          });
+
+          setShowLoginModal(false);
+          setLoginError(false);
+          setShakeModal(false);
+          setLoginEmail("");
+          setLoginPassword("");
+
+          navigate("/dashboard");
+          return;
+        }
+
+        const currentLevel = aalData?.currentLevel;
+        const nextLevel = aalData?.nextLevel;
+
+        // Se o usuário tem MFA configurado mas ainda não está no nível aal2,
+        // mostramos o modal de 2FA
+        if (nextLevel === "aal2" && nextLevel !== currentLevel) {
+          setShowLoginModal(false);
+          setShowMfaModal(true);
+          setMfaCode("");
+          setMfaError(null);
+
+          toast({
+            title: "Confirme seu 2FA",
+            description: "Digite o código do seu app autenticador para concluir o login.",
+          });
+
+          return;
+        }
+
+        // Caso comum: ou não tem MFA, ou já está em aal2
+        toast({
+          title: "Login realizado!",
+          description: "Bem-vindo de volta.",
+        });
+
+        setShowLoginModal(false);
+        setLoginError(false);
+        setShakeModal(false);
+        setLoginEmail("");
+        setLoginPassword("");
+
+        navigate("/dashboard");
+      } finally {
+        setLoginLoading(false);
+      }
+    } catch (err: any) {
+      console.error("Erro inesperado no login:", err);
+      setLoginError(true);
+      setShakeModal(true);
+      setTimeout(() => setShakeModal(false), 600);
+
+      toast({
+        title: "Erro ao fazer login",
+        description: "Ocorreu um erro inesperado. Tente novamente.",
+        variant: "destructive",
+      });
+    } finally {
+      setLoginLoading(false);
+    }
+  };
+
+  const handleVerifyMfaLogin = async () => {
+    setMfaError(null);
+
+    const trimmed = mfaCode.trim();
+    if (!trimmed) {
+      setMfaError("Digite o código de 6 dígitos.");
+      return;
+    }
+
+    setMfaLoading(true);
+
+    try {
+      // Lista fatores TOTP do usuário logado
+      const factors = await supabase.auth.mfa.listFactors();
+
+      if (factors.error) {
+        console.error("Erro ao listar fatores MFA:", factors.error);
+        throw factors.error;
+      }
+
+      const totpFactors = factors.data.totp || [];
+      const verifiedFactor = totpFactors.find((f: any) => f.status === "verified") || totpFactors[0];
+
+      if (!verifiedFactor) {
+        throw new Error("Nenhum fator TOTP configurado para este usuário.");
+      }
+
+      const factorId = verifiedFactor.id;
+
+      // Cria challenge
+      const challenge = await supabase.auth.mfa.challenge({ factorId });
+
+      if (challenge.error) {
+        console.error("Erro ao criar challenge MFA:", challenge.error);
+        throw challenge.error;
+      }
+
+      const challengeId = challenge.data.id;
+
+      // Verifica o código informado
+      const verify = await supabase.auth.mfa.verify({
+        factorId,
+        challengeId,
+        code: trimmed,
+      });
+
+      if (verify.error) {
+        console.error("Erro ao verificar código MFA:", verify.error);
+        throw verify.error;
+      }
+
+      // Sucesso: sessão é atualizada em background para AAL2
+      toast({
+        title: "2FA verificado!",
+        description: "Login concluído com sucesso.",
+      });
+
+      setShowMfaModal(false);
+      setMfaCode("");
+      setMfaError(null);
+
+      // Agora sim liberamos acesso à home logada
+      navigate("/dashboard");
+    } catch (err: any) {
+      console.error("Erro ao verificar 2FA no login:", err);
+      setMfaError(err?.message || "Não foi possível verificar o código. Tente novamente.");
+    } finally {
+      setMfaLoading(false);
+    }
+  };
+
+  const handleCancelMfaLogin = async () => {
+    // Se o usuário desistir do 2FA, desloga e volta para tela de login
+    try {
+      await supabase.auth.signOut();
+    } catch (err) {
+      console.error("Erro ao deslogar ao cancelar MFA:", err);
+    } finally {
+      setShowMfaModal(false);
+      setMfaCode("");
+      setMfaError(null);
+      setLoginEmail("");
+      setLoginPassword("");
+      setShowLoginModal(true);
+    }
   };
 
   // Máscara de CPF
@@ -1647,6 +1899,90 @@ export function HomeDeslogada() {
                     >
                       Não possui conta?{" "}
                       <span className="text-mystic-indigo underline">Cadastre-se e ganhe 3 créditos!</span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </>
+      )}
+
+      {showMfaModal && (
+        <>
+          {/* Backdrop com blur */}
+          <div className="fixed inset-0 z-50 bg-night-sky/80 backdrop-blur-md" onClick={handleCancelMfaLogin} />
+
+          {/* Modal MFA */}
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center pointer-events-none"
+            style={{ padding: "5%" }}
+          >
+            <div className="relative pointer-events-auto login-modal-container w-full max-w-md">
+              {/* Botão X */}
+              <button
+                onClick={handleCancelMfaLogin}
+                className="absolute -top-4 -right-4 w-10 h-10 rounded-full bg-mystic-indigo text-moonlight-text hover:bg-oracle-ember transition-colors flex items-center justify-center z-10 shadow-lg"
+                aria-label="Fechar"
+              >
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="20"
+                  height="20"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <line x1="18" y1="6" x2="6" y2="18" />
+                  <line x1="6" y1="6" x2="18" y2="18" />
+                </svg>
+              </button>
+
+              {/* Conteúdo */}
+              <div
+                className="bg-midnight-surface border border-obsidian/60 rounded-3xl shadow-2xl w-full max-w-md mx-auto"
+                style={{ padding: "24px" }}
+                onClick={(e) => e.stopPropagation()}
+              >
+                <h2 className="text-2xl font-semibold text-moonlight-text mb-2">Confirme seu 2FA</h2>
+                <p className="text-sm text-moonlight-muted mb-4">
+                  Digite o código de 6 dígitos do seu aplicativo autenticador para concluir o login.
+                </p>
+
+                <div className="flex flex-col gap-3">
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    maxLength={6}
+                    placeholder="000000"
+                    value={mfaCode}
+                    onChange={(e) => setMfaCode(e.target.value.replace(/\D/g, ""))}
+                    disabled={mfaLoading}
+                    className="w-full bg-night-sky/50 border border-obsidian/60 rounded-xl text-moonlight-text placeholder:text-moonlight-muted focus:outline-none focus:ring-2 focus:ring-mystic-indigo focus:border-transparent transition-colors px-4 py-3 text-center tracking-widest text-lg disabled:opacity-60 disabled:cursor-not-allowed"
+                  />
+
+                  {mfaError && <p className="text-sm text-red-400">{mfaError}</p>}
+
+                  <div className="flex gap-3 mt-2">
+                    <button
+                      type="button"
+                      onClick={handleCancelMfaLogin}
+                      disabled={mfaLoading}
+                      className="flex-1 h-11 rounded-xl border border-obsidian/60 text-moonlight-text text-sm font-medium hover:bg-night-sky/60 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+                    >
+                      Cancelar
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={handleVerifyMfaLogin}
+                      disabled={mfaLoading}
+                      className="flex-1 h-11 rounded-xl bg-mystic-indigo text-moonlight-text text-sm font-semibold hover:bg-oracle-ember transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+                    >
+                      {mfaLoading ? "Verificando..." : "Confirmar"}
                     </button>
                   </div>
                 </div>
