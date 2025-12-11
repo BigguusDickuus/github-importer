@@ -1797,87 +1797,77 @@ export function HomeDeslogada() {
       )}
 
       {showMfaModal && (
-        <>
-          {/* Backdrop com blur */}
-          <div className="fixed inset-0 z-50 bg-night-sky/80 backdrop-blur-md" onClick={handleCancelMfaLogin} />
-
-          {/* Modal MFA */}
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-night-sky/80 backdrop-blur-md px-4"
+          onClick={handleCancelMfaLogin}
+        >
           <div
-            className="fixed inset-0 z-50 flex items-center justify-center pointer-events-none"
-            style={{ padding: "5%" }}
+            className="relative bg-midnight-surface border border-obsidian-border rounded-2xl shadow-2xl w-full max-w-md p-6 md:p-8"
+            onClick={(e) => e.stopPropagation()}
           >
-            <div className="relative pointer-events-auto login-modal-container w-full max-w-md">
-              {/* Botão X */}
-              <button
-                onClick={handleCancelMfaLogin}
-                className="absolute -top-4 -right-4 w-10 h-10 rounded-full bg-mystic-indigo text-moonlight-text hover:bg-oracle-ember transition-colors flex items-center justify-center z-10 shadow-lg"
-                aria-label="Fechar"
+            {/* Botão X – mesmo fundo do modal, sem azul errado */}
+            <button
+              onClick={handleCancelMfaLogin}
+              className="absolute -top-4 -right-4 w-10 h-10 rounded-full bg-midnight-surface border border-obsidian-border text-moonlight-text hover:text-starlight-text hover:border-mystic-indigo transition-colors flex items-center justify-center shadow-lg"
+              aria-label="Fechar verificação de 2FA"
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="18"
+                height="18"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
               >
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  width="20"
-                  height="20"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
+                <line x1="18" y1="6" x2="6" y2="18" />
+                <line x1="6" y1="6" x2="18" y2="18" />
+              </svg>
+            </button>
+
+            <h2 className="text-2xl font-semibold text-starlight-text mb-2">Confirme seu 2FA</h2>
+            <p className="text-sm text-moonlight-text mb-4">
+              Digite o código de 6 dígitos do seu aplicativo autenticador para concluir o login.
+            </p>
+
+            <div className="flex flex-col gap-3">
+              <input
+                type="text"
+                inputMode="numeric"
+                maxLength={6}
+                placeholder="000000"
+                value={mfaCode}
+                onChange={(e) => setMfaCode(e.target.value.replace(/\D/g, ""))}
+                disabled={mfaLoading}
+                className="w-full bg-night-sky border border-obsidian-border rounded-xl text-starlight-text placeholder:text-moonlight-muted focus:outline-none focus:ring-2 focus:ring-mystic-indigo focus:border-transparent transition-colors px-4 py-3 text-center tracking-[0.4em] text-lg disabled:opacity-60 disabled:cursor-not-allowed"
+              />
+
+              {mfaError && <p className="text-sm text-blood-moon-error">{mfaError}</p>}
+
+              <div className="flex gap-3 mt-2">
+                <button
+                  type="button"
+                  onClick={handleCancelMfaLogin}
+                  disabled={mfaLoading}
+                  className="flex-1 h-11 rounded-xl border border-obsidian-border text-moonlight-text text-sm font-medium hover:bg-night-sky/60 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
                 >
-                  <line x1="18" y1="6" x2="6" y2="18" />
-                  <line x1="6" y1="6" x2="18" y2="18" />
-                </svg>
-              </button>
+                  Cancelar
+                </button>
 
-              {/* Conteúdo */}
-              <div
-                className="bg-midnight-surface border border-obsidian/60 rounded-3xl shadow-2xl w-full max-w-md mx-auto"
-                style={{ padding: "24px" }}
-                onClick={(e) => e.stopPropagation()}
-              >
-                <h2 className="text-2xl font-semibold text-moonlight-text mb-2">Confirme seu 2FA</h2>
-                <p className="text-sm text-moonlight-muted mb-4">
-                  Digite o código de 6 dígitos do seu aplicativo autenticador para concluir o login.
-                </p>
-
-                <div className="flex flex-col gap-3">
-                  <input
-                    type="text"
-                    inputMode="numeric"
-                    maxLength={6}
-                    placeholder="000000"
-                    value={mfaCode}
-                    onChange={(e) => setMfaCode(e.target.value.replace(/\D/g, ""))}
-                    disabled={mfaLoading}
-                    className="w-full bg-night-sky/50 border border-obsidian/60 rounded-xl text-moonlight-text placeholder:text-moonlight-muted focus:outline-none focus:ring-2 focus:ring-mystic-indigo focus:border-transparent transition-colors px-4 py-3 text-center tracking-widest text-lg disabled:opacity-60 disabled:cursor-not-allowed"
-                  />
-
-                  {mfaError && <p className="text-sm text-red-400">{mfaError}</p>}
-
-                  <div className="flex gap-3 mt-2">
-                    <button
-                      type="button"
-                      onClick={handleCancelMfaLogin}
-                      disabled={mfaLoading}
-                      className="flex-1 h-11 rounded-xl border border-obsidian/60 text-moonlight-text text-sm font-medium hover:bg-night-sky/60 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
-                    >
-                      Cancelar
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={handleVerifyMfaLogin}
-                      disabled={mfaLoading}
-                      className="flex-1 h-11 rounded-xl bg-mystic-indigo text-moonlight-text text-sm font-semibold hover:bg-oracle-ember transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
-                    >
-                      {mfaLoading ? "Verificando..." : "Confirmar"}
-                    </button>
-                  </div>
-                </div>
+                <button
+                  type="button"
+                  onClick={handleVerifyMfaLogin}
+                  disabled={mfaLoading}
+                  className="flex-1 h-11 rounded-xl bg-mystic-indigo text-starlight-text text-sm font-semibold hover:bg-mystic-indigo-dark transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+                >
+                  {mfaLoading ? "Verificando..." : "Confirmar"}
+                </button>
               </div>
             </div>
           </div>
-        </>
+        </div>
       )}
 
       {/* Signup Modal - Backdrop com Blur */}
