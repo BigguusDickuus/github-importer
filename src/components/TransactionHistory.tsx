@@ -349,7 +349,6 @@ export function TransactionHistory() {
         show={helloBarShow}
         onClose={() => setHelloBarShow(false)}
         type={helloBarType}
-        title={helloBarType === "success" ? "Tudo certo!" : "Ops!"}
         message={helloBarMessage}
       />
 
