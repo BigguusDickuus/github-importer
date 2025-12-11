@@ -64,6 +64,7 @@ export function ReadingResultModal({
               } else {
                 // Sem créditos: abre o fluxo de compra
                 onOpenPurchaseCredits();
+                onClose();
               }
             }}
           >
