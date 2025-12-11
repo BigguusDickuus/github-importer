@@ -4,13 +4,16 @@ import { Button } from "./ui/button";
 import { ChevronLeft, ChevronRight, CreditCard } from "lucide-react";
 import { Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import { ReadingResultModal } from "./ReadingResultModal";
 
 interface Transaction {
   id: string;
   date: string;
   time: string;
   amount: string;
-  package: string;
+  eventLabel: string;
+  isUsage: boolean;
+  readingId?: string | null;
 }
 
 export function TransactionHistory() {
@@ -20,6 +23,13 @@ export function TransactionHistory() {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  // Modal de leitura vinculada ao uso de créditos
+  const [showReadingModal, setShowReadingModal] = useState(false);
+  const [readingModalLoading, setReadingModalLoading] = useState(false);
+  const [readingModalQuestion, setReadingModalQuestion] = useState("");
+  const [readingModalSpread, setReadingModalSpread] = useState("");
+  const [readingModalResponse, setReadingModalResponse] = useState("");
 
   // Pagination logic
   const totalPages = itemsPerPage === -1 ? 1 : Math.ceil(transactions.length / itemsPerPage);
@@ -51,8 +61,6 @@ export function TransactionHistory() {
       }
 
       if (!user) {
-        // Em teoria não chega aqui porque a rota é protegida,
-        // mas se chegar, melhor avisar:
         setErrorMessage("Sessão expirada. Faça login novamente.");
         setTransactions([]);
         return;
@@ -61,7 +69,7 @@ export function TransactionHistory() {
       // 2) Busca histórico em credit_transactions
       const { data, error } = await supabase
         .from("credit_transactions")
-        .select("id, credits_change, amount_cents, currency, description, created_at")
+        .select("id, credits_change, amount_cents, currency, description, created_at, tx_type, reading_id")
         .eq("user_id", user.id)
         .order("created_at", { ascending: false });
 
@@ -81,19 +89,27 @@ export function TransactionHistory() {
           minute: "2-digit",
         });
 
-        // --- NOVO: Valor financeiro ---
+        const description: string = row.description ?? "";
+        const txType: string = row.tx_type ?? "";
+        const isUsage = description === "Uso de créditos em leitura";
+
+        // --- COLUNA VALOR ---
         let amount: string;
 
         if (row.amount_cents == null) {
-          // Sem valor financeiro → grátis
-          amount = "Grátis";
+          // Sem valor financeiro:
+          // - uso de créditos em leitura -> "–"
+          // - bônus etc -> "Grátis"
+          if (isUsage) {
+            amount = "–";
+          } else {
+            amount = "Grátis";
+          }
         } else {
           const cents = Number(row.amount_cents);
-          const value = cents / 100; // ex: 10000 -> 100.00
-
+          const value = cents / 100;
           const currencyCode = row.currency || "BRL";
 
-          // Intl.NumberFormat usa o código da moeda (BRL) pra gerar "R$"
           amount = new Intl.NumberFormat("pt-BR", {
             style: "currency",
             currency: currencyCode,
@@ -102,14 +118,40 @@ export function TransactionHistory() {
           }).format(value);
         }
 
-        const pkg = row.description || "Movimentação de créditos";
+        // --- COLUNA EVENTO ---
+        let eventLabel = description || "Movimentação de créditos";
+
+        // Se for compra de pacote via Stripe, tentar mapear pelo "credits_XX"
+        if (txType === "purchase" && description) {
+          const match = description.match(/credits_(\d+)/);
+          if (match) {
+            const creditsAmount = Number(match[1]);
+
+            if (creditsAmount === 10) {
+              eventLabel = "Pacote Iniciante (10 créditos)";
+            } else if (creditsAmount === 25) {
+              eventLabel = "Pacote Explorador (25 créditos)";
+            } else if (creditsAmount === 60) {
+              eventLabel = "Pacote Místico (60 créditos)";
+            } else {
+              eventLabel = `Pacote de créditos (${creditsAmount})`;
+            }
+          }
+        }
+
+        // Pequeno ajuste pra deixar o texto de boas-vindas mais amigável
+        if (txType === "bonus" && description === "Boas-vindas (3 créditos)") {
+          eventLabel = "Bônus de boas-vindas (3 créditos)";
+        }
 
         return {
           id: row.id,
           date,
           time,
-          amount, // agora é "R$ 100,00" ou "grátis"
-          package: pkg, // "Boas vindas (3 créditos)", etc.
+          amount,
+          eventLabel,
+          isUsage,
+          readingId: row.reading_id ?? null,
         };
       });
 
@@ -120,6 +162,65 @@ export function TransactionHistory() {
       setTransactions([]);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleOpenReadingFromTransaction = async (readingId?: string | null) => {
+    if (!readingId) return;
+
+    try {
+      setShowReadingModal(true);
+      setReadingModalLoading(true);
+      setReadingModalQuestion("");
+      setReadingModalSpread("");
+      setReadingModalResponse("");
+
+      const { data, error } = await supabase
+        .from("readings")
+        .select("question, response, oracles")
+        .eq("id", readingId)
+        .maybeSingle();
+
+      if (error || !data) {
+        console.error("Erro ao buscar leitura vinculada:", error);
+        setReadingModalResponse("Não foi possível carregar os detalhes dessa leitura. Tente novamente mais tarde.");
+        return;
+      }
+
+      const question: string = data.question ?? "";
+      const response: string = data.response ?? "";
+
+      // Tentar extrair o nome do método/spread do JSON oracles
+      let spreadLabel = "Leitura anterior";
+      const oracles = data.oracles as any;
+
+      try {
+        const spreads = Array.isArray(oracles)
+          ? oracles
+          : oracles?.spreads && Array.isArray(oracles.spreads)
+            ? oracles.spreads
+            : null;
+
+        if (spreads && spreads.length > 0) {
+          const first = spreads[0];
+          if (first?.spread_name) {
+            spreadLabel = String(first.spread_name);
+          } else if (first?.spread_code) {
+            spreadLabel = String(first.spread_code);
+          }
+        }
+      } catch (e) {
+        console.warn("Não foi possível interpretar spreads da leitura:", e);
+      }
+
+      setReadingModalQuestion(question);
+      setReadingModalSpread(spreadLabel);
+      setReadingModalResponse(response || "Não há resposta registrada para esta leitura.");
+    } catch (err) {
+      console.error("Erro inesperado ao carregar leitura vinculada:", err);
+      setReadingModalResponse("Ocorreu um erro ao carregar os detalhes desta leitura.");
+    } finally {
+      setReadingModalLoading(false);
     }
   };
 
@@ -186,7 +287,7 @@ export function TransactionHistory() {
               <h1 className="text-starlight-text" style={{ marginBottom: "16px" }}>
                 Histórico de Transações
               </h1>
-              <p className="text-lg text-moonlight-text">Todas as suas compras de créditos</p>
+              <p className="text-lg text-moonlight-text">Todas as suas movimentações de créditos</p>
             </div>
 
             {/* Info bar */}
@@ -304,7 +405,7 @@ export function TransactionHistory() {
                       Valor
                     </th>
                     <th className="text-left text-sm text-moonlight-text" style={{ padding: "16px" }}>
-                      Pacote
+                      Evento
                     </th>
                   </tr>
                 </thead>
@@ -327,11 +428,14 @@ export function TransactionHistory() {
                       </td>
                       <td style={{ padding: "16px" }}>
                         <div
-                          className="inline-flex items-center rounded-full bg-mystic-indigo/10 border border-mystic-indigo/30"
+                          className={`inline-flex items-center rounded-full bg-mystic-indigo/10 border border-mystic-indigo/30 ${
+                            transaction.isUsage ? "cursor-pointer hover:bg-mystic-indigo/20" : ""
+                          }`}
                           style={{ padding: "6px 12px", gap: "8px" }}
+                          onClick={() => transaction.isUsage && handleOpenReadingFromTransaction(transaction.readingId)}
                         >
                           <CreditCard className="w-3 h-3 text-mystic-indigo" />
-                          <span className="text-xs text-mystic-indigo">{transaction.package}</span>
+                          <span className="text-xs text-mystic-indigo">{transaction.eventLabel}</span>
                         </div>
                       </td>
                     </tr>
@@ -350,11 +454,14 @@ export function TransactionHistory() {
                 >
                   <div className="flex items-start justify-between" style={{ marginBottom: "12px" }}>
                     <div
-                      className="inline-flex items-center rounded-full bg-mystic-indigo/10 border border-mystic-indigo/30"
+                      className={`inline-flex items-center rounded-full bg-mystic-indigo/10 border border-mystic-indigo/30 ${
+                        transaction.isUsage ? "cursor-pointer hover:bg-mystic-indigo/20" : ""
+                      }`}
                       style={{ padding: "6px 12px", gap: "8px" }}
+                      onClick={() => transaction.isUsage && handleOpenReadingFromTransaction(transaction.readingId)}
                     >
                       <CreditCard className="w-3 h-3 text-mystic-indigo" />
-                      <span className="text-xs text-mystic-indigo">{transaction.package}</span>
+                      <span className="text-xs text-mystic-indigo">{transaction.eventLabel}</span>
                     </div>
                     <div className="text-starlight-text">{transaction.amount}</div>
                   </div>
@@ -377,12 +484,29 @@ export function TransactionHistory() {
                 <h3 className="text-starlight-text" style={{ marginBottom: "8px" }}>
                   Nenhuma transação encontrada
                 </h3>
-                <p className="text-moonlight-text text-sm">Suas compras de créditos aparecerão aqui</p>
+                <p className="text-moonlight-text text-sm">Suas movimentações de créditos aparecerão aqui</p>
               </div>
             )}
           </div>
         </div>
       </main>
+
+      {/* Modal de leitura vinculada a "Uso de créditos em leitura" */}
+      <ReadingResultModal
+        isOpen={showReadingModal}
+        onClose={() => setShowReadingModal(false)}
+        spread={readingModalSpread}
+        question={readingModalQuestion}
+        selectedCards={[]}
+        response={readingModalResponse}
+        isLoading={readingModalLoading}
+        currentCredits={null}
+        onOpenPurchaseCredits={() => {
+          // Por enquanto, só manda o usuário pra Home,
+          // onde ele pode abrir o fluxo de compra normalmente.
+          window.location.href = "/dashboard";
+        }}
+      />
 
       {/* Footer */}
       <footer
