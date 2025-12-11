@@ -34,7 +34,10 @@ export function Profile() {
         } = await supabase.auth.getUser();
 
         if (userError || !user) {
-          console.error("Erro ao buscar usuário logado:", userError);
+          // Ignora o caso comum de sessão ainda não inicializada para não poluir o console
+          if (!(userError as any)?.message?.includes("Auth session missing")) {
+            console.error("Erro ao buscar usuário logado:", userError);
+          }
           return;
         }
 
@@ -1182,14 +1185,62 @@ function SecuritySection({
         const message =
           (error as any)?.message || (error as any)?.error_description || "Não foi possível iniciar o 2FA.";
 
-        if (message.includes("friendly name") || (error as any)?.status === 400) {
+        // Caso especial: o Supabase avisa que já existe um fator com esse friendlyName.
+        // Isso geralmente significa que o fator TOTP ainda existe no auth, mesmo que o flag em profiles esteja falso.
+        if (message.includes("friendly name")) {
+          try {
+            const { data: factorsData, error: listError } = await supabase.auth.mfa.listFactors();
+
+            if (!listError) {
+              const anyFactors: any = factorsData;
+              const totpFactors = (anyFactors?.totp ?? []) as Array<{ id: string }>;
+
+              if (totpFactors.length > 0) {
+                // Há pelo menos um fator TOTP já cadastrado.
+                // Vamos alinhar o estado local e no profile para "2FA ativado"
+                setTwoFactorEnabled(true);
+
+                try {
+                  const {
+                    data: { user },
+                    error: userError,
+                  } = await supabase.auth.getUser();
+
+                  if (!userError && user) {
+                    await supabase
+                      .from("profiles")
+                      .update({ two_factor_enabled: true } as any)
+                      .eq("id", user.id);
+                  }
+                } catch (innerUserErr) {
+                  console.error(
+                    "Erro ao sincronizar flag two_factor_enabled após friendlyName conflict:",
+                    innerUserErr,
+                  );
+                }
+
+                setTotpError(
+                  "Seu 2FA já está configurado neste usuário. Para reconfigurar com um novo app ou dispositivo, desative o 2FA e ative novamente.",
+                );
+                // Fechamos o modal de setup, pois não haverá QR novo.
+                setShowTotpModal(false);
+                resetTotpSetupState();
+                return;
+              }
+            }
+          } catch (innerErr) {
+            console.error("Erro ao tentar listar fatores MFA após friendlyName conflict:", innerErr);
+          }
+
+          // Se chegou aqui, não conseguimos sincronizar direito; avisa o usuário.
           setTotpError(
-            "Já existe um 2FA configurado nesse usuário. Tente desativar o 2FA e configurar novamente. Se o erro persistir, contate o suporte.",
+            "Já existe um 2FA configurado neste usuário e não foi possível reconfigurar automaticamente. Se o problema persistir, contate o suporte.",
           );
-        } else {
-          setTotpError("Não foi possível iniciar a configuração do 2FA. Tente novamente.");
+          return;
         }
 
+        // Erro genérico
+        setTotpError("Não foi possível iniciar a configuração do 2FA. Tente novamente.");
         return;
       }
 
@@ -1205,43 +1256,30 @@ function SecuritySection({
     }
   };
 
-  // Cancelar setup: se já criou fator mas não confirmou, tenta descartar
-  const handleCancelTotpSetup = async () => {
-    try {
-      if (totpFactorId) {
-        await supabase.auth.mfa.unenroll({ factorId: totpFactorId } as any);
-      }
-    } catch (err) {
-      console.error("Erro ao descartar fator TOTP não verificado:", err);
-    } finally {
-      resetTotpSetupState();
-      setShowTotpModal(false);
-    }
-  };
-
-  const handleConfirmTotp = async () => {
+  const confirmTotpEnrollment = async () => {
     setTotpError(null);
 
     if (!totpFactorId) {
-      setTotpError("Erro interno ao configurar 2FA. Recarregue a página e tente novamente.");
+      setTotpError("Erro interno ao confirmar 2FA. Recarregue a página e tente novamente.");
       return;
     }
 
     if (!totpCode.trim()) {
-      setTotpError("Informe o código gerado pelo app autenticador.");
+      setTotpError("Informe o código de 6 dígitos gerado pelo app autenticador.");
       return;
     }
 
     setTotpVerifying(true);
 
     try {
-      const { error: verifyError } = await supabase.auth.mfa.challengeAndVerify({
+      const { error } = await supabase.auth.mfa.verify({
         factorId: totpFactorId,
         code: totpCode.trim(),
+        challengeId: null,
       } as any);
 
-      if (verifyError) {
-        console.error("Erro ao verificar TOTP:", verifyError);
+      if (error) {
+        console.error("Erro ao verificar código TOTP:", error);
         setTotpError("Código inválido. Confira no app autenticador e tente novamente.");
         return;
       }
@@ -1252,7 +1290,9 @@ function SecuritySection({
       } = await supabase.auth.getUser();
 
       if (userError || !user) {
-        console.error("Erro ao buscar usuário logado para 2FA:", userError);
+        if (!(userError as any)?.message?.includes("Auth session missing")) {
+          console.error("Erro ao buscar usuário logado:", userError);
+        }
         setTotpError("Sessão expirada. Faça login novamente.");
         return;
       }
@@ -1263,18 +1303,18 @@ function SecuritySection({
         .eq("id", user.id);
 
       if (updateError) {
-        console.error("Erro ao atualizar two_factor_enabled:", updateError);
-        setTotpError("2FA confirmado, mas houve erro ao salvar nas preferências.");
+        console.error("Erro ao atualizar two_factor_enabled no profile:", updateError);
+        setTotpError("2FA foi configurado, mas houve erro ao salvar suas preferências.");
         return;
       }
 
       setTwoFactorEnabled(true);
-      setSuccessMessage("Autenticação de dois fatores ativada.");
-      setShowTotpModal(false);
+      setSuccessMessage("Autenticação de dois fatores ativada com sucesso.");
       resetTotpSetupState();
+      setShowTotpModal(false);
     } catch (err) {
-      console.error("Erro inesperado ao confirmar TOTP:", err);
-      setTotpError("Erro inesperado ao confirmar o código. Tente novamente.");
+      console.error("Erro inesperado ao confirmar 2FA:", err);
+      setTotpError("Erro inesperado ao confirmar o 2FA. Tente novamente.");
     } finally {
       setTotpVerifying(false);
     }
@@ -1335,9 +1375,11 @@ function SecuritySection({
     setDisableVerifying(true);
 
     try {
-      const { error: verifyError } = await supabase.auth.mfa.challengeAndVerify({
+      // 1) Verifica o código TOTP para obter sessão AAL2
+      const { error: verifyError } = await supabase.auth.mfa.verify({
         factorId: disableFactorId,
         code: disableCode.trim(),
+        challengeId: null,
       } as any);
 
       if (verifyError) {
@@ -1346,14 +1388,36 @@ function SecuritySection({
         return;
       }
 
+      // 2) Agora pode desativar (unenroll exige aal2)
+      // Primeiro remove o fator principal usado na verificação
       const { error: unenrollError } = await supabase.auth.mfa.unenroll({
         factorId: disableFactorId,
       } as any);
 
       if (unenrollError) {
-        console.error("Erro ao desativar fator TOTP:", unenrollError);
+        console.error("Erro ao desativar fator TOTP principal:", unenrollError);
         setDisableError("Não foi possível desativar o 2FA. Tente novamente.");
         return;
+      }
+
+      // Em seguida, por segurança, remove quaisquer outros fatores TOTP que tenham sobrado
+      try {
+        const { data: factorsData, error: listError } = await supabase.auth.mfa.listFactors();
+        if (!listError) {
+          const anyFactors: any = factorsData;
+          const totpFactors = (anyFactors?.totp ?? []) as Array<{ id: string }>;
+          for (const factor of totpFactors) {
+            if (factor.id !== disableFactorId) {
+              try {
+                await supabase.auth.mfa.unenroll({ factorId: factor.id } as any);
+              } catch (cleanupErr) {
+                console.error("Erro ao limpar fator TOTP residual:", cleanupErr);
+              }
+            }
+          }
+        }
+      } catch (cleanupErrOuter) {
+        console.error("Erro ao listar fatores para cleanup de TOTP:", cleanupErrOuter);
       }
 
       const {
