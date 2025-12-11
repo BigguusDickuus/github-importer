@@ -1,6 +1,6 @@
 import { Modal } from "./Modal";
 import { Button } from "./ui/button";
-import { Save, Sparkles, RefreshCw } from "lucide-react";
+import { Sparkles, RefreshCw } from "lucide-react";
 
 interface ReadingResultModalProps {
   isOpen: boolean;
@@ -14,6 +14,12 @@ interface ReadingResultModalProps {
   // NOVOS
   response?: string; // texto vindo do GPT
   isLoading?: boolean; // true enquanto o GPT está respondendo
+
+  // créditos atuais do usuário (para decidir Nova leitura vs Comprar créditos)
+  currentCredits: number | null;
+
+  // abre o modal de compra de créditos
+  onOpenPurchaseCredits: () => void;
 }
 
 export function ReadingResultModal({
@@ -24,6 +30,8 @@ export function ReadingResultModal({
   selectedCards,
   response,
   isLoading = false,
+  currentCredits,
+  onOpenPurchaseCredits,
 }: ReadingResultModalProps) {
   const now = new Date();
   const formattedDate = now.toLocaleDateString("pt-BR", {
@@ -44,14 +52,23 @@ export function ReadingResultModal({
       size="xl"
       footer={
         <div className="flex flex-col sm:flex-row gap-3 w-full">
-          <Button className="flex-1 bg-mystic-indigo hover:bg-mystic-indigo-dark text-starlight-text">
-            <Save className="w-4 h-4 mr-2" />
-            Salvar leitura
-          </Button>
+          <Button
+            variant="outline"
+            className="flex-1"
+            onClick={() => {
+              const hasCredits = (currentCredits ?? 0) > 0;
 
-          <Button variant="outline" className="flex-1">
+              if (hasCredits) {
+                // Com créditos: fecha o modal para o usuário fazer uma nova pergunta na Home
+                onClose();
+              } else {
+                // Sem créditos: abre o fluxo de compra
+                onOpenPurchaseCredits();
+              }
+            }}
+          >
             <RefreshCw className="w-4 h-4 mr-2" />
-            Nova pergunta
+            {(currentCredits ?? 0) > 0 ? "Nova leitura" : "Comprar créditos"}
           </Button>
         </div>
       }
