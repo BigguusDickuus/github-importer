@@ -1057,46 +1057,20 @@ function SecuritySection({
   const [saving, setSaving] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+
+  // Estado geral de 2FA
   const [twoFactorSaving, setTwoFactorSaving] = useState(false);
 
-  const handleToggleTwoFactor = async (value: boolean) => {
-    setErrorMessage(null);
-    setSuccessMessage(null);
-    setTwoFactorSaving(true);
+  // Estado do fluxo TOTP
+  const [showTotpModal, setShowTotpModal] = useState(false);
+  const [totpQrCode, setTotpQrCode] = useState<string | null>(null);
+  const [totpSecret, setTotpSecret] = useState<string | null>(null);
+  const [totpFactorId, setTotpFactorId] = useState<string | null>(null);
+  const [totpCode, setTotpCode] = useState("");
+  const [totpError, setTotpError] = useState<string | null>(null);
+  const [totpVerifying, setTotpVerifying] = useState(false);
 
-    try {
-      const {
-        data: { user },
-        error: userError,
-      } = await supabase.auth.getUser();
-
-      if (userError || !user) {
-        console.error("Erro ao buscar usuário logado para 2FA:", userError);
-        setErrorMessage("Erro ao identificar usuário. Faça login novamente.");
-        return;
-      }
-
-      const { error: updateError } = await supabase
-        .from("profiles")
-        .update({ two_factor_enabled: value } as any)
-        .eq("id", user.id);
-
-      if (updateError) {
-        console.error("Erro ao atualizar 2FA:", updateError);
-        setErrorMessage("Erro ao atualizar autenticação de dois fatores.");
-        return;
-      }
-
-      setTwoFactorEnabled(value);
-      setSuccessMessage(value ? "Autenticação de dois fatores ativada." : "Autenticação de dois fatores desativada.");
-    } catch (err) {
-      console.error("Erro inesperado ao atualizar 2FA:", err);
-      setErrorMessage("Erro inesperado ao atualizar autenticação de dois fatores.");
-    } finally {
-      setTwoFactorSaving(false);
-    }
-  };
-
+  // --------- ALTERAR SENHA ---------
   const handleChangePassword = async () => {
     setErrorMessage(null);
     setSuccessMessage(null);
@@ -1165,11 +1139,200 @@ function SecuritySection({
     }
   };
 
+  // --------- FLUXO DE TOTP / 2FA ---------
+
+  const resetTotpState = () => {
+    setTotpQrCode(null);
+    setTotpSecret(null);
+    setTotpFactorId(null);
+    setTotpCode("");
+    setTotpError(null);
+    setTotpVerifying(false);
+  };
+
+  const handleCancelTotpSetup = async () => {
+    // Se já criamos um fator TOTP, descarta ele
+    if (totpFactorId) {
+      try {
+        await supabase.auth.mfa.unenroll({ factorId: totpFactorId });
+      } catch (err) {
+        console.error("Erro ao descartar fator TOTP não verificado:", err);
+      }
+    }
+
+    resetTotpState();
+    setShowTotpModal(false);
+    setTwoFactorSaving(false);
+  };
+
+  const startTotpEnrollment = async () => {
+    setTotpError(null);
+    setTwoFactorSaving(true);
+
+    try {
+      const { data, error } = await supabase.auth.mfa.enroll({
+        factorType: "totp",
+        friendlyName: "TOTP TarotOnline",
+      });
+
+      if (error || !data) {
+        console.error("Erro ao iniciar enrolamento TOTP:", error);
+        setTotpError("Não foi possível iniciar a configuração do 2FA. Tente novamente.");
+        setShowTotpModal(false);
+        return;
+      }
+
+      const anyData: any = data;
+      setTotpFactorId(anyData.id ?? null);
+      setTotpQrCode(anyData.totp?.qr_code ?? null);
+      setTotpSecret(anyData.totp?.secret ?? null);
+    } catch (err) {
+      console.error("Erro inesperado ao iniciar enrolamento TOTP:", err);
+      setTotpError("Erro inesperado ao iniciar a configuração do 2FA.");
+      setShowTotpModal(false);
+    } finally {
+      setTwoFactorSaving(false);
+    }
+  };
+
+  const handleConfirmTotp = async () => {
+    setTotpError(null);
+
+    if (!totpFactorId) {
+      setTotpError("Erro interno ao configurar 2FA. Recarregue a página e tente novamente.");
+      return;
+    }
+
+    if (!totpCode.trim()) {
+      setTotpError("Informe o código gerado pelo app autenticador.");
+      return;
+    }
+
+    setTotpVerifying(true);
+
+    try {
+      // challenge + verify em um passo (TOTP)
+      const { error: verifyError } = await supabase.auth.mfa.challengeAndVerify({
+        factorId: totpFactorId,
+        code: totpCode.trim(),
+      } as any);
+
+      if (verifyError) {
+        console.error("Erro ao verificar TOTP:", verifyError);
+        setTotpError("Código inválido. Confira no app autenticador e tente novamente.");
+        return;
+      }
+
+      // Atualiza flag no profile
+      const {
+        data: { user },
+        error: userError,
+      } = await supabase.auth.getUser();
+
+      if (userError || !user) {
+        console.error("Erro ao buscar usuário logado para 2FA:", userError);
+        setTotpError("Sessão expirada. Faça login novamente.");
+        return;
+      }
+
+      const { error: updateError } = await supabase
+        .from("profiles")
+        .update({ two_factor_enabled: true } as any)
+        .eq("id", user.id);
+
+      if (updateError) {
+        console.error("Erro ao atualizar two_factor_enabled:", updateError);
+        setTotpError("2FA confirmado, mas houve erro ao salvar nas preferências.");
+        return;
+      }
+
+      setTwoFactorEnabled(true);
+      setSuccessMessage("Autenticação de dois fatores ativada.");
+      setShowTotpModal(false);
+      resetTotpState();
+    } catch (err) {
+      console.error("Erro inesperado ao confirmar TOTP:", err);
+      setTotpError("Erro inesperado ao confirmar o código. Tente novamente.");
+    } finally {
+      setTotpVerifying(false);
+    }
+  };
+
+  const handleDisableTwoFactor = async () => {
+    setErrorMessage(null);
+    setSuccessMessage(null);
+    setTwoFactorSaving(true);
+
+    try {
+      const {
+        data: { user },
+        error: userError,
+      } = await supabase.auth.getUser();
+
+      if (userError || !user) {
+        console.error("Erro ao buscar usuário logado para desativar 2FA:", userError);
+        setErrorMessage("Sessão expirada. Faça login novamente.");
+        return;
+      }
+
+      // Buscar fatores cadastrados e remover TOTP
+      const { data: factorsData, error: listError } = await supabase.auth.mfa.listFactors();
+
+      if (listError) {
+        console.error("Erro ao listar fatores MFA:", listError);
+      } else {
+        const totpFactors = ((factorsData as any)?.totp ?? []) as Array<{ id: string }>;
+        for (const factor of totpFactors) {
+          try {
+            await supabase.auth.mfa.unenroll({ factorId: factor.id });
+          } catch (err) {
+            console.error("Erro ao desativar fator TOTP:", err);
+          }
+        }
+      }
+
+      const { error: updateError } = await supabase
+        .from("profiles")
+        .update({ two_factor_enabled: false } as any)
+        .eq("id", user.id);
+
+      if (updateError) {
+        console.error("Erro ao atualizar two_factor_enabled (desativar):", updateError);
+        setErrorMessage("Erro ao desativar autenticação de dois fatores.");
+        return;
+      }
+
+      setTwoFactorEnabled(false);
+      setSuccessMessage("Autenticação de dois fatores desativada.");
+    } catch (err) {
+      console.error("Erro inesperado ao desativar 2FA:", err);
+      setErrorMessage("Erro inesperado ao desativar autenticação de dois fatores.");
+    } finally {
+      setTwoFactorSaving(false);
+    }
+  };
+
+  const handleToggleTwoFactor = async (value: boolean) => {
+    setErrorMessage(null);
+    setSuccessMessage(null);
+
+    if (value) {
+      // Ativar → abre modal e inicia enrolamento TOTP
+      resetTotpState();
+      setShowTotpModal(true);
+      await startTotpEnrollment();
+    } else {
+      // Desativar → remove fatores TOTP e zera flag no profile
+      await handleDisableTwoFactor();
+    }
+  };
+
   return (
     <div className="bg-midnight-surface border border-obsidian-border rounded-2xl p-6 md:p-8">
       <h3 className="text-starlight-text mb-6">Segurança</h3>
 
       <div className="space-y-6">
+        {/* Troca de senha */}
         <div>
           <Label htmlFor="current-password" className="text-moonlight-text mb-2 block">
             Senha atual
@@ -1226,10 +1389,13 @@ function SecuritySection({
           </Button>
         </div>
 
+        {/* 2FA */}
         <div className="flex items-center justify-between">
           <div className="flex-1">
             <h4 className="text-starlight-text mb-1">Autenticação de dois fatores</h4>
-            <p className="text-moonlight-text text-sm">Adicione uma camada extra de segurança à sua conta</p>
+            <p className="text-moonlight-text text-sm">
+              Adicione uma camada extra de segurança à sua conta com um app autenticador (TOTP)
+            </p>
           </div>
           <Switch
             checked={twoFactorEnabled}
@@ -1239,6 +1405,98 @@ function SecuritySection({
           />
         </div>
       </div>
+
+      {/* Modal de configuração TOTP */}
+      {showTotpModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
+          <div className="bg-midnight-surface border border-obsidian-border rounded-2xl p-6 w-full max-w-md relative">
+            {/* Botão X */}
+            <button
+              onClick={handleCancelTotpSetup}
+              className="absolute -top-4 -right-4 w-10 h-10 rounded-full bg-night-sky border border-obsidian-border text-starlight-text hover:bg-mystic-indigo transition-colors flex items-center justify-center"
+              aria-label="Fechar configuração de 2FA"
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="18"
+                height="18"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <line x1="18" y1="6" x2="6" y2="18" />
+                <line x1="6" y1="6" x2="18" y2="18" />
+              </svg>
+            </button>
+
+            <h4 className="text-starlight-text text-lg font-semibold mb-2">
+              Configurar autenticação de dois fatores (TOTP)
+            </h4>
+            <p className="text-moonlight-text text-sm mb-4">
+              1. Escaneie o QR code abaixo em um app como Google Authenticator, 1Password ou Authy.
+              <br />
+              2. Digite o código de 6 dígitos gerado pelo app para confirmar.
+            </p>
+
+            {totpQrCode ? (
+              <img
+                src={totpQrCode}
+                alt="QR Code para configurar 2FA"
+                className="mx-auto my-4 w-56 h-56 rounded-lg bg-night-sky object-contain"
+              />
+            ) : (
+              <p className="text-moonlight-text text-sm mb-4">Carregando QR code...</p>
+            )}
+
+            {totpSecret && (
+              <p className="text-xs text-moonlight-text mb-4 break-all">
+                Se não conseguir escanear, use este código manualmente no app autenticador:
+                <br />
+                <span className="font-mono text-starlight-text">{totpSecret}</span>
+              </p>
+            )}
+
+            <div className="mt-2">
+              <Label htmlFor="totp-code" className="text-moonlight-text mb-2 block">
+                Código de 6 dígitos do app autenticador
+              </Label>
+              <Input
+                id="totp-code"
+                type="text"
+                inputMode="numeric"
+                maxLength={6}
+                placeholder="000000"
+                className="bg-night-sky border-obsidian-border text-starlight-text tracking-[0.4em] text-center"
+                value={totpCode}
+                onChange={(e) => setTotpCode(e.target.value.replace(/\D/g, ""))}
+              />
+            </div>
+
+            {totpError && <p className="text-sm text-blood-moon-error mt-2">{totpError}</p>}
+
+            <div className="mt-6 flex justify-end gap-3">
+              <Button
+                variant="outline"
+                className="border-obsidian-border text-moonlight-text hover:bg-night-sky"
+                onClick={handleCancelTotpSetup}
+                disabled={totpVerifying || twoFactorSaving}
+              >
+                Cancelar
+              </Button>
+              <Button
+                className="bg-mystic-indigo hover:bg-mystic-indigo-dark text-starlight-text"
+                onClick={handleConfirmTotp}
+                disabled={totpVerifying || twoFactorSaving}
+              >
+                {totpVerifying ? "Verificando..." : "Ativar 2FA"}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
