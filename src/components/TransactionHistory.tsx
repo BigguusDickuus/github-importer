@@ -8,13 +8,21 @@ import { ReadingResultModal } from "./ReadingResultModal";
 
 interface Transaction {
   id: string;
-  date: string;
+  date: string; // ISO de created_at
   time: string;
   amount: string;
   eventLabel: string;
   isUsage: boolean;
-  readingId?: string | null;
+  creditsChangeAbs?: number;
 }
+
+type ReadingRow = {
+  question: string | null;
+  response: string | null;
+  oracles: any;
+  total_credits_cost: number | null;
+  created_at: string;
+};
 
 export function TransactionHistory() {
   const [itemsPerPage, setItemsPerPage] = useState<number>(20);
@@ -69,7 +77,7 @@ export function TransactionHistory() {
       // 2) Busca histórico em credit_transactions
       const { data, error } = await supabase
         .from("credit_transactions")
-        .select("id, credits_change, amount_cents, currency, description, created_at, tx_type, reading_id")
+        .select("id, credits_change, amount_cents, currency, description, created_at, tx_type")
         .eq("user_id", user.id)
         .order("created_at", { ascending: false });
 
@@ -83,7 +91,7 @@ export function TransactionHistory() {
       const mapped: Transaction[] = (data || []).map((row: any) => {
         const d = new Date(row.created_at);
 
-        const date = d.toISOString();
+        const dateIso = d.toISOString();
         const time = d.toLocaleTimeString("pt-BR", {
           hour: "2-digit",
           minute: "2-digit",
@@ -92,6 +100,7 @@ export function TransactionHistory() {
         const description: string = row.description ?? "";
         const txType: string = row.tx_type ?? "";
         const isUsage = description === "Uso de créditos em leitura";
+        const creditsChangeAbs = row.credits_change != null ? Math.abs(Number(row.credits_change)) : undefined;
 
         // --- COLUNA VALOR ---
         let amount: string;
@@ -146,12 +155,12 @@ export function TransactionHistory() {
 
         return {
           id: row.id,
-          date,
+          date: dateIso,
           time,
           amount,
           eventLabel,
           isUsage,
-          readingId: row.reading_id ?? null,
+          creditsChangeAbs,
         };
       });
 
@@ -165,8 +174,8 @@ export function TransactionHistory() {
     }
   };
 
-  const handleOpenReadingFromTransaction = async (readingId?: string | null) => {
-    if (!readingId) return;
+  const handleOpenReadingFromTransaction = async (transaction: Transaction) => {
+    if (!transaction.isUsage || !transaction.creditsChangeAbs) return;
 
     try {
       setShowReadingModal(true);
@@ -175,24 +184,37 @@ export function TransactionHistory() {
       setReadingModalSpread("");
       setReadingModalResponse("");
 
+      // Procurar a leitura do mesmo usuário que:
+      // - tenha total_credits_cost = |credits_change|
+      // - tenha created_at >= created_at da transação
+      // - primeira em ordem crescente (mais próxima temporalmente desse uso)
       const { data, error } = await supabase
         .from("readings")
-        .select("question, response, oracles")
-        .eq("id", readingId)
-        .maybeSingle();
+        .select<ReadingRow[]>("question, response, oracles, total_credits_cost, created_at")
+        .eq("total_credits_cost", transaction.creditsChangeAbs)
+        .gte("created_at", transaction.date)
+        .order("created_at", { ascending: true })
+        .limit(1);
 
-      if (error || !data) {
+      if (error) {
         console.error("Erro ao buscar leitura vinculada:", error);
         setReadingModalResponse("Não foi possível carregar os detalhes dessa leitura. Tente novamente mais tarde.");
         return;
       }
 
-      const question: string = data.question ?? "";
-      const response: string = data.response ?? "";
+      const reading = data && data.length > 0 ? data[0] : null;
+
+      if (!reading) {
+        setReadingModalResponse("Não foi possível localizar a leitura vinculada a este uso de créditos.");
+        return;
+      }
+
+      const question: string = reading.question ?? "";
+      const response: string = reading.response ?? "";
 
       // Tentar extrair o nome do método/spread do JSON oracles
       let spreadLabel = "Leitura anterior";
-      const oracles = data.oracles as any;
+      const oracles = reading.oracles as any;
 
       try {
         const spreads = Array.isArray(oracles)
@@ -342,7 +364,11 @@ export function TransactionHistory() {
                 {/* Pagination - Right */}
                 <div
                   className="flex items-center flex-shrink-0"
-                  style={{ gap: "8px", minWidth: "120px", justifyContent: "flex-end" }}
+                  style={{
+                    gap: "8px",
+                    minWidth: "120px",
+                    justifyContent: "flex-end",
+                  }}
                 >
                   {itemsPerPage !== -1 ? (
                     totalPages > 1 ? (
@@ -432,7 +458,7 @@ export function TransactionHistory() {
                             transaction.isUsage ? "cursor-pointer hover:bg-mystic-indigo/20" : ""
                           }`}
                           style={{ padding: "6px 12px", gap: "8px" }}
-                          onClick={() => transaction.isUsage && handleOpenReadingFromTransaction(transaction.readingId)}
+                          onClick={() => transaction.isUsage && handleOpenReadingFromTransaction(transaction)}
                         >
                           <CreditCard className="w-3 h-3 text-mystic-indigo" />
                           <span className="text-xs text-mystic-indigo">{transaction.eventLabel}</span>
@@ -450,7 +476,10 @@ export function TransactionHistory() {
                 <div
                   key={transaction.id}
                   className="bg-midnight-surface/80 backdrop-blur-sm border border-obsidian-border rounded-xl"
-                  style={{ padding: "20px", marginBottom: index < paginatedTransactions.length - 1 ? "16px" : "0" }}
+                  style={{
+                    padding: "20px",
+                    marginBottom: index < paginatedTransactions.length - 1 ? "16px" : "0",
+                  }}
                 >
                   <div className="flex items-start justify-between" style={{ marginBottom: "12px" }}>
                     <div
@@ -458,7 +487,7 @@ export function TransactionHistory() {
                         transaction.isUsage ? "cursor-pointer hover:bg-mystic-indigo/20" : ""
                       }`}
                       style={{ padding: "6px 12px", gap: "8px" }}
-                      onClick={() => transaction.isUsage && handleOpenReadingFromTransaction(transaction.readingId)}
+                      onClick={() => transaction.isUsage && handleOpenReadingFromTransaction(transaction)}
                     >
                       <CreditCard className="w-3 h-3 text-mystic-indigo" />
                       <span className="text-xs text-mystic-indigo">{transaction.eventLabel}</span>
