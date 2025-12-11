@@ -1179,7 +1179,6 @@ function SecuritySection({
       if (error || !data) {
         console.error("Erro ao iniciar enrolamento TOTP:", error);
 
-        // Erro específico de conflito de nome (fator antigo não removido)
         const message =
           (error as any)?.message || (error as any)?.error_description || "Não foi possível iniciar o 2FA.";
 
@@ -1191,7 +1190,6 @@ function SecuritySection({
           setTotpError("Não foi possível iniciar a configuração do 2FA. Tente novamente.");
         }
 
-        // IMPORTANTE: não fecha o modal aqui – mostra o erro e deixa na tela
         return;
       }
 
@@ -1237,7 +1235,6 @@ function SecuritySection({
     setTotpVerifying(true);
 
     try {
-      // challenge + verify em um passo (TOTP)
       const { error: verifyError } = await supabase.auth.mfa.challengeAndVerify({
         factorId: totpFactorId,
         code: totpCode.trim(),
@@ -1338,7 +1335,6 @@ function SecuritySection({
     setDisableVerifying(true);
 
     try {
-      // 1) Verifica TOTP -> eleva sessão para aal2
       const { error: verifyError } = await supabase.auth.mfa.challengeAndVerify({
         factorId: disableFactorId,
         code: disableCode.trim(),
@@ -1350,7 +1346,6 @@ function SecuritySection({
         return;
       }
 
-      // 2) Agora pode desativar (unenroll exige aal2)
       const { error: unenrollError } = await supabase.auth.mfa.unenroll({
         factorId: disableFactorId,
       } as any);
@@ -1401,12 +1396,10 @@ function SecuritySection({
     setSuccessMessage(null);
 
     if (value) {
-      // Ativar: abre modal de setup
       resetTotpSetupState();
       setShowTotpModal(true);
       void startTotpEnrollment();
     } else {
-      // Desativar: abre modal de confirmação c/ código
       void openDisableTwoFactorModal();
     }
   };
@@ -1491,12 +1484,12 @@ function SecuritySection({
 
       {/* Modal de configuração TOTP */}
       {showTotpModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4">
           <div className="bg-midnight-surface border border-obsidian-border rounded-2xl p-6 w-full max-w-md relative">
-            {/* Botão X – estilo igual outros modais (fundo escuro azulado) */}
+            {/* Botão X – fundo igual ao modal */}
             <button
               onClick={handleCancelTotpSetup}
-              className="absolute -top-4 -right-4 w-10 h-10 rounded-full bg-night-sky/90 border border-obsidian-border text-moonlight-text hover:text-starlight-text hover:border-mystic-indigo transition-colors flex items-center justify-center z-50"
+              className="absolute -top-4 -right-4 w-10 h-10 rounded-full bg-midnight-surface border border-obsidian-border text-moonlight-text hover:text-starlight-text hover:border-mystic-indigo transition-colors flex items-center justify-center z-50"
               aria-label="Fechar configuração de 2FA"
             >
               <svg
@@ -1563,18 +1556,11 @@ function SecuritySection({
             <div className="mt-6 flex justify-end gap-3">
               <Button
                 variant="outline"
-                className="border-obsidian-border text-moonlight-text hover:bg-night-sky px-4"
+                className="border-obsidian-border text-moonlight-text hover:bg-night-sky px-4 py-2"
                 onClick={handleCancelTotpSetup}
                 disabled={totpVerifying || twoFactorSaving}
               >
                 Cancelar
-              </Button>
-              <Button
-                className="bg-mystic-indigo hover:bg-mystic-indigo-dark text-starlight-text px-4"
-                onClick={handleConfirmTotp}
-                disabled={totpVerifying || twoFactorSaving}
-              >
-                {totpVerifying ? "Verificando..." : "Ativar 2FA"}
               </Button>
             </div>
           </div>
@@ -1583,11 +1569,11 @@ function SecuritySection({
 
       {/* Modal para DESATIVAR 2FA (pede código) */}
       {showDisableModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4">
           <div className="bg-midnight-surface border border-obsidian-border rounded-2xl p-6 w-full max-w-md relative">
             <button
               onClick={handleCancelDisable}
-              className="absolute -top-4 -right-4 w-10 h-10 rounded-full bg-night-sky/90 border border-obsidian-border text-moonlight-text hover:text-starlight-text hover:border-mystic-indigo transition-colors flex items-center justify-center z-50"
+              className="absolute -top-4 -right-4 w-10 h-10 rounded-full bg-midnight-surface border border-obsidian-border text-moonlight-text hover:text-starlight-text hover:border-mystic-indigo transition-colors flex items-center justify-center z-50"
               aria-label="Fechar desativação de 2FA"
             >
               <svg
@@ -1632,14 +1618,14 @@ function SecuritySection({
             <div className="mt-6 flex justify-end gap-3">
               <Button
                 variant="outline"
-                className="border-obsidian-border text-moonlight-text hover:bg-night-sky px-4"
+                className="border-obsidian-border text-moonlight-text hover:bg-night-sky px-4 py-2"
                 onClick={handleCancelDisable}
                 disabled={disableVerifying || twoFactorSaving}
               >
                 Cancelar
               </Button>
               <Button
-                className="bg-blood-moon-error/90 hover:bg-blood-moon-error text-starlight-text px-4"
+                className="bg-blood-moon-error/90 hover:bg-blood-moon-error text-starlight-text px-4 py-2"
                 onClick={handleConfirmDisableTwoFactor}
                 disabled={disableVerifying || twoFactorSaving || !disableFactorId}
               >
