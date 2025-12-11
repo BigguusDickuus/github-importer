@@ -973,7 +973,7 @@ export function HomeLogada() {
                 className="w-full sm:flex-1 border-obsidian-border text-moonlight-text hover:bg-midnight-surface hover:text-starlight-text h-14 md:h-16 text-base md:text-lg px-8"
                 asChild
               >
-                <Link to="/historico">📖 Histórico de leituras</Link>
+                <Link to="/history">📖 Histórico de leituras</Link>
               </Button>
             </div>
           </div>
@@ -1746,7 +1746,7 @@ export function HomeLogada() {
                   </li>
                   <li>
                     <Link
-                      to="/historico"
+                      to="/history"
                       className="text-sm text-moonlight-text/70 hover:text-mystic-indigo transition-colors"
                     >
                       Histórico de leituras
