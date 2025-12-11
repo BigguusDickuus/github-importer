@@ -51,8 +51,17 @@ export function Profile() {
         const prefs = data as any;
 
         // Manter contexto
+        const prefs = data as any;
+
         if (typeof prefs.keep_context === "boolean") {
           setKeepContext(prefs.keep_context);
+        }
+
+        // 2FA (flag em profiles.two_factor_enabled)
+        if (typeof prefs.two_factor_enabled === "boolean") {
+          setTwoFactorEnabled(prefs.two_factor_enabled);
+        } else {
+          setTwoFactorEnabled(false);
         }
 
         // Limite de uso
@@ -121,7 +130,14 @@ export function Profile() {
   };
 
   return (
-    <div className="min-h-screen bg-night-sky">
+    <div className="min-h-screen bg-night-sky text-moonlight-text relative">
+      {/* Background Gradients - Fixed */}
+      <div className="fixed inset-0 overflow-hidden pointer-events-none">
+        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[800px] bg-mystic-indigo/20 rounded-full blur-[150px]" />
+        <div className="absolute bottom-0 right-1/4 w-[600px] h-[600px] bg-oracle-ember/10 rounded-full blur-[120px]" />
+        <div className="absolute top-1/3 left-1/4 w-[400px] h-[400px] bg-mystic-indigo/10 rounded-full blur-[100px]" />
+      </div>
+
       <Header isLoggedIn={true} />
 
       <main
@@ -1042,6 +1058,45 @@ function SecuritySection({
   const [saving, setSaving] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [twoFactorSaving, setTwoFactorSaving] = useState(false);
+
+  const handleToggleTwoFactor = async (value: boolean) => {
+    setErrorMessage(null);
+    setSuccessMessage(null);
+    setTwoFactorSaving(true);
+
+    try {
+      const {
+        data: { user },
+        error: userError,
+      } = await supabase.auth.getUser();
+
+      if (userError || !user) {
+        console.error("Erro ao buscar usuário logado para 2FA:", userError);
+        setErrorMessage("Erro ao identificar usuário. Faça login novamente.");
+        return;
+      }
+
+      const { error: updateError } = await supabase
+        .from("profiles")
+        .update({ two_factor_enabled: value } as any)
+        .eq("id", user.id);
+
+      if (updateError) {
+        console.error("Erro ao atualizar 2FA:", updateError);
+        setErrorMessage("Erro ao atualizar autenticação de dois fatores.");
+        return;
+      }
+
+      setTwoFactorEnabled(value);
+      setSuccessMessage(value ? "Autenticação de dois fatores ativada." : "Autenticação de dois fatores desativada.");
+    } catch (err) {
+      console.error("Erro inesperado ao atualizar 2FA:", err);
+      setErrorMessage("Erro inesperado ao atualizar autenticação de dois fatores.");
+    } finally {
+      setTwoFactorSaving(false);
+    }
+  };
 
   const handleChangePassword = async () => {
     setErrorMessage(null);
@@ -1179,7 +1234,8 @@ function SecuritySection({
           </div>
           <Switch
             checked={twoFactorEnabled}
-            onCheckedChange={setTwoFactorEnabled}
+            onCheckedChange={handleToggleTwoFactor}
+            disabled={twoFactorSaving}
             className="data-[state=checked]:bg-mystic-indigo"
           />
         </div>
