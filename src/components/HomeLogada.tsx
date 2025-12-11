@@ -36,6 +36,12 @@ type InitRandomizationResponse = {
   oracles: InitRandomizationOracleResponse[];
 };
 
+type CreateCheckoutSessionResponse = {
+  ok: boolean;
+  checkout_url: string;
+  session_id: string;
+};
+
 const frontToBackendOracleType = (type: FrontOracleType): BackendOracleType =>
   type === "cartomancia" ? "cartomancy" : type;
 
@@ -197,6 +203,9 @@ export function HomeLogada() {
   const [showNoCreditsModal, setShowNoCreditsModal] = useState(false);
   const [showOracleSelectionModal, setShowOracleSelectionModal] = useState(false);
   const [showCardSelectionModal, setShowCardSelectionModal] = useState(false);
+
+  // Plano selecionado em processo de criação de Checkout
+  const [checkoutLoadingSlug, setCheckoutLoadingSlug] = useState<string | null>(null);
 
   // Saldo real de créditos do usuário
   const [credits, setCredits] = useState<number | null>(null);
@@ -715,6 +724,46 @@ export function HomeLogada() {
       if (cards[index]) {
         (cards[index] as HTMLElement).scrollIntoView({ inline: "center", block: "nearest", behavior: "smooth" });
       }
+    }
+  };
+
+  const handlePlanCheckout = async (packageSlug: "credits_10" | "credits_25" | "credits_60") => {
+    try {
+      setCheckoutLoadingSlug(packageSlug);
+
+      const baseUrl = window.location.origin;
+
+      const { data, error } = await supabase.functions.invoke<CreateCheckoutSessionResponse>(
+        "create-checkout-session",
+        {
+          body: {
+            package_slug: packageSlug,
+            success_url: `${baseUrl}/checkout/sucesso?session_id={CHECKOUT_SESSION_ID}`,
+            cancel_url: `${baseUrl}/checkout/cancelado`,
+          },
+        },
+      );
+
+      if (error) {
+        console.error("Erro ao chamar create-checkout-session:", error);
+        alert("Não foi possível iniciar o pagamento. Tente novamente em alguns instantes.");
+        setCheckoutLoadingSlug(null);
+        return;
+      }
+
+      if (!data?.ok || !data.checkout_url) {
+        console.error("Resposta inesperada de create-checkout-session:", data);
+        alert("Ocorreu um problema ao iniciar o pagamento. Tente novamente.");
+        setCheckoutLoadingSlug(null);
+        return;
+      }
+
+      // Redireciona para o Checkout da Stripe
+      window.location.href = data.checkout_url;
+    } catch (err) {
+      console.error("Erro inesperado ao iniciar o checkout:", err);
+      alert("Ocorreu um erro inesperado ao iniciar o pagamento. Tente novamente.");
+      setCheckoutLoadingSlug(null);
     }
   };
 
@@ -1282,11 +1331,10 @@ export function HomeLogada() {
                     </div>
                     <Button
                       className="plan-button w-full bg-mystic-indigo hover:bg-mystic-indigo-dark text-starlight-text mt-auto"
-                      onClick={() => {
-                        /* TODO: Abrir gateway de pagamento */
-                      }}
+                      onClick={() => handlePlanCheckout("credits_10")}
+                      disabled={checkoutLoadingSlug !== null}
                     >
-                      Escolher
+                      {checkoutLoadingSlug === "credits_10" ? "Redirecionando..." : "Escolher"}
                     </Button>
                   </div>
 
@@ -1344,11 +1392,10 @@ export function HomeLogada() {
                     </div>
                     <Button
                       className="plan-button w-full bg-mystic-indigo hover:bg-mystic-indigo-dark text-starlight-text mt-auto"
-                      onClick={() => {
-                        /* TODO: Abrir gateway de pagamento */
-                      }}
+                      onClick={() => handlePlanCheckout("credits_60")}
+                      disabled={checkoutLoadingSlug !== null}
                     >
-                      Escolher
+                      {checkoutLoadingSlug === "credits_60" ? "Redirecionando..." : "Escolher"}
                     </Button>
                   </div>
                 </div>
