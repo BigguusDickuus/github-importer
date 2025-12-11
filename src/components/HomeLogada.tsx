@@ -762,6 +762,7 @@ export function HomeLogada() {
       setCheckoutLoadingSlug(packageSlug);
 
       const baseUrl = window.location.origin;
+      const currentPath = window.location.pathname;
 
       const { data, error } = await supabase.functions.invoke<CreateCheckoutSessionResponse>(
         "create-checkout-session",
