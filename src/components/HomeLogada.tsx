@@ -1364,11 +1364,10 @@ export function HomeLogada() {
                     </div>
                     <Button
                       className="plan-button w-full bg-mystic-indigo hover:bg-mystic-indigo-dark text-starlight-text mt-auto"
-                      onClick={() => {
-                        /* TODO: Abrir gateway de pagamento */
-                      }}
+                      onClick={() => handlePlanCheckout("credits_10")}
+                      disabled={checkoutLoadingSlug !== null}
                     >
-                      Escolher
+                      {checkoutLoadingSlug === "credits_25" ? "Redirecionando..." : "Escolher"}
                     </Button>
                   </div>
 
