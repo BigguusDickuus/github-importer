@@ -1364,7 +1364,7 @@ export function HomeLogada() {
                     </div>
                     <Button
                       className="plan-button w-full bg-mystic-indigo hover:bg-mystic-indigo-dark text-starlight-text mt-auto"
-                      onClick={() => handlePlanCheckout("credits_10")}
+                      onClick={() => handlePlanCheckout("credits_25")}
                       disabled={checkoutLoadingSlug !== null}
                     >
                       {checkoutLoadingSlug === "credits_25" ? "Redirecionando..." : "Escolher"}
