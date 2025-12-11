@@ -1171,12 +1171,46 @@ function SecuritySection({
     setDisableVerifying(false);
   };
 
+  const removeUnverifiedTotpFactors = async () => {
+    try {
+      const { data, error } = await supabase.auth.mfa.listFactors();
+
+      if (error) {
+        console.error("Erro ao listar fatores MFA para limpeza de TOTP:", error);
+        return;
+      }
+
+      const anyData: any = data;
+      // supabase-js 2.x normalmente retorna { totp: [...] }
+      const totpFactors: Array<{ id: string; status: string }> =
+        (anyData?.totp as Array<{ id: string; status: string }>) ??
+        (anyData?.all as Array<{ id: string; status: string }>) ??
+        [];
+
+      const unverified = totpFactors.filter((f) => f.status === "unverified");
+
+      for (const factor of unverified) {
+        try {
+          await supabase.auth.mfa.unenroll({ factorId: factor.id } as any);
+        } catch (err) {
+          console.error("Erro ao remover fator TOTP não verificado:", err);
+        }
+      }
+    } catch (err) {
+      console.error("Erro inesperado em removeUnverifiedTotpFactors:", err);
+    }
+  };
+
   // --------- FLUXO: INICIAR ENROLAMENTO TOTP ---------
   const startTotpEnrollment = async () => {
     setTotpError(null);
     setTwoFactorSaving(true);
 
     try {
+      // 1) Limpa fatores TOTP não verificados antes de criar outro
+      await removeUnverifiedTotpFactors();
+
+      // 2) Agora sim, cria o fator novo
       const { data, error } = await supabase.auth.mfa.enroll({
         factorType: "totp",
         friendlyName: "TOTP TarotOnline",
