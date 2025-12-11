@@ -6,6 +6,7 @@ import { Sparkles } from "lucide-react";
 import { OracleSelectionModal } from "./OracleSelectionModal";
 import { CardSelectionModal } from "./CardSelectionModal";
 import { ReadingResultModal } from "./ReadingResultModal";
+import { HelloBar } from "./HelloBar";
 import { supabase } from "@/integrations/supabase/client";
 
 type FrontOracleType = "tarot" | "lenormand" | "cartomancia";
@@ -211,6 +212,11 @@ export function HomeLogada() {
   const [credits, setCredits] = useState<number | null>(null);
   const [creditsLoading, setCreditsLoading] = useState(false);
 
+  // HelloBar (mensagens de retorno do pagamento)
+  const [helloBarMessage, setHelloBarMessage] = useState("");
+  const [helloBarType, setHelloBarType] = useState<"success" | "warning" | "error">("success");
+  const [helloBarShow, setHelloBarShow] = useState(false);
+
   // Preferência de contexto do usuário (profiles.keep_context)
   const [keepContext, setKeepContext] = useState<boolean>(false);
 
@@ -274,6 +280,30 @@ export function HomeLogada() {
   // Busca inicial ao montar a Home
   useEffect(() => {
     fetchCreditsAndPreferences();
+  }, []);
+
+  // Detecta retorno do Stripe (?payment_status=success|error) e mostra HelloBar
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const status = params.get("payment_status");
+    if (!status) return;
+
+    if (status === "success") {
+      setHelloBarType("success");
+      setHelloBarMessage("Pacote adquirido com sucesso!");
+      setHelloBarShow(true);
+      // Recarrega saldo de créditos após confirmação de pagamento
+      fetchCreditsAndPreferences();
+    } else if (status === "error") {
+      setHelloBarType("error");
+      setHelloBarMessage("Erro no pagamento, tente novamente.");
+      setHelloBarShow(true);
+    }
+
+    // Remove o parâmetro da URL para não repetir a mensagem em futuros refreshes
+    const url = new URL(window.location.href);
+    url.searchParams.delete("payment_status");
+    window.history.replaceState({}, "", url.toString());
   }, []);
 
   // Plans carousel ref and state
@@ -738,8 +768,8 @@ export function HomeLogada() {
         {
           body: {
             package_slug: packageSlug,
-            success_url: `${baseUrl}/checkout/sucesso?session_id={CHECKOUT_SESSION_ID}`,
-            cancel_url: `${baseUrl}/checkout/cancelado`,
+            success_url: `${baseUrl}${currentPath}?payment_status=success`,
+            cancel_url: `${baseUrl}${currentPath}?payment_status=error`,
           },
         },
       );
@@ -797,6 +827,13 @@ export function HomeLogada() {
 
   return (
     <div className="min-h-screen bg-night-sky text-moonlight-text relative">
+      <HelloBar
+        message={helloBarMessage}
+        type={helloBarType}
+        show={helloBarShow}
+        onClose={() => setHelloBarShow(false)}
+      />
+
       {/* Background Gradients - Fixed */}
       <div className="fixed inset-0 overflow-hidden pointer-events-none">
         <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[800px] bg-mystic-indigo/20 rounded-full blur-[150px]" />
