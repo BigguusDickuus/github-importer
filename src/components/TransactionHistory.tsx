@@ -8,12 +8,13 @@ import { ReadingResultModal } from "./ReadingResultModal";
 
 interface Transaction {
   id: string;
-  date: string; // ISO de created_at
+  date: string; // ISO para exibição (data)
   time: string;
   amount: string;
   eventLabel: string;
   isUsage: boolean;
   creditsChangeAbs?: number;
+  completedAtRaw?: string; // created_at original da credit_transactions (para vincular à leitura)
 }
 
 type ReadingRow = {
@@ -22,6 +23,7 @@ type ReadingRow = {
   oracles: any;
   total_credits_cost: number | null;
   created_at: string;
+  completed_at: string | null;
 };
 
 export function TransactionHistory() {
@@ -161,6 +163,7 @@ export function TransactionHistory() {
           eventLabel,
           isUsage,
           creditsChangeAbs,
+          completedAtRaw: row.created_at as string,
         };
       });
 
@@ -188,12 +191,15 @@ export function TransactionHistory() {
       // - tenha total_credits_cost = |credits_change|
       // - tenha created_at >= created_at da transação
       // - primeira em ordem crescente (mais próxima temporalmente desse uso)
+      // completed_at da leitura == created_at da transação (mesmo now() na mesma transação)
+      const completedAtValue = transaction.completedAtRaw ?? transaction.date;
+
       const { data, error } = await supabase
         .from("readings")
-        .select<ReadingRow[]>("question, response, oracles, total_credits_cost, created_at")
+        .select<ReadingRow[]>("question, response, oracles, total_credits_cost, created_at, completed_at")
         .eq("total_credits_cost", transaction.creditsChangeAbs)
-        .gte("created_at", transaction.date)
-        .order("created_at", { ascending: true })
+        .eq("completed_at", completedAtValue)
+        .order("completed_at", { ascending: true })
         .limit(1);
 
       if (error) {
