@@ -212,56 +212,58 @@ export function HomeLogada() {
   const [readingSpreadLabel, setReadingSpreadLabel] = useState<string>("Consulta personalizada");
   const [readingSelectedCards, setReadingSelectedCards] = useState<number[]>([]);
 
-  useEffect(() => {
-    const fetchCreditsAndPreferences = async () => {
-      try {
-        setCreditsLoading(true);
+  // Função reutilizável: busca saldo de créditos e preferência de contexto
+  const fetchCreditsAndPreferences = async () => {
+    try {
+      setCreditsLoading(true);
 
-        const {
-          data: { user },
-          error: userError,
-        } = await supabase.auth.getUser();
+      const {
+        data: { user },
+        error: userError,
+      } = await supabase.auth.getUser();
 
-        if (userError || !user) {
-          console.error("Erro ao obter usuário logado:", userError);
-          setCredits(0);
-          return;
-        }
-
-        // Saldo de créditos
-        const { data: balanceData, error: balanceError } = await supabase
-          .from("credit_balances")
-          .select("balance")
-          .eq("user_id", user.id)
-          .maybeSingle();
-
-        if (balanceError) {
-          console.error("Erro ao buscar saldo de créditos:", balanceError);
-          setCredits(0);
-        } else {
-          setCredits(balanceData?.balance ?? 0);
-        }
-
-        // Preferência de contexto (keep_context) no profiles
-        const { data: profileData, error: profileError } = await supabase
-          .from("profiles")
-          .select("keep_context")
-          .eq("id", user.id)
-          .maybeSingle();
-
-        if (profileError) {
-          console.error("Erro ao buscar preferências de perfil:", profileError);
-        } else if (profileData) {
-          setKeepContext(!!profileData.keep_context);
-        }
-      } catch (err) {
-        console.error("Erro inesperado ao buscar saldo de créditos e preferências:", err);
+      if (userError || !user) {
+        console.error("Erro ao obter usuário logado:", userError);
         setCredits(0);
-      } finally {
-        setCreditsLoading(false);
+        return;
       }
-    };
 
+      // Saldo de créditos
+      const { data: balanceData, error: balanceError } = await supabase
+        .from("credit_balances")
+        .select("balance")
+        .eq("user_id", user.id)
+        .maybeSingle();
+
+      if (balanceError) {
+        console.error("Erro ao buscar saldo de créditos:", balanceError);
+        setCredits(0);
+      } else {
+        setCredits(balanceData?.balance ?? 0);
+      }
+
+      // Preferência de contexto (keep_context) no profiles
+      const { data: profileData, error: profileError } = await supabase
+        .from("profiles")
+        .select("keep_context")
+        .eq("id", user.id)
+        .maybeSingle();
+
+      if (profileError) {
+        console.error("Erro ao buscar preferências de perfil:", profileError);
+      } else if (profileData) {
+        setKeepContext(!!profileData.keep_context);
+      }
+    } catch (err) {
+      console.error("Erro inesperado ao buscar saldo de créditos e preferências:", err);
+      setCredits(0);
+    } finally {
+      setCreditsLoading(false);
+    }
+  };
+
+  // Busca inicial ao montar a Home
+  useEffect(() => {
     fetchCreditsAndPreferences();
   }, []);
 
@@ -595,6 +597,10 @@ export function HomeLogada() {
           ? responseText
           : "Não foi possível carregar a interpretação desta leitura. Tente novamente em alguns instantes.",
       );
+
+      // Atualiza saldo de créditos e preferências após leitura concluída
+      await fetchCreditsAndPreferences();
+
       setReadingIsLoading(false);
     } catch (err) {
       console.error("Erro inesperado ao confirmar leitura:", err);
@@ -749,7 +755,7 @@ export function HomeLogada() {
         <div className="absolute top-1/3 left-1/4 w-[400px] h-[400px] bg-mystic-indigo/10 rounded-full blur-[100px]" />
       </div>
 
-      <Header isLoggedIn={true} onBuyCredits={() => setShowPaymentModal(true)} />
+      <Header key={credits ?? "no-credits"} isLoggedIn={true} onBuyCredits={() => setShowPaymentModal(true)} />
 
       {/* Hero Section */}
       <section
