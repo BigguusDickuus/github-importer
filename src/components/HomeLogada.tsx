@@ -1563,6 +1563,8 @@ export function HomeLogada() {
         selectedCards={readingSelectedCards}
         response={readingResponse}
         isLoading={readingIsLoading}
+        currentCredits={credits} // <-- state que você já tem na HomeLogada
+        onOpenPurchaseCredits={() => setShowPaymentModal(true)} // <-- já existe no carrossel de planos
       />
 
       {/* Footer */}
