@@ -187,16 +187,12 @@ export function TransactionHistory() {
       setReadingModalSpread("");
       setReadingModalResponse("");
 
-      // Procurar a leitura do mesmo usuário que:
-      // - tenha total_credits_cost = |credits_change|
-      // - tenha created_at >= created_at da transação
-      // - primeira em ordem crescente (mais próxima temporalmente desse uso)
       // completed_at da leitura == created_at da transação (mesmo now() na mesma transação)
       const completedAtValue = transaction.completedAtRaw ?? transaction.date;
 
       const { data, error } = await supabase
         .from("readings")
-        .select<ReadingRow[]>("question, response, oracles, total_credits_cost, created_at, completed_at")
+        .select("question, response, oracles, total_credits_cost, created_at, completed_at")
         .eq("total_credits_cost", transaction.creditsChangeAbs)
         .eq("completed_at", completedAtValue)
         .order("completed_at", { ascending: true })
@@ -208,7 +204,8 @@ export function TransactionHistory() {
         return;
       }
 
-      const reading = data && data.length > 0 ? data[0] : null;
+      const rows = (data as ReadingRow[] | null) ?? [];
+      const reading = rows[0] ?? null;
 
       if (!reading) {
         setReadingModalResponse("Não foi possível localizar a leitura vinculada a este uso de créditos.");
