@@ -638,10 +638,10 @@ export function TransactionHistory() {
             style={{ padding: "16px" }}
           >
             <div className="relative pointer-events-auto">
-              {/* Botão X */}
+              {/* Botão X - Fora do modal, canto superior direito */}
               <button
                 onClick={() => setShowPaymentModal(false)}
-                className="absolute -top-4 -right-4 w-10 h-10 rounded-full bg-mystic-indigo flex items-center justify-center text-starlight-text shadow-lg hover:bg-mystic-indigo-dark transition-colors z-10"
+                className="absolute -top-4 -right-4 w-10 h-10 rounded-full bg-midnight-surface border border-obsidian-border text-moonlight-text hover:text-starlight-text hover:border-mystic-indigo transition-colors flex items-center justify-center z-10"
                 aria-label="Fechar"
               >
                 <svg
@@ -655,8 +655,8 @@ export function TransactionHistory() {
                   strokeLinecap="round"
                   strokeLinejoin="round"
                 >
-                  <line x1="18" y1="6" x2="6" y2="18" />
-                  <line x1="6" y1="6" x2="18" y2="18" />
+                  <line x1="18" y1="6" x2="6" y2="18"></line>
+                  <line x1="6" y1="6" x2="18" y2="18"></line>
                 </svg>
               </button>
 
@@ -681,83 +681,95 @@ export function TransactionHistory() {
                     style={{ padding: "24px" }}
                   >
                     <style>{`
-                      @media (max-width: 767px) {
-                        .plan-card-mobile {
-                          padding: 16px !important;
-                        }
-                        .plan-card-mobile .plan-title {
-                          font-size: 1.125rem !important;
-                          margin-bottom: 6px !important;
-                        }
-                        .plan-card-mobile .plan-credits-number {
-                          font-size: 2rem !important;
-                        }
-                        .plan-card-mobile .plan-credits-text {
-                          font-size: 0.875rem !important;
-                        }
-                        .plan-card-mobile .plan-credits-wrapper {
-                          margin-bottom: 6px !important;
-                        }
-                        .plan-card-mobile .plan-price {
-                          font-size: 1.5rem !important;
-                        }
-                        .plan-card-mobile .plan-price-per {
-                          font-size: 0.75rem !important;
-                          margin-top: 2px !important;
-                        }
-                      }
-                    `}</style>
-
-                    <div className="plan-title text-lg font-semibold text-starlight-text mb-1">Iniciante</div>
-                    <p className="text-xs text-moonlight-text/70 mb-3">Para quem quer começar a explorar</p>
-
+                @media (max-width: 767px) {
+                  .plan-card-mobile {
+                    padding: 16px !important;
+                  }
+                  .plan-card-mobile .plan-title {
+                    font-size: 1.125rem !important;
+                    margin-bottom: 6px !important;
+                  }
+                  .plan-card-mobile .plan-credits-number {
+                    font-size: 2rem !important;
+                  }
+                  .plan-card-mobile .plan-credits-text {
+                    font-size: 0.875rem !important;
+                  }
+                  .plan-card-mobile .plan-credits-wrapper {
+                    margin-bottom: 6px !important;
+                  }
+                  .plan-card-mobile .plan-price {
+                    font-size: 1.5rem !important;
+                  }
+                  .plan-card-mobile .plan-price-per {
+                    font-size: 0.75rem !important;
+                    margin-top: 2px !important;
+                  }
+                  .plan-card-mobile .plan-price-wrapper {
+                    margin-bottom: 10px !important;
+                  }
+                  .plan-card-mobile .plan-button {
+                    height: 40px !important;
+                    font-size: 0.875rem !important;
+                  }
+                  .plan-card-mobile .plan-badge {
+                    font-size: 0.625rem !important;
+                    padding: 2px 10px !important;
+                  }
+                }
+              `}</style>
+                    <h3 className="plan-title text-xl text-starlight-text" style={{ marginBottom: "8px" }}>
+                      Iniciante
+                    </h3>
                     <div className="plan-credits-wrapper" style={{ marginBottom: "8px" }}>
                       <div className="plan-credits-number text-3xl text-starlight-text">10</div>
                       <div className="plan-credits-text text-moonlight-text/70">créditos</div>
                     </div>
-
                     <div className="plan-price-wrapper" style={{ marginBottom: "12px" }}>
                       <div className="plan-price text-2xl text-mystic-indigo">R$ 25,00</div>
                       <div className="plan-price-per text-sm text-moonlight-text/70" style={{ marginTop: "2px" }}>
                         R$ 2,50/cada
                       </div>
                     </div>
-
                     <Button
-                      className="plan-button w-full bg-mystic-indigo text-starlight-text hover:bg-mystic-indigo-dark mt-auto"
-                      disabled={checkoutLoadingSlug === "credits_10"}
+                      className="plan-button w-full bg-mystic-indigo hover:bg-mystic-indigo-dark text-starlight-text mt-auto"
                       onClick={() => handlePlanCheckout("credits_10")}
+                      disabled={checkoutLoadingSlug !== null}
                     >
-                      {checkoutLoadingSlug === "credits_10" ? "Indo para pagamento..." : "Escolher"}
+                      {checkoutLoadingSlug === "credits_10" ? "Redirecionando..." : "Escolher"}
                     </Button>
                   </div>
 
                   {/* Plano Explorador */}
                   <div
-                    className="plan-card-mobile bg-night-sky/50 border border-obsidian-border rounded-2xl flex flex-col items-center text-center"
+                    className="plan-card-mobile bg-night-sky/50 border-2 border-mystic-indigo rounded-2xl flex flex-col items-center text-center relative"
                     style={{ padding: "24px" }}
                   >
-                    <div className="plan-title text-lg font-semibold text-starlight-text mb-1">Explorador</div>
-                    <p className="text-xs text-moonlight-text/70 mb-3">Para leituras regulares</p>
-
+                    <div
+                      className="plan-badge absolute -top-3 left-1/2 -translate-x-1/2 bg-mystic-indigo text-starlight-text text-xs rounded-full"
+                      style={{ paddingLeft: "12px", paddingRight: "12px", paddingTop: "4px", paddingBottom: "4px" }}
+                    >
+                      POPULAR
+                    </div>
+                    <h3 className="plan-title text-xl text-starlight-text" style={{ marginBottom: "8px" }}>
+                      Explorador
+                    </h3>
                     <div className="plan-credits-wrapper" style={{ marginBottom: "8px" }}>
                       <div className="plan-credits-number text-3xl text-starlight-text">25</div>
                       <div className="plan-credits-text text-moonlight-text/70">créditos</div>
                     </div>
-
                     <div className="plan-price-wrapper" style={{ marginBottom: "12px" }}>
-                      <div className="plan-price text-2xl text-mystic-indigo">R$ 55,00</div>
+                      <div className="plan-price text-2xl text-mystic-indigo">R$ 50,00</div>
                       <div className="plan-price-per text-sm text-moonlight-text/70" style={{ marginTop: "2px" }}>
-                        R$ 2,20/cada
+                        R$ 2,00/cada
                       </div>
                     </div>
-
                     <Button
-                      className="plan-button w-full bg-mystic-indigo text-starlight-text hover:bg-mystic-indigo-dark mt-auto"
-                      disabled={checkoutLoadingSlug === "credits_25"}
+                      className="plan-button w-full bg-mystic-indigo hover:bg-mystic-indigo-dark text-starlight-text mt-auto"
                       onClick={() => handlePlanCheckout("credits_25")}
+                      disabled={checkoutLoadingSlug !== null}
                     >
-                      {checkoutLoadingSlug === "credits_25" ? "Indo para pagamento..." : "Escolher"}
+                      {checkoutLoadingSlug === "credits_25" ? "Redirecionando..." : "Escolher"}
                     </Button>
                   </div>
 
@@ -766,27 +778,25 @@ export function TransactionHistory() {
                     className="plan-card-mobile bg-night-sky/50 border border-obsidian-border rounded-2xl flex flex-col items-center text-center"
                     style={{ padding: "24px" }}
                   >
-                    <div className="plan-title text-lg font-semibold text-starlight-text mb-1">Místico</div>
-                    <p className="text-xs text-moonlight-text/70 mb-3">Para quem vive nos oráculos</p>
-
+                    <h3 className="plan-title text-xl text-starlight-text" style={{ marginBottom: "8px" }}>
+                      Místico
+                    </h3>
                     <div className="plan-credits-wrapper" style={{ marginBottom: "8px" }}>
                       <div className="plan-credits-number text-3xl text-starlight-text">60</div>
                       <div className="plan-credits-text text-moonlight-text/70">créditos</div>
                     </div>
-
                     <div className="plan-price-wrapper" style={{ marginBottom: "12px" }}>
                       <div className="plan-price text-2xl text-mystic-indigo">R$ 100,00</div>
                       <div className="plan-price-per text-sm text-moonlight-text/70" style={{ marginTop: "2px" }}>
-                        R$ 1,66/cada
+                        R$ 1,67/cada
                       </div>
                     </div>
-
                     <Button
-                      className="plan-button w-full bg-mystic-indigo text-starlight-text hover:bg-mystic-indigo-dark mt-auto"
-                      disabled={checkoutLoadingSlug === "credits_60"}
+                      className="plan-button w-full bg-mystic-indigo hover:bg-mystic-indigo-dark text-starlight-text mt-auto"
                       onClick={() => handlePlanCheckout("credits_60")}
+                      disabled={checkoutLoadingSlug !== null}
                     >
-                      {checkoutLoadingSlug === "credits_60" ? "Indo para pagamento..." : "Escolher"}
+                      {checkoutLoadingSlug === "credits_60" ? "Redirecionando..." : "Escolher"}
                     </Button>
                   </div>
                 </div>
