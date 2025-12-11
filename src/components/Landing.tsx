@@ -164,6 +164,18 @@ export function HomeDeslogada() {
     }
   };
 
+  const simulateLoginError = (toastTitle?: string, toastDescription?: string) => {
+    setLoginError(true);
+    setShakeModal(true);
+    setTimeout(() => setShakeModal(false), 600);
+
+    toast({
+      title: toastTitle ?? "Não foi possível entrar",
+      description: toastDescription ?? "Verifique seus dados e tente novamente.",
+      variant: "destructive",
+    });
+  };
+
   const handleLogin = async () => {
     // limpa erro anterior
     setLoginError(false);
