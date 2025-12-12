@@ -15,15 +15,18 @@ export function Header({ isLoggedIn = false, onBuyCredits, onLoginClick }: Heade
   const [profileDropdownOpen, setProfileDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
+  const location = useLocation();
+
   const [credits, setCredits] = useState<number | null>(null);
   const [creditsLoading, setCreditsLoading] = useState(false);
-  const location = useLocation();
+
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [adminLoading, setAdminLoading] = useState(false);
 
   const fetchCredits = async () => {
     try {
       setCreditsLoading(true);
 
-      // 1) Pega usuário atual
       const {
         data: { user },
         error: userError,
@@ -36,27 +39,23 @@ export function Header({ isLoggedIn = false, onBuyCredits, onLoginClick }: Heade
       }
 
       if (!user) {
-        // Não logado → sem saldo
         setCredits(null);
         return;
       }
 
-      // 2) Pega saldo na tabela credit_balances
       const { data, error } = await supabase
         .from("credit_balances")
         .select("balance")
         .eq("user_id", user.id)
-        .maybeSingle(); // retorna null se não tiver linha
+        .maybeSingle();
 
       if (error) {
         console.error("Erro ao buscar créditos:", error);
-        // Se der erro de RLS ou qualquer outra coisa, melhor mostrar 0 do que quebrar
         setCredits(null);
         return;
       }
 
       if (!data) {
-        // Sem linha -> assume saldo 0
         setCredits(0);
         return;
       }
@@ -70,10 +69,51 @@ export function Header({ isLoggedIn = false, onBuyCredits, onLoginClick }: Heade
     }
   };
 
+  const fetchIsAdmin = async () => {
+    try {
+      setAdminLoading(true);
+
+      const {
+        data: { user },
+        error: userError,
+      } = await supabase.auth.getUser();
+
+      if (userError) {
+        console.error("Erro ao buscar usuário logado (admin):", userError);
+        setIsAdmin(false);
+        return;
+      }
+
+      if (!user) {
+        setIsAdmin(false);
+        return;
+      }
+
+      const { data, error } = await supabase.from("profiles").select("is_admin").eq("id", user.id).maybeSingle();
+
+      if (error) {
+        console.error("Erro ao buscar is_admin:", error);
+        setIsAdmin(false);
+        return;
+      }
+
+      setIsAdmin(!!data?.is_admin);
+    } catch (err) {
+      console.error("Erro inesperado ao buscar is_admin:", err);
+      setIsAdmin(false);
+    } finally {
+      setAdminLoading(false);
+    }
+  };
+
   useEffect(() => {
     fetchCredits();
+
+    if (isLoggedIn) fetchIsAdmin();
+    else setIsAdmin(false);
+
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [location.pathname]);
+  }, [location.pathname, isLoggedIn]);
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -92,15 +132,15 @@ export function Header({ isLoggedIn = false, onBuyCredits, onLoginClick }: Heade
   }, [profileDropdownOpen]);
 
   const publicLinks = [{ label: "Como funciona", href: "#como-funciona" }];
-
   const loggedInLinks: never[] = [];
-
   const links = isLoggedIn ? loggedInLinks : publicLinks;
 
+  // ✅ AGORA: aparece em QUALQUER página logada, se for admin
+  const showAdminButton = isLoggedIn && isAdmin;
+
   const handleLogout = async () => {
-    // Fecha dropdown e menu mobile (se existirem)
     setProfileDropdownOpen(false);
-    setMobileMenuOpen(false); // se esse state existir no componente
+    setMobileMenuOpen(false);
 
     try {
       await supabase.auth.signOut();
@@ -130,7 +170,7 @@ export function Header({ isLoggedIn = false, onBuyCredits, onLoginClick }: Heade
                 </span>
               </Link>
 
-              {/* Centro: Créditos - Desktop: absoluto centro | Mobile: centro entre logo e hambúrguer */}
+              {/* Centro: Créditos */}
               {isLoggedIn && (
                 <button
                   onClick={onBuyCredits}
@@ -153,6 +193,17 @@ export function Header({ isLoggedIn = false, onBuyCredits, onLoginClick }: Heade
                     >
                       Comprar créditos
                     </button>
+
+                    {showAdminButton && (
+                      <button
+                        onClick={() => navigate("/admin")}
+                        className="text-moonlight-text hover:text-starlight-text transition-colors text-sm"
+                        disabled={adminLoading}
+                        title={adminLoading ? "Carregando..." : "Admin"}
+                      >
+                        Admin
+                      </button>
+                    )}
 
                     {links.map((link) => (
                       <Link
@@ -181,7 +232,6 @@ export function Header({ isLoggedIn = false, onBuyCredits, onLoginClick }: Heade
                           className="absolute right-0 top-full mt-2 w-56 bg-midnight-surface border border-obsidian-border rounded-xl shadow-xl"
                           style={{ padding: "12px" }}
                         >
-                          {/* Links de navegação */}
                           <button
                             onClick={() => {
                               setProfileDropdownOpen(false);
@@ -215,10 +265,8 @@ export function Header({ isLoggedIn = false, onBuyCredits, onLoginClick }: Heade
                             Histórico de transações
                           </button>
 
-                          {/* Separador */}
-                          <div className="border-t border-obsidian-border" style={{ marginBottom: "12px" }}></div>
+                          <div className="border-t border-obsidian-border" style={{ marginBottom: "12px" }} />
 
-                          {/* Botão de Sair destacado */}
                           <button
                             onClick={handleLogout}
                             className="w-full text-sm text-starlight-text bg-blood-moon-error/20 hover:bg-blood-moon-error/30 border border-blood-moon-error/40 rounded-lg transition-colors"
@@ -254,7 +302,7 @@ export function Header({ isLoggedIn = false, onBuyCredits, onLoginClick }: Heade
                 )}
               </nav>
 
-              {/* Mobile Menu Button */}
+              {/* Mobile Menu Toggle */}
               <button
                 onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
                 className="md:hidden w-10 h-10 flex items-center justify-center text-starlight-text hover:text-mystic-indigo transition-colors"
@@ -271,13 +319,11 @@ export function Header({ isLoggedIn = false, onBuyCredits, onLoginClick }: Heade
       {/* Mobile Menu */}
       {mobileMenuOpen && (
         <>
-          {/* Backdrop */}
           <div
             className="md:hidden fixed inset-0 top-16 z-40 bg-transparent"
             onClick={() => setMobileMenuOpen(false)}
           />
 
-          {/* Menu */}
           <div
             className="md:hidden fixed top-16 z-50 w-full flex justify-center pointer-events-none"
             style={{ paddingLeft: "32px", paddingRight: "32px" }}
@@ -317,6 +363,22 @@ export function Header({ isLoggedIn = false, onBuyCredits, onLoginClick }: Heade
                     >
                       Comprar créditos
                     </Button>
+
+                    {showAdminButton && (
+                      <Button
+                        variant="outline"
+                        className="w-full"
+                        onClick={() => {
+                          setMobileMenuOpen(false);
+                          navigate("/admin");
+                        }}
+                        style={{ height: "44px" }}
+                        disabled={adminLoading}
+                      >
+                        Admin
+                      </Button>
+                    )}
+
                     <Button
                       variant="outline"
                       className="w-full"
@@ -328,6 +390,7 @@ export function Header({ isLoggedIn = false, onBuyCredits, onLoginClick }: Heade
                     >
                       Configurações
                     </Button>
+
                     <Button
                       variant="outline"
                       className="w-full"
@@ -339,6 +402,7 @@ export function Header({ isLoggedIn = false, onBuyCredits, onLoginClick }: Heade
                     >
                       Histórico de leituras
                     </Button>
+
                     <Button
                       variant="outline"
                       className="w-full"
@@ -350,6 +414,7 @@ export function Header({ isLoggedIn = false, onBuyCredits, onLoginClick }: Heade
                     >
                       Histórico de transações
                     </Button>
+
                     <Button
                       variant="outline"
                       className="w-full !bg-blood-moon-error/20 hover:!bg-blood-moon-error/30 !border-blood-moon-error/40 !text-starlight-text"
