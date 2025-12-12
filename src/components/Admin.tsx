@@ -521,6 +521,19 @@ function DashboardSection({ stats }: { stats: any[] }) {
     { date: "12/12", novos: 26, recorrentes: 78 },
   ];
 
+  const tokensData = [
+    { date: "01/11", entrada: 45200, saida: 68400 },
+    { date: "05/11", entrada: 52800, saida: 79200 },
+    { date: "10/11", entrada: 48600, saida: 72900 },
+    { date: "15/11", entrada: 61500, saida: 92250 },
+    { date: "20/11", entrada: 55800, saida: 83700 },
+    { date: "25/11", entrada: 68400, saida: 102600 },
+    { date: "30/11", entrada: 62700, saida: 94050 },
+    { date: "05/12", entrada: 75300, saida: 112950 },
+    { date: "10/12", entrada: 69000, saida: 103500 },
+    { date: "12/12", entrada: 72600, saida: 108900 },
+  ];
+
   // Calcular totais
   const totalRevenue = revenueData.reduce((sum, item) => sum + item.value, 0);
   const totalCredits = creditsSoldData.reduce((sum, item) => sum + item.creditos, 0);
@@ -531,6 +544,9 @@ function DashboardSection({ stats }: { stats: any[] }) {
   const totalCreditsUsed = creditsUsedData.reduce((sum, item) => sum + item.value, 0);
   const totalNovos = usersData.reduce((sum, item) => sum + item.novos, 0);
   const totalRecorrentes = usersData.reduce((sum, item) => sum + item.recorrentes, 0);
+  const totalTokensEntrada = tokensData.reduce((sum, item) => sum + item.entrada, 0);
+  const totalTokensSaida = tokensData.reduce((sum, item) => sum + item.saida, 0);
+  const totalTokensGeral = totalTokensEntrada + totalTokensSaida;
 
   return (
     <div className="space-y-8">
@@ -783,6 +799,66 @@ function DashboardSection({ stats }: { stats: any[] }) {
                 strokeWidth={2}
                 dot={{ fill: "#10b981", r: 4 }}
                 name="recorrentes"
+              />
+            </LineChart>
+          </ResponsiveContainer>
+        </div>
+        {/* Gráfico 6: Tokens GPT - Entrada vs Saída */}
+        <div className="bg-midnight-surface border border-obsidian-border rounded-2xl p-6">
+          <h3 className="text-starlight-text mb-6">Tokens GPT - Entrada × Saída</h3>
+          <div className="mb-4 flex justify-center flex-wrap gap-4">
+            <div className="inline-flex items-center gap-2 px-4 py-2 bg-night-sky rounded-lg border border-obsidian-border">
+              <div className="w-3 h-3 rounded-full bg-mystic-indigo"></div>
+              <span className="text-sm text-moonlight-text">
+                Entrada: <span className="text-starlight-text">{totalTokensEntrada.toLocaleString("pt-BR")}</span>
+              </span>
+            </div>
+            <div className="inline-flex items-center gap-2 px-4 py-2 bg-night-sky rounded-lg border border-obsidian-border">
+              <div className="w-3 h-3 rounded-full bg-oracle-ember"></div>
+              <span className="text-sm text-moonlight-text">
+                Saída: <span className="text-starlight-text">{totalTokensSaida.toLocaleString("pt-BR")}</span>
+              </span>
+            </div>
+            <div className="inline-flex items-center gap-2 px-4 py-2 bg-night-sky rounded-lg border border-obsidian-border">
+              <div className="w-3 h-3 rounded-full bg-verdant-success"></div>
+              <span className="text-sm text-moonlight-text">
+                Total: <span className="text-starlight-text">{totalTokensGeral.toLocaleString("pt-BR")}</span>
+              </span>
+            </div>
+          </div>
+          <ResponsiveContainer width="100%" height={300}>
+            <LineChart data={tokensData}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#1a1f35" />
+              <XAxis dataKey="date" stroke="#8b92b0" style={{ fontSize: "12px" }} />
+              <YAxis
+                stroke="#8b92b0"
+                style={{ fontSize: "12px" }}
+                tickFormatter={(value) => `${(value / 1000).toFixed(0)}k`}
+              />
+              <Tooltip
+                contentStyle={{
+                  backgroundColor: "#101322",
+                  border: "1px solid #1a1f35",
+                  borderRadius: "12px",
+                  color: "#e5e7f0",
+                }}
+                formatter={(value: any) => [value.toLocaleString("pt-BR"), ""]}
+              />
+              <Line
+                type="monotone"
+                dataKey="entrada"
+                stroke="#6366f1"
+                strokeWidth={2}
+                dot={{ fill: "#6366f1", r: 4 }}
+                name="Entrada"
+              />
+              <Line
+                type="monotone"
+                dataKey="saida"
+                stroke="#f97316"
+                strokeWidth={2}
+                dot={{ fill: "#f97316", r: 4 }}
+                name="Saída"
               />
             </LineChart>
           </ResponsiveContainer>
