@@ -19,7 +19,6 @@ export function Header({ isLoggedIn = false, onBuyCredits, onLoginClick }: Heade
   const [creditsLoading, setCreditsLoading] = useState(false);
   const location = useLocation();
 
-  // ✅ Admin state
   const [isAdmin, setIsAdmin] = useState(false);
   const [adminLoading, setAdminLoading] = useState(false);
 
@@ -27,6 +26,7 @@ export function Header({ isLoggedIn = false, onBuyCredits, onLoginClick }: Heade
     try {
       setCreditsLoading(true);
 
+      // 1) Pega usuário atual
       const {
         data: { user },
         error: userError,
@@ -43,6 +43,7 @@ export function Header({ isLoggedIn = false, onBuyCredits, onLoginClick }: Heade
         return;
       }
 
+      // 2) Busca saldo
       const { data, error } = await supabase
         .from("credit_balances")
         .select("balance")
@@ -51,11 +52,13 @@ export function Header({ isLoggedIn = false, onBuyCredits, onLoginClick }: Heade
 
       if (error) {
         console.error("Erro ao buscar créditos:", error);
+        // Se der erro de RLS ou qualquer outra coisa, melhor mostrar 0 do que quebrar
         setCredits(null);
         return;
       }
 
       if (!data) {
+        // Sem linha -> assume saldo 0
         setCredits(0);
         return;
       }
@@ -69,7 +72,6 @@ export function Header({ isLoggedIn = false, onBuyCredits, onLoginClick }: Heade
     }
   };
 
-  // ✅ Busca is_admin no profiles
   const fetchIsAdmin = async () => {
     try {
       setAdminLoading(true);
@@ -109,11 +111,11 @@ export function Header({ isLoggedIn = false, onBuyCredits, onLoginClick }: Heade
 
   useEffect(() => {
     fetchCredits();
-
-    // ✅ só tenta buscar admin se estiver logado
-    if (isLoggedIn) fetchIsAdmin();
-    else setIsAdmin(false);
-
+    if (isLoggedIn) {
+      fetchIsAdmin();
+    } else {
+      setIsAdmin(false);
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [location.pathname, isLoggedIn]);
 
@@ -137,12 +139,12 @@ export function Header({ isLoggedIn = false, onBuyCredits, onLoginClick }: Heade
   const loggedInLinks: never[] = [];
   const links = isLoggedIn ? loggedInLinks : publicLinks;
 
-  // ✅ aparece em TODAS páginas logadas se for admin
   const showAdminLink = isLoggedIn && isAdmin;
 
   const handleLogout = async () => {
+    // Fecha dropdown e menu mobile (se existirem)
     setProfileDropdownOpen(false);
-    setMobileMenuOpen(false);
+    setMobileMenuOpen(false); // se esse state existir no componente
 
     try {
       await supabase.auth.signOut();
@@ -196,13 +198,12 @@ export function Header({ isLoggedIn = false, onBuyCredits, onLoginClick }: Heade
                       Comprar créditos
                     </button>
 
-                    {/* ✅ Admin */}
                     {showAdminLink && (
                       <button
                         onClick={() => navigate("/admin")}
                         disabled={adminLoading}
                         className="text-moonlight-text hover:text-starlight-text transition-colors text-sm disabled:opacity-60"
-                        title={adminLoading ? "Carregando..." : "Painel Admin"}
+                        title={adminLoading ? "Carregando..." : "Admin"}
                       >
                         Admin
                       </button>
@@ -268,7 +269,7 @@ export function Header({ isLoggedIn = false, onBuyCredits, onLoginClick }: Heade
                             Histórico de transações
                           </button>
 
-                          <div className="border-t border-obsidian-border" style={{ marginBottom: "12px" }}></div>
+                          <div className="border-t border-obsidian-border" style={{ marginBottom: "12px" }} />
 
                           <button
                             onClick={handleLogout}
@@ -305,7 +306,7 @@ export function Header({ isLoggedIn = false, onBuyCredits, onLoginClick }: Heade
                 )}
               </nav>
 
-              {/* Mobile Menu Button */}
+              {/* Mobile Menu Toggle */}
               <button
                 onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
                 className="md:hidden w-10 h-10 flex items-center justify-center text-starlight-text hover:text-mystic-indigo transition-colors"
@@ -367,7 +368,6 @@ export function Header({ isLoggedIn = false, onBuyCredits, onLoginClick }: Heade
                       Comprar créditos
                     </Button>
 
-                    {/* ✅ Admin (Mobile) */}
                     {showAdminLink && (
                       <Button
                         variant="outline"
