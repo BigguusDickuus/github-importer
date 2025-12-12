@@ -15,46 +15,38 @@ export function Header({ isLoggedIn = false, onBuyCredits, onLoginClick }: Heade
   const [profileDropdownOpen, setProfileDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
+  const location = useLocation();
+
   const [credits, setCredits] = useState<number | null>(null);
   const [creditsLoading, setCreditsLoading] = useState(false);
-  const location = useLocation();
 
   const [isAdmin, setIsAdmin] = useState(false);
   const [adminLoading, setAdminLoading] = useState(false);
-
-  const getUserIdFromSession = async () => {
-    const { data, error } = await supabase.auth.getSession();
-
-    // Se for aquele caso chato de sessão ainda inicializando, não “crava” false.
-    if (error) {
-      const msg = (error as any)?.message ?? "";
-      if (msg.includes("Auth session missing")) return null;
-      console.error("Erro ao checar sessão:", error);
-      return null;
-    }
-
-    return data.session?.user?.id ?? null;
-  };
 
   const fetchCredits = async () => {
     try {
       setCreditsLoading(true);
 
-      const userId = await getUserIdFromSession();
+      const {
+        data: { user },
+        error: userError,
+      } = await supabase.auth.getUser();
 
-      if (!userId) {
-        // Sessão ainda não “assentou”. Não crava credits=0 nem null definitivo.
-        // Faz retry curto pra evitar o bug do header ficar desatualizado.
-        setTimeout(() => {
-          if (isLoggedIn) fetchCredits();
-        }, 250);
+      if (userError) {
+        console.error("Erro ao buscar usuário logado:", userError);
+        setCredits(null);
+        return;
+      }
+
+      if (!user) {
+        setCredits(null);
         return;
       }
 
       const { data, error } = await supabase
         .from("credit_balances")
         .select("balance")
-        .eq("user_id", userId)
+        .eq("user_id", user.id)
         .maybeSingle();
 
       if (error) {
@@ -63,8 +55,12 @@ export function Header({ isLoggedIn = false, onBuyCredits, onLoginClick }: Heade
         return;
       }
 
-      // Se não existir linha em credit_balances, assume 0
-      setCredits(data?.balance ?? 0);
+      if (!data) {
+        setCredits(0);
+        return;
+      }
+
+      setCredits(data.balance ?? 0);
     } catch (err) {
       console.error("Erro inesperado ao buscar créditos:", err);
       setCredits(null);
@@ -77,18 +73,23 @@ export function Header({ isLoggedIn = false, onBuyCredits, onLoginClick }: Heade
     try {
       setAdminLoading(true);
 
-      const userId = await getUserIdFromSession();
+      const {
+        data: { user },
+        error: userError,
+      } = await supabase.auth.getUser();
 
-      if (!userId) {
-        // retry curto (sessão costuma “aparecer” logo depois do login)
-        setTimeout(() => {
-          // só tenta de novo se ainda estiver logado
-          if (isLoggedIn) fetchIsAdmin();
-        }, 250);
+      if (userError) {
+        console.error("Erro ao buscar usuário logado (admin):", userError);
+        setIsAdmin(false);
         return;
       }
 
-      const { data, error } = await supabase.from("profiles").select("is_admin").eq("id", userId).maybeSingle();
+      if (!user) {
+        setIsAdmin(false);
+        return;
+      }
+
+      const { data, error } = await supabase.from("profiles").select("is_admin").eq("id", user.id).maybeSingle();
 
       if (error) {
         console.error("Erro ao buscar is_admin:", error);
@@ -107,11 +108,10 @@ export function Header({ isLoggedIn = false, onBuyCredits, onLoginClick }: Heade
 
   useEffect(() => {
     fetchCredits();
-    if (isLoggedIn) {
-      fetchIsAdmin();
-    } else {
-      setIsAdmin(false);
-    }
+
+    if (isLoggedIn) fetchIsAdmin();
+    else setIsAdmin(false);
+
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [location.pathname, isLoggedIn]);
 
@@ -135,12 +135,12 @@ export function Header({ isLoggedIn = false, onBuyCredits, onLoginClick }: Heade
   const loggedInLinks: never[] = [];
   const links = isLoggedIn ? loggedInLinks : publicLinks;
 
-  const showAdminLink = isLoggedIn && isAdmin;
+  // ✅ AGORA: aparece em QUALQUER página logada, se for admin
+  const showAdminButton = isLoggedIn && isAdmin;
 
   const handleLogout = async () => {
-    // Fecha dropdown e menu mobile (se existirem)
     setProfileDropdownOpen(false);
-    setMobileMenuOpen(false); // se esse state existir no componente
+    setMobileMenuOpen(false);
 
     try {
       await supabase.auth.signOut();
@@ -194,11 +194,11 @@ export function Header({ isLoggedIn = false, onBuyCredits, onLoginClick }: Heade
                       Comprar créditos
                     </button>
 
-                    {showAdminLink && (
+                    {showAdminButton && (
                       <button
                         onClick={() => navigate("/admin")}
+                        className="text-moonlight-text hover:text-starlight-text transition-colors text-sm"
                         disabled={adminLoading}
-                        className="text-moonlight-text hover:text-starlight-text transition-colors text-sm disabled:opacity-60"
                         title={adminLoading ? "Carregando..." : "Admin"}
                       >
                         Admin
@@ -364,7 +364,7 @@ export function Header({ isLoggedIn = false, onBuyCredits, onLoginClick }: Heade
                       Comprar créditos
                     </Button>
 
-                    {showAdminLink && (
+                    {showAdminButton && (
                       <Button
                         variant="outline"
                         className="w-full"
