@@ -22,48 +22,49 @@ export function Header({ isLoggedIn = false, onBuyCredits, onLoginClick }: Heade
   const [isAdmin, setIsAdmin] = useState(false);
   const [adminLoading, setAdminLoading] = useState(false);
 
+  const getUserIdFromSession = async () => {
+    const { data, error } = await supabase.auth.getSession();
+
+    // Se for aquele caso chato de sessão ainda inicializando, não “crava” false.
+    if (error) {
+      const msg = (error as any)?.message ?? "";
+      if (msg.includes("Auth session missing")) return null;
+      console.error("Erro ao checar sessão:", error);
+      return null;
+    }
+
+    return data.session?.user?.id ?? null;
+  };
+
   const fetchCredits = async () => {
     try {
       setCreditsLoading(true);
 
-      // 1) Pega usuário atual
-      const {
-        data: { user },
-        error: userError,
-      } = await supabase.auth.getUser();
+      const userId = await getUserIdFromSession();
 
-      if (userError) {
-        console.error("Erro ao buscar usuário logado:", userError);
-        setCredits(null);
+      if (!userId) {
+        // Sessão ainda não “assentou”. Não crava credits=0 nem null definitivo.
+        // Faz retry curto pra evitar o bug do header ficar desatualizado.
+        setTimeout(() => {
+          if (isLoggedIn) fetchCredits();
+        }, 250);
         return;
       }
 
-      if (!user) {
-        setCredits(null);
-        return;
-      }
-
-      // 2) Busca saldo
       const { data, error } = await supabase
         .from("credit_balances")
         .select("balance")
-        .eq("user_id", user.id)
+        .eq("user_id", userId)
         .maybeSingle();
 
       if (error) {
         console.error("Erro ao buscar créditos:", error);
-        // Se der erro de RLS ou qualquer outra coisa, melhor mostrar 0 do que quebrar
         setCredits(null);
         return;
       }
 
-      if (!data) {
-        // Sem linha -> assume saldo 0
-        setCredits(0);
-        return;
-      }
-
-      setCredits(data.balance ?? 0);
+      // Se não existir linha em credit_balances, assume 0
+      setCredits(data?.balance ?? 0);
     } catch (err) {
       console.error("Erro inesperado ao buscar créditos:", err);
       setCredits(null);
@@ -76,23 +77,18 @@ export function Header({ isLoggedIn = false, onBuyCredits, onLoginClick }: Heade
     try {
       setAdminLoading(true);
 
-      const {
-        data: { user },
-        error: userError,
-      } = await supabase.auth.getUser();
+      const userId = await getUserIdFromSession();
 
-      if (userError) {
-        console.error("Erro ao buscar usuário logado (admin):", userError);
-        setIsAdmin(false);
+      if (!userId) {
+        // retry curto (sessão costuma “aparecer” logo depois do login)
+        setTimeout(() => {
+          // só tenta de novo se ainda estiver logado
+          if (isLoggedIn) fetchIsAdmin();
+        }, 250);
         return;
       }
 
-      if (!user) {
-        setIsAdmin(false);
-        return;
-      }
-
-      const { data, error } = await supabase.from("profiles").select("is_admin").eq("id", user.id).maybeSingle();
+      const { data, error } = await supabase.from("profiles").select("is_admin").eq("id", userId).maybeSingle();
 
       if (error) {
         console.error("Erro ao buscar is_admin:", error);
