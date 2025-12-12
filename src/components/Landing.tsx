@@ -1446,7 +1446,7 @@ export function HomeDeslogada() {
                           }`}
                           onClick={() => setShowLoginModal(true)}
                         >
-                          Selecionar plano
+                          Cadastre-se já!
                         </Button>
                       </div>
                     </div>
