@@ -15,11 +15,11 @@ export function Header({ isLoggedIn = false, onBuyCredits, onLoginClick }: Heade
   const [profileDropdownOpen, setProfileDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
-  const location = useLocation();
-
   const [credits, setCredits] = useState<number | null>(null);
   const [creditsLoading, setCreditsLoading] = useState(false);
+  const location = useLocation();
 
+  // ✅ Admin state
   const [isAdmin, setIsAdmin] = useState(false);
   const [adminLoading, setAdminLoading] = useState(false);
 
@@ -69,6 +69,7 @@ export function Header({ isLoggedIn = false, onBuyCredits, onLoginClick }: Heade
     }
   };
 
+  // ✅ Busca is_admin no profiles
   const fetchIsAdmin = async () => {
     try {
       setAdminLoading(true);
@@ -109,6 +110,7 @@ export function Header({ isLoggedIn = false, onBuyCredits, onLoginClick }: Heade
   useEffect(() => {
     fetchCredits();
 
+    // ✅ só tenta buscar admin se estiver logado
     if (isLoggedIn) fetchIsAdmin();
     else setIsAdmin(false);
 
@@ -135,8 +137,8 @@ export function Header({ isLoggedIn = false, onBuyCredits, onLoginClick }: Heade
   const loggedInLinks: never[] = [];
   const links = isLoggedIn ? loggedInLinks : publicLinks;
 
-  // ✅ AGORA: aparece em QUALQUER página logada, se for admin
-  const showAdminButton = isLoggedIn && isAdmin;
+  // ✅ aparece em TODAS páginas logadas se for admin
+  const showAdminLink = isLoggedIn && isAdmin;
 
   const handleLogout = async () => {
     setProfileDropdownOpen(false);
@@ -194,12 +196,13 @@ export function Header({ isLoggedIn = false, onBuyCredits, onLoginClick }: Heade
                       Comprar créditos
                     </button>
 
-                    {showAdminButton && (
+                    {/* ✅ Admin */}
+                    {showAdminLink && (
                       <button
                         onClick={() => navigate("/admin")}
-                        className="text-moonlight-text hover:text-starlight-text transition-colors text-sm"
                         disabled={adminLoading}
-                        title={adminLoading ? "Carregando..." : "Admin"}
+                        className="text-moonlight-text hover:text-starlight-text transition-colors text-sm disabled:opacity-60"
+                        title={adminLoading ? "Carregando..." : "Painel Admin"}
                       >
                         Admin
                       </button>
@@ -265,7 +268,7 @@ export function Header({ isLoggedIn = false, onBuyCredits, onLoginClick }: Heade
                             Histórico de transações
                           </button>
 
-                          <div className="border-t border-obsidian-border" style={{ marginBottom: "12px" }} />
+                          <div className="border-t border-obsidian-border" style={{ marginBottom: "12px" }}></div>
 
                           <button
                             onClick={handleLogout}
@@ -302,7 +305,7 @@ export function Header({ isLoggedIn = false, onBuyCredits, onLoginClick }: Heade
                 )}
               </nav>
 
-              {/* Mobile Menu Toggle */}
+              {/* Mobile Menu Button */}
               <button
                 onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
                 className="md:hidden w-10 h-10 flex items-center justify-center text-starlight-text hover:text-mystic-indigo transition-colors"
@@ -364,7 +367,8 @@ export function Header({ isLoggedIn = false, onBuyCredits, onLoginClick }: Heade
                       Comprar créditos
                     </Button>
 
-                    {showAdminButton && (
+                    {/* ✅ Admin (Mobile) */}
+                    {showAdminLink && (
                       <Button
                         variant="outline"
                         className="w-full"
