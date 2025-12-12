@@ -1,4 +1,7 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { supabase } from "@/integrations/supabase/client";
+
 import { HomeDeslogada } from "./components/Landing";
 import { HomeLogada } from "./components/HomeLogada";
 import { Dashboard } from "./components/Dashboard";
@@ -10,11 +13,97 @@ import { Admin } from "./components/Admin";
 import { Login } from "./components/Login";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 
+function LandingGate() {
+  const [checking, setChecking] = useState(true);
+  const [hasSession, setHasSession] = useState(false);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const run = async () => {
+      const { data } = await supabase.auth.getSession();
+      if (!isMounted) return;
+      setHasSession(!!data.session);
+      setChecking(false);
+    };
+
+    run();
+
+    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (!isMounted) return;
+      setHasSession(!!session);
+      setChecking(false);
+    });
+
+    return () => {
+      isMounted = false;
+      listener?.subscription?.unsubscribe();
+    };
+  }, []);
+
+  if (checking) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-night-sky text-starlight-text">
+        Carregando...
+      </div>
+    );
+  }
+
+  // Se já está logado e caiu na Landing (/), manda pro dashboard.
+  if (hasSession) return <Navigate to="/dashboard" replace />;
+
+  return <HomeDeslogada />;
+}
+
+function LoginGate() {
+  const [checking, setChecking] = useState(true);
+  const [hasSession, setHasSession] = useState(false);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const run = async () => {
+      const { data } = await supabase.auth.getSession();
+      if (!isMounted) return;
+      setHasSession(!!data.session);
+      setChecking(false);
+    };
+
+    run();
+
+    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (!isMounted) return;
+      setHasSession(!!session);
+      setChecking(false);
+    });
+
+    return () => {
+      isMounted = false;
+      listener?.subscription?.unsubscribe();
+    };
+  }, []);
+
+  if (checking) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-night-sky text-starlight-text">
+        Carregando...
+      </div>
+    );
+  }
+
+  // Logado não deve ver /login
+  if (hasSession) return <Navigate to="/dashboard" replace />;
+
+  return <Login />;
+}
+
 export default function App() {
   return (
     <Router>
       <Routes>
-        <Route path="/" element={<HomeDeslogada />} />
+        {/* / agora é gate: logado -> /dashboard | deslogado -> Landing */}
+        <Route path="/" element={<LandingGate />} />
+
         <Route
           path="/dashboard"
           element={
@@ -23,8 +112,10 @@ export default function App() {
             </ProtectedRoute>
           }
         />
+
+        {/* Rotas “oficiais” em lowercase */}
         <Route
-          path="/History"
+          path="/history"
           element={
             <ProtectedRoute>
               <History />
@@ -32,13 +123,18 @@ export default function App() {
           }
         />
         <Route
-          path="/TransactionHistory"
+          path="/transaction-history"
           element={
             <ProtectedRoute>
               <TransactionHistory />
             </ProtectedRoute>
           }
         />
+
+        {/* Compat: rotas antigas com maiúscula (caso existam links/menus antigos) */}
+        <Route path="/History" element={<Navigate to="/history" replace />} />
+        <Route path="/TransactionHistory" element={<Navigate to="/transaction-history" replace />} />
+
         <Route
           path="/credits"
           element={
@@ -63,8 +159,11 @@ export default function App() {
             </ProtectedRoute>
           }
         />
-        <Route path="/login" element={<Login />} />
-        {/* Catch-all route - redirects any unmatched routes to landing */}
+
+        {/* /login também vira gate */}
+        <Route path="/login" element={<LoginGate />} />
+
+        {/* Catch-all */}
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </Router>
