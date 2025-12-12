@@ -65,6 +65,33 @@ export function HomeDeslogada() {
   const [cpfError, setCpfError] = useState("");
   const [phoneError, setPhoneError] = useState("");
 
+  // Se o usuário já estiver logado e cair na Landing (/), redireciona para /dashboard
+  useEffect(() => {
+    let isMounted = true;
+
+    const checkSessionAndRedirect = async () => {
+      const { data, error } = await supabase.auth.getSession();
+      if (!isMounted) return;
+
+      if (!error && data?.session) {
+        navigate("/dashboard", { replace: true });
+      }
+    };
+
+    checkSessionAndRedirect();
+
+    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (session) {
+        navigate("/dashboard", { replace: true });
+      }
+    });
+
+    return () => {
+      isMounted = false;
+      listener?.subscription?.unsubscribe();
+    };
+  }, [navigate]);
+
   // Scroll to initial positions in carousels
   useEffect(() => {
     // Como Funciona: scroll to first card (index 0)
