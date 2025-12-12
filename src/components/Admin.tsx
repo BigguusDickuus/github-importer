@@ -90,7 +90,7 @@ export function Admin() {
         <div className="absolute top-1/3 left-1/4 w-[400px] h-[400px] bg-mystic-indigo/10 rounded-full blur-[100px]" />
       </div>
 
-      <Header isLoggedIn={true} credits={100} />
+      <Header isLoggedIn={true} />
 
       <main
         className="relative z-10 flex-1 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8"
