@@ -514,12 +514,13 @@ function DashboardSection() {
         <div className="flex items-center justify-between gap-3 flex-wrap">
           <h3 className="text-starlight-text">Filtro de período</h3>
           <Button
-            onClick={fetchAll}
-            disabled={loading}
-            className="bg-mystic-indigo hover:bg-mystic-indigo-dark text-starlight-text"
-          >
-            {loading ? "Atualizando..." : "Aplicar"}
-          </Button>
+<Button
+  onClick={fetchAll}
+  disabled={loading}
+  className="h-11 px-6 bg-mystic-indigo hover:bg-mystic-indigo-dark text-starlight-text"
+>
+  {loading ? "Atualizando..." : "Aplicar"}
+</Button>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
@@ -938,13 +939,13 @@ function UsersSection() {
     return (
       <div className="space-y-6">
         <Button
-          onClick={() => {
-            setSelectedUser(null);
-            setDetail(null);
-          }}
-          variant="outline"
-          className="flex items-center gap-2"
-        >
+  onClick={() => {
+    setSelectedUser(null);
+    setDetail(null);
+  }}
+  variant="outline"
+  className="h-11 px-5 flex items-center gap-2"
+>
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
           </svg>
@@ -1003,9 +1004,9 @@ function UsersSection() {
 
           <div className="mt-6 pt-6 border-t border-obsidian-border">
             <Button
-              onClick={() => setShowAdjustModal(true)}
-              className="bg-mystic-indigo hover:bg-mystic-indigo-dark text-starlight-text"
-            >
+  onClick={() => setShowAdjustModal(true)}
+  className="h-11 px-6 bg-mystic-indigo hover:bg-mystic-indigo-dark text-starlight-text"
+>
               <CreditCard className="w-4 h-4 mr-2" />
               Ajustar créditos
             </Button>
@@ -1016,7 +1017,7 @@ function UsersSection() {
           <div className="flex items-center justify-between mb-6">
             <h3 className="text-starlight-text">Histórico de compras ({purchases.length})</h3>
             {purchases.length > 0 && (
-              <Button onClick={() => setShowPurchaseHistory(true)} variant="outline" size="sm">
+              <Button onClick={() => setShowPurchaseHistory(true)} variant="outline" size="sm" className="h-10 px-4">
                 Ver todos
               </Button>
             )}
@@ -1106,7 +1107,7 @@ function UsersSection() {
               <Button
                 onClick={applyAdjustment}
                 disabled={!creditAdjustment || !adjustmentReason}
-                className="flex-1 bg-mystic-indigo hover:bg-mystic-indigo-dark text-starlight-text disabled:opacity-50"
+                className="flex-1 h-11 px-6 bg-mystic-indigo hover:bg-mystic-indigo-dark text-starlight-text disabled:opacity-50"
               >
                 Confirmar ajuste
               </Button>
@@ -1117,7 +1118,7 @@ function UsersSection() {
                   setCreditAdjustment("");
                   setAdjustmentReason("");
                 }}
-                className="flex-1"
+                className="flex-1 h-11 px-6"
               >
                 Cancelar
               </Button>
@@ -1241,7 +1242,7 @@ function UsersSection() {
 
       <div className="bg-midnight-surface border border-obsidian-border rounded-2xl p-6">
         <h4 className="text-starlight-text mb-4">Buscar usuário</h4>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
           <div>
             <Label htmlFor="searchKey" className="text-moonlight-text mb-2 block text-sm">
               Buscar por
@@ -1250,7 +1251,7 @@ function UsersSection() {
               id="searchKey"
               value={searchKey}
               onChange={(e) => setSearchKey(e.target.value as any)}
-              className="w-full bg-night-sky border border-obsidian-border rounded-xl px-4 py-3 text-starlight-text focus:outline-none focus:border-mystic-indigo transition-colors"
+              className="h-11 w-full bg-night-sky border border-obsidian-border rounded-xl px-4 text-starlight-text focus:outline-none focus:border-mystic-indigo transition-colors"
             >
               <option value="email">E-mail</option>
               <option value="nome">Nome</option>
@@ -1271,12 +1272,12 @@ function UsersSection() {
                 value={searchValue}
                 onChange={(e) => setSearchValue(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && handleSearch()}
-                className="bg-night-sky border-obsidian-border text-starlight-text flex-1"
+                className="h-11 bg-night-sky border-obsidian-border text-starlight-text flex-1"
               />
               <Button
                 onClick={handleSearch}
                 disabled={loading}
-                className="bg-mystic-indigo hover:bg-mystic-indigo-dark text-starlight-text px-8 disabled:opacity-60"
+                className="h-11 px-8 bg-mystic-indigo hover:bg-mystic-indigo-dark text-starlight-text disabled:opacity-60 whitespace-nowrap"
               >
                 {loading ? "Buscando..." : "Pesquisar"}
               </Button>
@@ -1410,9 +1411,9 @@ function CreditsSection() {
     <div>
       <div className="flex items-center justify-between mb-6 gap-3 flex-wrap">
         <h3 className="text-starlight-text">Ajustes de Crédito Recentes</h3>
-        <Button variant="outline" onClick={load} disabled={loading}>
-          {loading ? "Atualizando..." : "Atualizar"}
-        </Button>
+<Button variant="outline" onClick={load} disabled={loading} className="h-11 px-6">
+  {loading ? "Atualizando..." : "Atualizar"}
+</Button>
       </div>
 
       <div className="bg-midnight-surface border border-obsidian-border rounded-2xl overflow-hidden">
@@ -1481,9 +1482,9 @@ function LogsSection() {
     <div>
       <div className="flex items-center justify-between mb-6 gap-3 flex-wrap">
         <h3 className="text-starlight-text">Logs do Sistema</h3>
-        <Button variant="outline" onClick={load} disabled={loading}>
-          {loading ? "Atualizando..." : "Atualizar"}
-        </Button>
+<Button variant="outline" onClick={load} disabled={loading} className="h-11 px-6">
+  {loading ? "Atualizando..." : "Atualizar"}
+</Button>
       </div>
 
       <div className="bg-midnight-surface border border-obsidian-border rounded-2xl overflow-hidden">
