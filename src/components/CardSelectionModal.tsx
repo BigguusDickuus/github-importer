@@ -456,31 +456,30 @@ export function CardSelectionModal({
               {/* OVERLAY DE PREVIEW DAS CARTAS SELECIONADAS (somente se NÃO for Grand Tableau) */}
               {!isGrandTableau && showSelectionPreview && selectedCards.length > 0 && (
                 <div className="pointer-events-auto absolute inset-0 flex items-center justify-center">
-                  <div className="relative max-w-6xl w-full mx-auto">
+                  <div className="relative w-full max-w-6xl mx-auto px-4">
                     {/* Fundo esfumado */}
-                    <div className="absolute inset-0 bg-night-sky/80 backdrop-blur-xl rounded-3xl border border-obsidian-border shadow-2xl" />
+                    <div className="absolute inset-0 rounded-3xl bg-black/60 backdrop-blur-xl shadow-2xl" />
 
                     <div className="relative z-10 flex flex-col items-center gap-4 p-6 md:p-8">
                       <p className="text-sm md:text-base text-moonlight-text/80 text-center">Cartas selecionadas</p>
 
-                      <div className="flex flex-wrap justify-center gap-4 md:gap-6">
+                      <div className="flex flex-wrap justify-center gap-4 md:gap-6 max-h-[70vh] overflow-auto px-2">
                         {selectedCards.map((cardIndex) => {
                           const deckCard = (currentDeck[cardIndex] as any) || undefined;
                           const cardCode = deckCard?.code as string | undefined;
 
                           const isReversed =
-                            oracleType === "tarot" &&
-                            !!(deckCard?.reversed || deckCard?.is_reversed || deckCard?.orientation === "reversed");
+                            oracleType === "tarot" && (deckCard?.is_reversed || deckCard?.orientation === "reversed");
 
                           const frontUrl = cardCode ? getCardImageUrl(cardCode) : null;
 
                           return (
                             <div
                               key={`preview-${cardIndex}`}
-                              className="relative w-[120px] h-[192px] sm:w-[140px] sm:h-[224px] md:w-[160px] md:h-[256px]"
+                              className="relative w-[160px] h-[256px] sm:w-[190px] sm:h-[304px] md:w-[220px] md:h-[352px] lg:w-[250px] lg:h-[400px]"
                             >
                               {/* Fundo do preview (sem borda) */}
-                              <div className="absolute inset-0 rounded-xl bg-black/80 shadow-xl" />
+                              <div className="absolute inset-0 rounded-xl bg-black/70 shadow-xl" />
 
                               {frontUrl ? (
                                 <img
