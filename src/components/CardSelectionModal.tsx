@@ -338,15 +338,109 @@ export function CardSelectionModal({
     const raw = String(code).trim();
     const upper = raw.toUpperCase();
 
-    // TAROT - tenta majors por número no código (ex.: M00, MA00, 00, etc.)
-    if (type === "tarot") {
-      const majorNumMatch = upper.match(/\b(0?\d|1\d|2[01])\b/);
-      if (majorNumMatch) {
-        const n = Number(majorNumMatch[1]);
+    // TAROT - majors: tenta por slug (fool/magician/etc) e por número (sem depender de \b)
+    const normalized = raw
+      .toLowerCase()
+      .split("/")
+      .pop()!
+      .replace(/\.[a-z0-9]+$/i, ""); // remove extensão
+
+    const hasSuitHint = /(wands|paus|cups|copas|swords|espadas|pentacles|coins|ouros)/i.test(normalized);
+
+    const majorSlugMap: Record<string, string> = {
+      fool: "O Louco",
+      louco: "O Louco",
+
+      magician: "O Mago",
+      mago: "O Mago",
+
+      high_priestess: "A Sacerdotisa",
+      priestess: "A Sacerdotisa",
+      sacerdotisa: "A Sacerdotisa",
+
+      empress: "A Imperatriz",
+      imperatriz: "A Imperatriz",
+
+      emperor: "O Imperador",
+      imperador: "O Imperador",
+
+      hierophant: "O Hierofante",
+      hierofante: "O Hierofante",
+      pope: "O Hierofante",
+      papa: "O Hierofante",
+
+      lovers: "Os Enamorados",
+      enamorados: "Os Enamorados",
+      amantes: "Os Enamorados",
+
+      chariot: "O Carro",
+      carro: "O Carro",
+
+      justice: "A Justiça",
+      justica: "A Justiça",
+
+      hermit: "O Eremita",
+      eremita: "O Eremita",
+
+      wheel: "A Roda da Fortuna",
+      wheel_of_fortune: "A Roda da Fortuna",
+      roda: "A Roda da Fortuna",
+      fortuna: "A Roda da Fortuna",
+
+      strength: "A Força",
+      forca: "A Força",
+
+      hanged: "O Enforcado",
+      hanged_man: "O Enforcado",
+      enforcado: "O Enforcado",
+
+      death: "A Morte",
+      morte: "A Morte",
+
+      temperance: "A Temperança",
+      temperanca: "A Temperança",
+
+      devil: "O Diabo",
+      diabo: "O Diabo",
+
+      tower: "A Torre",
+      torre: "A Torre",
+
+      star: "A Estrela",
+      estrela: "A Estrela",
+
+      moon: "A Lua",
+      lua: "A Lua",
+
+      sun: "O Sol",
+      sol: "O Sol",
+
+      judgement: "O Julgamento",
+      judgment: "O Julgamento",
+      julgamento: "O Julgamento",
+
+      world: "O Mundo",
+      mundo: "O Mundo",
+    };
+
+    if (!hasSuitHint) {
+      const slug = normalized.replace(/[^a-z0-9]+/g, "_");
+
+      for (const k of Object.keys(majorSlugMap)) {
+        if (slug.includes(k)) {
+          return majorSlugMap[k] + (isRev ? " (invertida)" : "");
+        }
+      }
+
+      // número 0..21 em QUALQUER lugar, desde que delimitado por não-dígito
+      const numMatch = normalized.match(/(?:^|[^0-9])([01]?\d|2[01])(?:[^0-9]|$)/);
+      if (numMatch) {
+        const n = Number(numMatch[1]);
         if (Number.isFinite(n) && majors[n]) {
           return majors[n] + (isRev ? " (invertida)" : "");
         }
       }
+    }
 
       // TAROT minors - tenta achar rank + suit em padrões comuns
       let rankToken: string | null = null;
@@ -481,6 +575,7 @@ export function CardSelectionModal({
     const unique = Array.from(new Set(urls));
     unique.forEach((url) => {
       const img = new Image();
+      (img as any).fetchPriority = "high";
       img.decoding = "async";
       img.src = url;
     });
@@ -691,6 +786,7 @@ export function CardSelectionModal({
                                     alt={label || cardCode || `Carta ${cardIndex + 1}`}
                                     loading="eager"
                                     decoding="async"
+                                    fetchPriority="high"
                                     draggable={false}
                                     className="relative z-10 w-full h-full object-contain rounded-lg"
                                     style={oracleType === "tarot" && isReversed ? { transform: "rotate(180deg)" } : {}}
