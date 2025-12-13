@@ -26,6 +26,23 @@ function LandingGate() {
     ]);
   };
 
+  const getCachedSessionFromStorage = () => {
+    try {
+      const keys = Object.keys(localStorage || {}).filter((k) => k.includes("auth-token") && k.startsWith("sb-"));
+      for (const k of keys) {
+        const raw = localStorage.getItem(k);
+        if (!raw) continue;
+        const parsed = JSON.parse(raw);
+        if (parsed?.access_token && parsed?.user && parsed?.expires_at) {
+          const expiresAt = Number(parsed.expires_at);
+          const now = Math.floor(Date.now() / 1000);
+          if (Number.isFinite(expiresAt) && expiresAt > now) return parsed;
+        }
+      }
+    } catch {}
+    return null;
+  };
+
   const run = async (opts?: { silent?: boolean }) => {
     const silent = opts?.silent ?? false;
     if (inFlightRef.current) return;
@@ -35,17 +52,39 @@ function LandingGate() {
       // ✅ Só mostra tela azul no bootstrap inicial
       if (!silent && !bootstrappedRef.current) setChecking(true);
 
-      const { data } = (await getSessionWithTimeout(900)) as Awaited<ReturnType<typeof supabase.auth.getSession>>;
+      const { data } = (await getSessionWithTimeout(4000)) as Awaited<ReturnType<typeof supabase.auth.getSession>>;
 
       if (!mountedRef.current) return;
 
       setHasSession(!!data.session);
       setChecking(false);
       bootstrappedRef.current = true;
-    } catch (err) {
+    } catch (err: any) {
+      const msg = String(err?.message || err);
+
+      if (msg === "GET_SESSION_TIMEOUT") {
+        console.warn("LandingGate: getSession timeout (usando cache local).");
+        if (!mountedRef.current) return;
+
+        const cached = getCachedSessionFromStorage();
+
+        // ✅ Se tiver cache válido, considera logado sem bloquear UI
+        if (cached) {
+          setHasSession(true);
+          setChecking(false);
+          bootstrappedRef.current = true;
+          return;
+        }
+
+        // Sem cache: mantém comportamento padrão (deslogado)
+        setHasSession(false);
+        setChecking(false);
+        bootstrappedRef.current = true;
+        return;
+      }
+
       console.error("LandingGate: erro ao checar sessão:", err);
       if (!mountedRef.current) return;
-
       setHasSession(false);
       setChecking(false);
       bootstrappedRef.current = true;
@@ -121,17 +160,39 @@ function LoginGate() {
       // ✅ Só mostra tela azul no bootstrap inicial
       if (!silent && !bootstrappedRef.current) setChecking(true);
 
-      const { data } = (await getSessionWithTimeout(900)) as Awaited<ReturnType<typeof supabase.auth.getSession>>;
+      const { data } = (await getSessionWithTimeout(4000)) as Awaited<ReturnType<typeof supabase.auth.getSession>>;
 
       if (!mountedRef.current) return;
 
       setHasSession(!!data.session);
       setChecking(false);
       bootstrappedRef.current = true;
-    } catch (err) {
+    } catch (err: any) {
+      const msg = String(err?.message || err);
+
+      if (msg === "GET_SESSION_TIMEOUT") {
+        console.warn("LoginGate: getSession timeout (usando cache local).");
+        if (!mountedRef.current) return;
+
+        const cached = getCachedSessionFromStorage();
+
+        // ✅ Se tiver cache válido, considera logado sem bloquear UI
+        if (cached) {
+          setHasSession(true);
+          setChecking(false);
+          bootstrappedRef.current = true;
+          return;
+        }
+
+        // Sem cache: mantém comportamento padrão (deslogado)
+        setHasSession(false);
+        setChecking(false);
+        bootstrappedRef.current = true;
+        return;
+      }
+
       console.error("LoginGate: erro ao checar sessão:", err);
       if (!mountedRef.current) return;
-
       setHasSession(false);
       setChecking(false);
       bootstrappedRef.current = true;
