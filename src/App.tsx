@@ -12,80 +12,93 @@ import { Login } from "./components/Login";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 
 function LandingGate() {
-  const [checking, setChecking] = useState(true); // só no bootstrap
+  const [checking, setChecking] = useState(true);
   const [hasSession, setHasSession] = useState(false);
 
   const inFlightRef = useRef(false);
   const mountedRef = useRef(true);
   const bootstrappedRef = useRef(false);
 
-  const getSessionWithTimeout = async (ms: number) => {
-    return await Promise.race([
-      supabase.auth.getSession(),
-      new Promise<never>((_, reject) => setTimeout(() => reject(new Error("GET_SESSION_TIMEOUT")), ms)),
-    ]);
+  const withTimeout = async <T,>(p: Promise<T>, ms: number, code: string) => {
+    return await Promise.race([p, new Promise<T>((_, reject) => setTimeout(() => reject(new Error(code)), ms))]);
   };
 
-  const getCachedSessionFromStorage = () => {
+  const getCachedAuth = () => {
     try {
-      const keys = Object.keys(localStorage || {}).filter((k) => k.includes("auth-token") && k.startsWith("sb-"));
+      const keys = Object.keys(localStorage || {}).filter((k) => k.startsWith("sb-") && k.includes("auth-token"));
       for (const k of keys) {
         const raw = localStorage.getItem(k);
         if (!raw) continue;
         const parsed = JSON.parse(raw);
-        if (parsed?.access_token && parsed?.user && parsed?.expires_at) {
-          const expiresAt = Number(parsed.expires_at);
-          const now = Math.floor(Date.now() / 1000);
-          if (Number.isFinite(expiresAt) && expiresAt > now) return parsed;
+        if (parsed?.access_token && parsed?.refresh_token) {
+          const exp = Number(parsed.expires_at ?? 0);
+          if (exp) {
+            const now = Math.floor(Date.now() / 1000);
+            if (exp <= now) continue;
+          }
+          return parsed;
         }
       }
     } catch {}
     return null;
   };
 
+  const rehydrateSessionFromCache = async () => {
+    const cached = getCachedAuth();
+    if (!cached?.access_token || !cached?.refresh_token) return false;
+
+    try {
+      await withTimeout(
+        supabase.auth.setSession({
+          access_token: cached.access_token,
+          refresh_token: cached.refresh_token,
+        }),
+        2000,
+        "SET_SESSION_TIMEOUT",
+      );
+      return true;
+    } catch {
+      return false;
+    }
+  };
+
+  const getSessionSafe = async () => {
+    try {
+      const { data } = (await withTimeout(supabase.auth.getSession(), 6000, "GET_SESSION_TIMEOUT")) as Awaited<
+        ReturnType<typeof supabase.auth.getSession>
+      >;
+      return data.session ?? null;
+    } catch (err: any) {
+      const msg = String(err?.message || err);
+      if (msg === "GET_SESSION_TIMEOUT") {
+        const ok = await rehydrateSessionFromCache();
+        if (!ok) return null;
+
+        try {
+          const { data } = (await withTimeout(supabase.auth.getSession(), 3000, "GET_SESSION_TIMEOUT_2")) as Awaited<
+            ReturnType<typeof supabase.auth.getSession>
+          >;
+          return data.session ?? null;
+        } catch {
+          return null;
+        }
+      }
+      return null;
+    }
+  };
+
   const run = async (opts?: { silent?: boolean }) => {
     const silent = opts?.silent ?? false;
     if (inFlightRef.current) return;
     inFlightRef.current = true;
 
     try {
-      // ✅ Só mostra tela azul no bootstrap inicial
       if (!silent && !bootstrappedRef.current) setChecking(true);
 
-      const { data } = (await getSessionWithTimeout(4000)) as Awaited<ReturnType<typeof supabase.auth.getSession>>;
-
+      const session = await getSessionSafe();
       if (!mountedRef.current) return;
 
-      setHasSession(!!data.session);
-      setChecking(false);
-      bootstrappedRef.current = true;
-    } catch (err: any) {
-      const msg = String(err?.message || err);
-
-      if (msg === "GET_SESSION_TIMEOUT") {
-        console.warn("LandingGate: getSession timeout (usando cache local).");
-        if (!mountedRef.current) return;
-
-        const cached = getCachedSessionFromStorage();
-
-        // ✅ Se tiver cache válido, considera logado sem bloquear UI
-        if (cached) {
-          setHasSession(true);
-          setChecking(false);
-          bootstrappedRef.current = true;
-          return;
-        }
-
-        // Sem cache: mantém comportamento padrão (deslogado)
-        setHasSession(false);
-        setChecking(false);
-        bootstrappedRef.current = true;
-        return;
-      }
-
-      console.error("LandingGate: erro ao checar sessão:", err);
-      if (!mountedRef.current) return;
-      setHasSession(false);
+      setHasSession(!!session);
       setChecking(false);
       bootstrappedRef.current = true;
     } finally {
@@ -96,10 +109,8 @@ function LandingGate() {
   useEffect(() => {
     mountedRef.current = true;
 
-    // bootstrap
     run({ silent: false });
 
-    // mantém em sincronia com login/logout
     const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
       if (!mountedRef.current) return;
       setHasSession(!!session);
@@ -107,11 +118,8 @@ function LandingGate() {
       bootstrappedRef.current = true;
     });
 
-    // ✅ ao voltar pra aba: recheck silencioso
     const onVisibility = () => {
-      if (document.visibilityState === "visible") {
-        run({ silent: true });
-      }
+      if (document.visibilityState === "visible") run({ silent: true });
     };
     document.addEventListener("visibilitychange", onVisibility);
 
@@ -132,23 +140,83 @@ function LandingGate() {
   }
 
   if (hasSession) return <Navigate to="/dashboard" replace />;
-
   return <HomeDeslogada />;
 }
 
 function LoginGate() {
-  const [checking, setChecking] = useState(true); // só no bootstrap
+  const [checking, setChecking] = useState(true);
   const [hasSession, setHasSession] = useState(false);
 
   const inFlightRef = useRef(false);
   const mountedRef = useRef(true);
   const bootstrappedRef = useRef(false);
 
-  const getSessionWithTimeout = async (ms: number) => {
-    return await Promise.race([
-      supabase.auth.getSession(),
-      new Promise<never>((_, reject) => setTimeout(() => reject(new Error("GET_SESSION_TIMEOUT")), ms)),
-    ]);
+  const withTimeout = async <T,>(p: Promise<T>, ms: number, code: string) => {
+    return await Promise.race([p, new Promise<T>((_, reject) => setTimeout(() => reject(new Error(code)), ms))]);
+  };
+
+  const getCachedAuth = () => {
+    try {
+      const keys = Object.keys(localStorage || {}).filter((k) => k.startsWith("sb-") && k.includes("auth-token"));
+      for (const k of keys) {
+        const raw = localStorage.getItem(k);
+        if (!raw) continue;
+        const parsed = JSON.parse(raw);
+        if (parsed?.access_token && parsed?.refresh_token) {
+          const exp = Number(parsed.expires_at ?? 0);
+          if (exp) {
+            const now = Math.floor(Date.now() / 1000);
+            if (exp <= now) continue;
+          }
+          return parsed;
+        }
+      }
+    } catch {}
+    return null;
+  };
+
+  const rehydrateSessionFromCache = async () => {
+    const cached = getCachedAuth();
+    if (!cached?.access_token || !cached?.refresh_token) return false;
+
+    try {
+      await withTimeout(
+        supabase.auth.setSession({
+          access_token: cached.access_token,
+          refresh_token: cached.refresh_token,
+        }),
+        2000,
+        "SET_SESSION_TIMEOUT",
+      );
+      return true;
+    } catch {
+      return false;
+    }
+  };
+
+  const getSessionSafe = async () => {
+    try {
+      const { data } = (await withTimeout(supabase.auth.getSession(), 6000, "GET_SESSION_TIMEOUT")) as Awaited<
+        ReturnType<typeof supabase.auth.getSession>
+      >;
+      return data.session ?? null;
+    } catch (err: any) {
+      const msg = String(err?.message || err);
+      if (msg === "GET_SESSION_TIMEOUT") {
+        const ok = await rehydrateSessionFromCache();
+        if (!ok) return null;
+
+        try {
+          const { data } = (await withTimeout(supabase.auth.getSession(), 3000, "GET_SESSION_TIMEOUT_2")) as Awaited<
+            ReturnType<typeof supabase.auth.getSession>
+          >;
+          return data.session ?? null;
+        } catch {
+          return null;
+        }
+      }
+      return null;
+    }
   };
 
   const run = async (opts?: { silent?: boolean }) => {
@@ -157,43 +225,12 @@ function LoginGate() {
     inFlightRef.current = true;
 
     try {
-      // ✅ Só mostra tela azul no bootstrap inicial
       if (!silent && !bootstrappedRef.current) setChecking(true);
 
-      const { data } = (await getSessionWithTimeout(4000)) as Awaited<ReturnType<typeof supabase.auth.getSession>>;
-
+      const session = await getSessionSafe();
       if (!mountedRef.current) return;
 
-      setHasSession(!!data.session);
-      setChecking(false);
-      bootstrappedRef.current = true;
-    } catch (err: any) {
-      const msg = String(err?.message || err);
-
-      if (msg === "GET_SESSION_TIMEOUT") {
-        console.warn("LoginGate: getSession timeout (usando cache local).");
-        if (!mountedRef.current) return;
-
-        const cached = getCachedSessionFromStorage();
-
-        // ✅ Se tiver cache válido, considera logado sem bloquear UI
-        if (cached) {
-          setHasSession(true);
-          setChecking(false);
-          bootstrappedRef.current = true;
-          return;
-        }
-
-        // Sem cache: mantém comportamento padrão (deslogado)
-        setHasSession(false);
-        setChecking(false);
-        bootstrappedRef.current = true;
-        return;
-      }
-
-      console.error("LoginGate: erro ao checar sessão:", err);
-      if (!mountedRef.current) return;
-      setHasSession(false);
+      setHasSession(!!session);
       setChecking(false);
       bootstrappedRef.current = true;
     } finally {
@@ -204,10 +241,8 @@ function LoginGate() {
   useEffect(() => {
     mountedRef.current = true;
 
-    // bootstrap
     run({ silent: false });
 
-    // mantém em sincronia com login/logout
     const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
       if (!mountedRef.current) return;
       setHasSession(!!session);
@@ -215,11 +250,8 @@ function LoginGate() {
       bootstrappedRef.current = true;
     });
 
-    // ✅ ao voltar pra aba: recheck silencioso
     const onVisibility = () => {
-      if (document.visibilityState === "visible") {
-        run({ silent: true });
-      }
+      if (document.visibilityState === "visible") run({ silent: true });
     };
     document.addEventListener("visibilitychange", onVisibility);
 
@@ -240,7 +272,6 @@ function LoginGate() {
   }
 
   if (hasSession) return <Navigate to="/dashboard" replace />;
-
   return <Login />;
 }
 
