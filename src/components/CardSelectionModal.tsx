@@ -480,8 +480,8 @@ export function CardSelectionModal({
                               className="relative"
                               style={{ width: "110px", height: "176px" }} // 2:3
                             >
-                              {/* Moldura do preview */}
-                              <div className="absolute inset-0 rounded-xl bg-black/80 border border-obsidian-border shadow-xl" />
+                              {/* Fundo do preview (sem borda) */}
+                              <div className="absolute inset-0 rounded-xl bg-black/80 shadow-xl" />
 
                               {frontUrl ? (
                                 <img
