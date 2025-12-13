@@ -9,6 +9,7 @@ import { HelloBar } from "./HelloBar";
 import { Modal } from "./Modal";
 import { Label } from "./ui/label";
 import { Input } from "./ui/input";
+import { Sparkles } from "lucide-react";
 
 type CreateCheckoutSessionResponse = {
   ok: boolean;
