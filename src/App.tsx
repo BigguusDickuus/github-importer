@@ -1,7 +1,6 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
-
 import { HomeDeslogada } from "./components/Landing";
 import { HomeLogada } from "./components/HomeLogada";
 import { Dashboard } from "./components/Dashboard";
@@ -13,61 +12,76 @@ import { Login } from "./components/Login";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 
 function LandingGate() {
-  const [checking, setChecking] = useState(true);
+  const [checking, setChecking] = useState(true); // só no bootstrap
   const [hasSession, setHasSession] = useState(false);
 
+  const inFlightRef = useRef(false);
+  const mountedRef = useRef(true);
+  const bootstrappedRef = useRef(false);
+
+  const getSessionWithTimeout = async (ms: number) => {
+    return await Promise.race([
+      supabase.auth.getSession(),
+      new Promise<never>((_, reject) => setTimeout(() => reject(new Error("GET_SESSION_TIMEOUT")), ms)),
+    ]);
+  };
+
+  const run = async (opts?: { silent?: boolean }) => {
+    const silent = opts?.silent ?? false;
+    if (inFlightRef.current) return;
+    inFlightRef.current = true;
+
+    try {
+      // ✅ Só mostra tela azul no bootstrap inicial
+      if (!silent && !bootstrappedRef.current) setChecking(true);
+
+      const { data } = (await getSessionWithTimeout(900)) as Awaited<ReturnType<typeof supabase.auth.getSession>>;
+
+      if (!mountedRef.current) return;
+
+      setHasSession(!!data.session);
+      setChecking(false);
+      bootstrappedRef.current = true;
+    } catch (err) {
+      console.error("LandingGate: erro ao checar sessão:", err);
+      if (!mountedRef.current) return;
+
+      setHasSession(false);
+      setChecking(false);
+      bootstrappedRef.current = true;
+    } finally {
+      inFlightRef.current = false;
+    }
+  };
+
   useEffect(() => {
-    let isMounted = true;
-    let inFlight = false;
+    mountedRef.current = true;
 
-    const getSessionWithTimeout = async (ms: number) => {
-      return await Promise.race([
-        supabase.auth.getSession(),
-        new Promise<never>((_, reject) => setTimeout(() => reject(new Error("GET_SESSION_TIMEOUT")), ms)),
-      ]);
-    };
+    // bootstrap
+    run({ silent: false });
 
-    const run = async () => {
-      if (inFlight) return;
-      inFlight = true;
-
-      try {
-        setChecking(true);
-        const { data } = (await getSessionWithTimeout(2500)) as Awaited<ReturnType<typeof supabase.auth.getSession>>;
-
-        if (!isMounted) return;
-        setHasSession(!!data.session);
-        setChecking(false);
-      } catch (err) {
-        console.error("LandingGate: erro ao checar sessão:", err);
-        if (!isMounted) return;
-        setHasSession(false);
-        setChecking(false);
-      } finally {
-        inFlight = false;
-      }
-    };
-
-    run();
-
+    // mantém em sincronia com login/logout
     const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (!isMounted) return;
+      if (!mountedRef.current) return;
       setHasSession(!!session);
       setChecking(false);
+      bootstrappedRef.current = true;
     });
 
+    // ✅ ao voltar pra aba: recheck silencioso
     const onVisibility = () => {
       if (document.visibilityState === "visible") {
-        run();
+        run({ silent: true });
       }
     };
     document.addEventListener("visibilitychange", onVisibility);
 
     return () => {
-      isMounted = false;
+      mountedRef.current = false;
       listener?.subscription?.unsubscribe();
       document.removeEventListener("visibilitychange", onVisibility);
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   if (checking) {
@@ -84,61 +98,76 @@ function LandingGate() {
 }
 
 function LoginGate() {
-  const [checking, setChecking] = useState(true);
+  const [checking, setChecking] = useState(true); // só no bootstrap
   const [hasSession, setHasSession] = useState(false);
 
+  const inFlightRef = useRef(false);
+  const mountedRef = useRef(true);
+  const bootstrappedRef = useRef(false);
+
+  const getSessionWithTimeout = async (ms: number) => {
+    return await Promise.race([
+      supabase.auth.getSession(),
+      new Promise<never>((_, reject) => setTimeout(() => reject(new Error("GET_SESSION_TIMEOUT")), ms)),
+    ]);
+  };
+
+  const run = async (opts?: { silent?: boolean }) => {
+    const silent = opts?.silent ?? false;
+    if (inFlightRef.current) return;
+    inFlightRef.current = true;
+
+    try {
+      // ✅ Só mostra tela azul no bootstrap inicial
+      if (!silent && !bootstrappedRef.current) setChecking(true);
+
+      const { data } = (await getSessionWithTimeout(900)) as Awaited<ReturnType<typeof supabase.auth.getSession>>;
+
+      if (!mountedRef.current) return;
+
+      setHasSession(!!data.session);
+      setChecking(false);
+      bootstrappedRef.current = true;
+    } catch (err) {
+      console.error("LoginGate: erro ao checar sessão:", err);
+      if (!mountedRef.current) return;
+
+      setHasSession(false);
+      setChecking(false);
+      bootstrappedRef.current = true;
+    } finally {
+      inFlightRef.current = false;
+    }
+  };
+
   useEffect(() => {
-    let isMounted = true;
-    let inFlight = false;
+    mountedRef.current = true;
 
-    const getSessionWithTimeout = async (ms: number) => {
-      return await Promise.race([
-        supabase.auth.getSession(),
-        new Promise<never>((_, reject) => setTimeout(() => reject(new Error("GET_SESSION_TIMEOUT")), ms)),
-      ]);
-    };
+    // bootstrap
+    run({ silent: false });
 
-    const run = async () => {
-      if (inFlight) return;
-      inFlight = true;
-
-      try {
-        setChecking(true);
-        const { data } = (await getSessionWithTimeout(2500)) as Awaited<ReturnType<typeof supabase.auth.getSession>>;
-
-        if (!isMounted) return;
-        setHasSession(!!data.session);
-        setChecking(false);
-      } catch (err) {
-        console.error("LoginGate: erro ao checar sessão:", err);
-        if (!isMounted) return;
-        setHasSession(false);
-        setChecking(false);
-      } finally {
-        inFlight = false;
-      }
-    };
-
-    run();
-
+    // mantém em sincronia com login/logout
     const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (!isMounted) return;
+      if (!mountedRef.current) return;
       setHasSession(!!session);
       setChecking(false);
+      bootstrappedRef.current = true;
     });
 
+    // ✅ ao voltar pra aba: recheck silencioso
     const onVisibility = () => {
       if (document.visibilityState === "visible") {
-        run();
+        run({ silent: true });
       }
     };
     document.addEventListener("visibilitychange", onVisibility);
 
     return () => {
-      isMounted = false;
+      mountedRef.current = false;
       listener?.subscription?.unsubscribe();
       document.removeEventListener("visibilitychange", onVisibility);
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   if (checking) {
