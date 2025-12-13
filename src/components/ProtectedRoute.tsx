@@ -1,4 +1,4 @@
-import { ReactNode, useEffect, useState } from "react";
+import { ReactNode, useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -8,11 +8,11 @@ interface ProtectedRouteProps {
 }
 
 /**
- * Componente que protege rotas:
- * - Enquanto checa a sessão, mostra tela de "Carregando..."
- * - Se não tiver sessão, redireciona pra "/"
- * - Se tiver sessão, renderiza o children normalmente
- * - Se requireAdmin=true, exige profiles.is_admin=true (senão manda pra /dashboard)
+ * Protege rotas:
+ * - Enquanto checa a sessão, mostra "Carregando..."
+ * - Sem sessão -> "/"
+ * - Com sessão -> renderiza children
+ * - Se requireAdmin=true -> exige profiles.is_admin=true (senão "/dashboard")
  */
 export function ProtectedRoute({ children, requireAdmin = false }: ProtectedRouteProps) {
   const [checking, setChecking] = useState(true);
@@ -20,33 +20,53 @@ export function ProtectedRoute({ children, requireAdmin = false }: ProtectedRout
 
   const navigate = useNavigate();
   const location = useLocation();
+  const isMountedRef = useRef(true);
 
   useEffect(() => {
-    let isMounted = true;
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
 
-    const checkSession = async () => {
+  useEffect(() => {
+    let retryTimer: any = null;
+
+    const finish = (ok: boolean) => {
+      if (!isMountedRef.current) return;
+      setAllowed(ok);
+      setChecking(false);
+    };
+
+    const goLanding = () => navigate("/", { replace: true, state: { from: location } });
+    const goDashboard = () => navigate("/dashboard", { replace: true, state: { from: location } });
+
+    const checkSession = async (attempt = 0) => {
       try {
         const { data, error } = await supabase.auth.getSession();
 
-        if (!isMounted) return;
+        if (!isMountedRef.current) return;
 
         if (error) {
+          const msg = (error as any)?.message ?? "";
+          // ✅ erro intermitente pós-login: tenta novamente rapidamente
+          if (msg.includes("Auth session missing") && attempt < 5) {
+            retryTimer = setTimeout(() => checkSession(attempt + 1), 180);
+            return;
+          }
+
           console.error("Erro ao checar sessão:", error);
-          setAllowed(false);
-          setChecking(false);
-          navigate("/", { replace: true, state: { from: location } });
+          finish(false);
+          goLanding();
           return;
         }
 
         if (!data.session) {
-          // Não tem sessão → manda pra landing
-          setAllowed(false);
-          setChecking(false);
-          navigate("/", { replace: true, state: { from: location } });
+          finish(false);
+          goLanding();
           return;
         }
 
-        // Tem sessão. Se rota exigir admin, valida is_admin
         if (requireAdmin) {
           const userId = data.session.user.id;
 
@@ -56,41 +76,46 @@ export function ProtectedRoute({ children, requireAdmin = false }: ProtectedRout
             .eq("id", userId)
             .maybeSingle();
 
-          if (!isMounted) return;
+          if (!isMountedRef.current) return;
 
           if (profileError) {
             console.error("Erro ao checar is_admin:", profileError);
-            setAllowed(false);
-            setChecking(false);
-            navigate("/dashboard", { replace: true, state: { from: location } });
+            finish(false);
+            goDashboard();
             return;
           }
 
           if (!profile?.is_admin) {
-            // Logado, mas não-admin → volta pro dashboard
-            setAllowed(false);
-            setChecking(false);
-            navigate("/dashboard", { replace: true, state: { from: location } });
+            finish(false);
+            goDashboard();
             return;
           }
         }
 
-        // Permite acesso
-        setAllowed(true);
-        setChecking(false);
+        finish(true);
       } catch (err) {
         console.error("Erro inesperado ao checar sessão:", err);
-        if (!isMounted) return;
-        setAllowed(false);
-        setChecking(false);
-        navigate("/", { replace: true, state: { from: location } });
+        if (!isMountedRef.current) return;
+        finish(false);
+        goLanding();
       }
     };
 
-    checkSession();
+    setChecking(true);
+    setAllowed(false);
+    checkSession(0);
+
+    // Se a sessão “aparecer” depois, revalida
+    const { data: listener } = supabase.auth.onAuthStateChange((_event, _session) => {
+      if (!isMountedRef.current) return;
+      setChecking(true);
+      setAllowed(false);
+      checkSession(0);
+    });
 
     return () => {
-      isMounted = false;
+      if (retryTimer) clearTimeout(retryTimer);
+      listener?.subscription?.unsubscribe();
     };
   }, [navigate, location, requireAdmin]);
 
@@ -102,10 +127,6 @@ export function ProtectedRoute({ children, requireAdmin = false }: ProtectedRout
     );
   }
 
-  if (!allowed) {
-    // Já estamos redirecionando, então não renderiza nada
-    return null;
-  }
-
+  if (!allowed) return null;
   return <>{children}</>;
 }
