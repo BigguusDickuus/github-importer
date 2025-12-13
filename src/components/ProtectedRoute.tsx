@@ -9,16 +9,11 @@ interface ProtectedRouteProps {
 
 /**
  * Protege rotas:
- * - Enquanto checa a sessão, mostra "Carregando..."
- * - Se não tiver sessão, redireciona pra "/"
- * - Se requireAdmin=true, exige profiles.is_admin=true
- *
- * Correção anti-trava:
- * - Timeout no getSession
- * - Re-check quando a aba volta a ficar visível
+ * - Inicial: mostra "Carregando..."
+ * - Depois: ao voltar pra aba, revalida sessão em background (sem tela azul)
  */
 export function ProtectedRoute({ children, requireAdmin = false }: ProtectedRouteProps) {
-  const [checking, setChecking] = useState(true);
+  const [checking, setChecking] = useState(true); // só deve ser "true" no bootstrap
   const [allowed, setAllowed] = useState(false);
 
   const navigate = useNavigate();
@@ -26,6 +21,7 @@ export function ProtectedRoute({ children, requireAdmin = false }: ProtectedRout
 
   const inFlightRef = useRef(false);
   const mountedRef = useRef(true);
+  const bootstrappedRef = useRef(false);
 
   const getSessionWithTimeout = async (ms: number) => {
     return await Promise.race([
@@ -34,42 +30,38 @@ export function ProtectedRoute({ children, requireAdmin = false }: ProtectedRout
     ]);
   };
 
-  const runCheck = async () => {
+  const runCheck = async (opts?: { silent?: boolean }) => {
+    const silent = opts?.silent ?? false;
     if (inFlightRef.current) return;
     inFlightRef.current = true;
 
     try {
-      setChecking(true);
+      // ✅ Só mostra tela azul se ainda não bootstrapou.
+      if (!silent && !bootstrappedRef.current) setChecking(true);
 
-      const { data, error } = (await getSessionWithTimeout(2500)) as Awaited<
+      const { data, error } = (await getSessionWithTimeout(900)) as Awaited<
         ReturnType<typeof supabase.auth.getSession>
       >;
 
       if (!mountedRef.current) return;
 
-      if (error) {
-        console.error("Erro ao checar sessão:", error);
+      if (error || !data.session) {
         setAllowed(false);
         setChecking(false);
+        bootstrappedRef.current = true;
+
         navigate("/", { replace: true, state: { from: location } });
         return;
       }
 
-      if (!data.session) {
-        setAllowed(false);
-        setChecking(false);
-        navigate("/", { replace: true, state: { from: location } });
-        return;
-      }
-
-      // Se não exige admin, liberou.
       if (!requireAdmin) {
         setAllowed(true);
         setChecking(false);
+        bootstrappedRef.current = true;
         return;
       }
 
-      // Exige admin: checa is_admin
+      // requireAdmin => checa is_admin
       const userId = data.session.user.id;
 
       const { data: profile, error: profileError } = await supabase
@@ -80,30 +72,27 @@ export function ProtectedRoute({ children, requireAdmin = false }: ProtectedRout
 
       if (!mountedRef.current) return;
 
-      if (profileError) {
-        console.error("Erro ao checar is_admin:", profileError);
+      if (profileError || !profile?.is_admin) {
         setAllowed(false);
         setChecking(false);
-        navigate("/dashboard", { replace: true, state: { from: location } });
-        return;
-      }
+        bootstrappedRef.current = true;
 
-      if (!profile?.is_admin) {
-        setAllowed(false);
-        setChecking(false);
         navigate("/dashboard", { replace: true, state: { from: location } });
         return;
       }
 
       setAllowed(true);
       setChecking(false);
+      bootstrappedRef.current = true;
     } catch (err) {
-      console.error("Erro inesperado ao checar sessão:", err);
+      console.error("ProtectedRoute: erro ao checar sessão:", err);
 
-      // Timeout ou erro intermitente: não deixa preso em "Carregando..."
       if (!mountedRef.current) return;
+
       setAllowed(false);
       setChecking(false);
+      bootstrappedRef.current = true;
+
       navigate("/", { replace: true, state: { from: location } });
     } finally {
       inFlightRef.current = false;
@@ -113,13 +102,13 @@ export function ProtectedRoute({ children, requireAdmin = false }: ProtectedRout
   useEffect(() => {
     mountedRef.current = true;
 
-    // 1) Checa ao montar / trocar rota
-    runCheck();
+    // Bootstrap (aqui pode ter tela azul)
+    runCheck({ silent: false });
 
-    // 2) Quando a aba volta a ficar visível, re-checa (resolve o “travo ao voltar pra aba”)
+    // ✅ Ao voltar pra aba: recheck silencioso (sem tela azul)
     const onVisibility = () => {
       if (document.visibilityState === "visible") {
-        runCheck();
+        runCheck({ silent: true });
       }
     };
     document.addEventListener("visibilitychange", onVisibility);
