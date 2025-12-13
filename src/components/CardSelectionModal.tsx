@@ -282,6 +282,210 @@ export function CardSelectionModal({
     }
   }, [selectedCards, cardsNeeded, isGrandTableau]);
 
+  // ===== Label da carta (preview) + preload de imagem =====
+  const formatSelectedCardLabel = (type: OracleType, code?: string, reversed?: boolean) => {
+    const isRev = !!reversed;
+
+    const rankMap: Record<string, string> = {
+      A: "Ás",
+      ACE: "Ás",
+      "1": "Ás",
+      J: "Valete",
+      JACK: "Valete",
+      PAGE: "Valete",
+      KNIGHT: "Cavaleiro",
+      N: "Cavaleiro",
+      Q: "Rainha",
+      QUEEN: "Rainha",
+      K: "Rei",
+      KING: "Rei",
+    };
+
+    const suitMap: Array<[RegExp, string]> = [
+      [/PAUS|WANDS|CLUBS|\bW\b|\bP\b/i, "Paus"],
+      [/COPAS|CUPS|HEARTS|\bC\b|\bH\b/i, "Copas"],
+      [/ESPADAS|SWORDS|\bS\b|\bE\b/i, "Espadas"],
+      [/OUROS|PENTACLES|COINS|DIAMONDS|\bD\b|\bO\b/i, "Ouros"],
+    ];
+
+    const majors: Record<number, string> = {
+      0: "O Louco",
+      1: "O Mago",
+      2: "A Sacerdotisa",
+      3: "A Imperatriz",
+      4: "O Imperador",
+      5: "O Hierofante",
+      6: "Os Enamorados",
+      7: "O Carro",
+      8: "A Justiça",
+      9: "O Eremita",
+      10: "A Roda da Fortuna",
+      11: "A Força",
+      12: "O Enforcado",
+      13: "A Morte",
+      14: "A Temperança",
+      15: "O Diabo",
+      16: "A Torre",
+      17: "A Estrela",
+      18: "A Lua",
+      19: "O Sol",
+      20: "O Julgamento",
+      21: "O Mundo",
+    };
+
+    if (!code) return isRev && type === "tarot" ? "(invertida)" : "";
+
+    const raw = String(code).trim();
+    const upper = raw.toUpperCase();
+
+    // TAROT - tenta majors por número no código (ex.: M00, MA00, 00, etc.)
+    if (type === "tarot") {
+      const majorNumMatch = upper.match(/\b(0?\d|1\d|2[01])\b/);
+      if (majorNumMatch) {
+        const n = Number(majorNumMatch[1]);
+        if (Number.isFinite(n) && majors[n]) {
+          return majors[n] + (isRev ? " (invertida)" : "");
+        }
+      }
+
+      // TAROT minors - tenta achar rank + suit em padrões comuns
+      let rankToken: string | null = null;
+      let suitLabel: string | null = null;
+
+      // rank: A/J/Q/K ou 1-10
+      const rankMatch =
+        upper.match(/\b(ACE|PAGE|KNIGHT|KING|QUEEN|[AJQKN]|\d{1,2})\b/) ||
+        upper.match(/^(ACE|PAGE|KNIGHT|KING|QUEEN|[AJQKN]|\d{1,2})/) ||
+        upper.match(/(ACE|PAGE|KNIGHT|KING|QUEEN|[AJQKN]|\d{1,2})$/);
+
+      if (rankMatch) rankToken = rankMatch[1];
+
+      for (const [re, label] of suitMap) {
+        if (re.test(upper)) {
+          suitLabel = label;
+          break;
+        }
+      }
+
+      // fallback de suit por último/primeiro char (ex.: 05W / W05)
+      if (!suitLabel) {
+        const m1 = upper.match(/(\d{1,2})([WCHSPEOD])/);
+        const m2 = upper.match(/([WCHSPEOD])(\d{1,2})/);
+        const suitChar = (m1?.[2] || m2?.[1] || "").toUpperCase();
+        if (suitChar) {
+          for (const [re, label] of suitMap) {
+            if (re.test(suitChar)) {
+              suitLabel = label;
+              break;
+            }
+          }
+        }
+      }
+
+      const rankLabel = rankToken ? rankMap[rankToken] || rankMap[String(Number(rankToken))] || rankToken : null;
+
+      if (rankLabel && suitLabel) {
+        const r = rankLabel;
+        return `${r} de ${suitLabel}` + (isRev ? " (invertida)" : "");
+      }
+
+      // se não conseguiu parsear, mostra o code como fallback
+      return raw + (isRev ? " (invertida)" : "");
+    }
+
+    // LENORMAND - tenta extrair número 1..36 do code e usa nome (fallback: code)
+    if (type === "lenormand") {
+      const numMatch = upper.match(/\b([1-9]|[12]\d|3[0-6])\b/);
+      if (numMatch) {
+        const n = Number(numMatch[1]);
+        const lenormandNames: Record<number, string> = {
+          1: "Cavaleiro",
+          2: "Trevo",
+          3: "Navio",
+          4: "Casa",
+          5: "Árvore",
+          6: "Nuvens",
+          7: "Cobra",
+          8: "Caixão",
+          9: "Buquê",
+          10: "Foice",
+          11: "Chicote",
+          12: "Pássaros",
+          13: "Criança",
+          14: "Raposa",
+          15: "Urso",
+          16: "Estrelas",
+          17: "Cegonha",
+          18: "Cão",
+          19: "Torre",
+          20: "Jardim",
+          21: "Montanha",
+          22: "Caminhos",
+          23: "Ratos",
+          24: "Coração",
+          25: "Anel",
+          26: "Livro",
+          27: "Carta",
+          28: "Homem",
+          29: "Mulher",
+          30: "Lírios",
+          31: "Sol",
+          32: "Lua",
+          33: "Chave",
+          34: "Peixes",
+          35: "Âncora",
+          36: "Cruz",
+        };
+        if (lenormandNames[n]) return lenormandNames[n];
+      }
+      return raw;
+    }
+
+    // CARTOMANCIA - tenta ler como baralho padrão (ex.: H7/D10/AS etc.)
+    if (type === "cartomancia") {
+      const suit = /H|HEART/i.test(upper)
+        ? "Copas"
+        : /D|DIAMOND/i.test(upper)
+          ? "Ouros"
+          : /C|CLUB/i.test(upper)
+            ? "Paus"
+            : /S|SPADE/i.test(upper)
+              ? "Espadas"
+              : null;
+
+      const r =
+        upper.match(/\b(A|ACE|K|KING|Q|QUEEN|J|JACK|10|[2-9])\b/)?.[1] ||
+        upper.match(/(A|K|Q|J|10|[2-9])$/)?.[1] ||
+        null;
+
+      const rankLabel = r ? rankMap[r] || r : null;
+      if (rankLabel && suit) return `${rankLabel} de ${suit}`;
+      return raw;
+    }
+
+    return raw;
+  };
+
+  // Preload das imagens das cartas selecionadas (ajuda MUITO no preview)
+  useEffect(() => {
+    if (!selectedCards?.length) return;
+
+    const urls = selectedCards
+      .map((idx) => {
+        const card = (currentDeck?.[idx] as any) || undefined;
+        const code = card?.code as string | undefined;
+        return code ? getCardImageUrl(code) : null;
+      })
+      .filter(Boolean) as string[];
+
+    const unique = Array.from(new Set(urls));
+    unique.forEach((url) => {
+      const img = new Image();
+      img.decoding = "async";
+      img.src = url;
+    });
+  }, [selectedCards, currentDeck]);
+
   if (!isOpen) return null;
 
   return (
@@ -473,26 +677,35 @@ export function CardSelectionModal({
 
                           const frontUrl = cardCode ? getCardImageUrl(cardCode) : null;
 
-                          return (
-                            <div
-                              key={`preview-${cardIndex}`}
-                              className="relative w-[160px] h-[256px] sm:w-[190px] sm:h-[304px] md:w-[220px] md:h-[352px] lg:w-[250px] lg:h-[400px]"
-                            >
-                              {/* Fundo do preview (sem borda) */}
-                              <div className="absolute inset-0 rounded-xl bg-black/70 shadow-xl" />
+                          const label = formatSelectedCardLabel(oracleType, cardCode, isReversed);
 
-                              {frontUrl ? (
-                                <img
-                                  src={frontUrl}
-                                  alt={cardCode ?? `Carta ${cardIndex + 1}`}
-                                  className="relative z-10 w-full h-full object-contain rounded-lg"
-                                  style={oracleType === "tarot" && isReversed ? { transform: "rotate(180deg)" } : {}}
-                                />
-                              ) : (
-                                <div className="relative z-10 w-full h-full flex items-center justify-center text-xs text-starlight-text/70">
-                                  {cardIndex + 1}
-                                </div>
-                              )}
+                          return (
+                            <div key={`preview-${cardIndex}`} className="flex flex-col items-center">
+                              <div className="relative w-[160px] h-[256px] sm:w-[190px] sm:h-[304px] md:w-[220px] md:h-[352px] lg:w-[250px] lg:h-[400px]">
+                                {/* Fundo do preview (sem borda) */}
+                                <div className="absolute inset-0 rounded-xl bg-black/70 shadow-xl" />
+
+                                {frontUrl ? (
+                                  <img
+                                    src={frontUrl}
+                                    alt={label || cardCode || `Carta ${cardIndex + 1}`}
+                                    loading="eager"
+                                    decoding="async"
+                                    draggable={false}
+                                    className="relative z-10 w-full h-full object-contain rounded-lg"
+                                    style={oracleType === "tarot" && isReversed ? { transform: "rotate(180deg)" } : {}}
+                                  />
+                                ) : (
+                                  <div className="relative z-10 w-full h-full flex items-center justify-center text-xs text-starlight-text/70">
+                                    {cardIndex + 1}
+                                  </div>
+                                )}
+                              </div>
+
+                              {/* Label abaixo */}
+                              <div className="mt-2 text-xs sm:text-sm text-starlight-text/90 text-center leading-tight max-w-[260px]">
+                                {label}
+                              </div>
                             </div>
                           );
                         })}
