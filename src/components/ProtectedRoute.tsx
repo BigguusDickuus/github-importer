@@ -30,6 +30,27 @@ export function ProtectedRoute({ children, requireAdmin = false }: ProtectedRout
     ]);
   };
 
+  const getCachedSessionFromStorage = () => {
+    try {
+      // Supabase costuma salvar algo como sb-<project>-auth-token
+      const keys = Object.keys(localStorage || {}).filter((k) => k.includes("auth-token") && k.startsWith("sb-"));
+      for (const k of keys) {
+        const raw = localStorage.getItem(k);
+        if (!raw) continue;
+        const parsed = JSON.parse(raw);
+        // formato comum: { access_token, expires_at, refresh_token, user, ... }
+        if (parsed?.access_token && parsed?.user && parsed?.expires_at) {
+          const expiresAt = Number(parsed.expires_at);
+          const now = Math.floor(Date.now() / 1000);
+          if (Number.isFinite(expiresAt) && expiresAt > now) return parsed;
+        }
+      }
+    } catch {
+      // ignora
+    }
+    return null;
+  };
+
   const runCheck = async (opts?: { silent?: boolean }) => {
     const silent = opts?.silent ?? false;
     if (inFlightRef.current) return;
@@ -39,7 +60,7 @@ export function ProtectedRoute({ children, requireAdmin = false }: ProtectedRout
       // ✅ Só mostra tela azul se ainda não bootstrapou.
       if (!silent && !bootstrappedRef.current) setChecking(true);
 
-      const { data, error } = (await getSessionWithTimeout(900)) as Awaited<
+      const { data, error } = (await getSessionWithTimeout(4000)) as Awaited<
         ReturnType<typeof supabase.auth.getSession>
       >;
 
@@ -84,7 +105,40 @@ export function ProtectedRoute({ children, requireAdmin = false }: ProtectedRout
       setAllowed(true);
       setChecking(false);
       bootstrappedRef.current = true;
-    } catch (err) {
+    } catch (err: any) {
+      const msg = String(err?.message || err);
+
+      // ✅ Timeout NÃO deve expulsar o usuário nem jogar tela azul.
+      if (msg === "GET_SESSION_TIMEOUT") {
+        console.warn("ProtectedRoute: getSession timeout (usando cache local).");
+
+        if (!mountedRef.current) return;
+
+        const cached = getCachedSessionFromStorage();
+
+        // Se já estava permitido, mantém a página (recheck é silencioso)
+        if (allowed) {
+          setChecking(false);
+          bootstrappedRef.current = true;
+          return;
+        }
+
+        // Se existe cache de sessão válido, libera (e deixa o Supabase normalizar depois)
+        if (cached) {
+          setAllowed(true);
+          setChecking(false);
+          bootstrappedRef.current = true;
+          return;
+        }
+
+        // Sem cache: finaliza checagem e manda pra landing
+        setAllowed(false);
+        setChecking(false);
+        bootstrappedRef.current = true;
+        navigate("/", { replace: true, state: { from: location } });
+        return;
+      }
+
       console.error("ProtectedRoute: erro ao checar sessão:", err);
 
       if (!mountedRef.current) return;
