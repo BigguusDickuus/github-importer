@@ -456,14 +456,14 @@ export function CardSelectionModal({
               {/* OVERLAY DE PREVIEW DAS CARTAS SELECIONADAS (somente se NÃO for Grand Tableau) */}
               {!isGrandTableau && showSelectionPreview && selectedCards.length > 0 && (
                 <div className="pointer-events-auto absolute inset-0 flex items-center justify-center">
-                  <div className="relative max-w-4xl w-full mx-auto">
+                  <div className="relative max-w-6xl w-full mx-auto">
                     {/* Fundo esfumado */}
                     <div className="absolute inset-0 bg-night-sky/80 backdrop-blur-xl rounded-3xl border border-obsidian-border shadow-2xl" />
 
                     <div className="relative z-10 flex flex-col items-center gap-4 p-6 md:p-8">
                       <p className="text-sm md:text-base text-moonlight-text/80 text-center">Cartas selecionadas</p>
 
-                      <div className="flex flex-wrap justify-center gap-3 md:gap-4">
+                      <div className="flex flex-wrap justify-center gap-4 md:gap-6">
                         {selectedCards.map((cardIndex) => {
                           const deckCard = (currentDeck[cardIndex] as any) || undefined;
                           const cardCode = deckCard?.code as string | undefined;
@@ -477,8 +477,7 @@ export function CardSelectionModal({
                           return (
                             <div
                               key={`preview-${cardIndex}`}
-                              className="relative"
-                              style={{ width: "110px", height: "176px" }} // 2:3
+                              className="relative w-[120px] h-[192px] sm:w-[140px] sm:h-[224px] md:w-[160px] md:h-[256px]"
                             >
                               {/* Fundo do preview (sem borda) */}
                               <div className="absolute inset-0 rounded-xl bg-black/80 shadow-xl" />
