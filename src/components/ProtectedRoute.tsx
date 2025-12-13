@@ -21,7 +21,7 @@ export function ProtectedRoute({ children, requireAdmin = false }: ProtectedRout
     const key = "to_wakeup_reload_ts";
     const last = Number(sessionStorage.getItem(key) || "0");
     const now = Date.now();
-    if (now - last < 15000) return false;
+    if (now - last < 5000) return false;
     sessionStorage.setItem(key, String(now));
     return true;
   };
