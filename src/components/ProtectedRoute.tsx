@@ -7,13 +7,15 @@ interface ProtectedRouteProps {
   requireAdmin?: boolean;
 }
 
-/**
- * Protege rotas:
- * - Inicial: mostra "Carregando..."
- * - Depois: ao voltar pra aba, revalida sessão em background (sem tela azul)
- */
+type CachedAuth = {
+  access_token: string;
+  refresh_token: string;
+  expires_at?: number;
+  user?: any;
+};
+
 export function ProtectedRoute({ children, requireAdmin = false }: ProtectedRouteProps) {
-  const [checking, setChecking] = useState(true); // só deve ser "true" no bootstrap
+  const [checking, setChecking] = useState(true); // só no bootstrap
   const [allowed, setAllowed] = useState(false);
 
   const navigate = useNavigate();
@@ -23,32 +25,84 @@ export function ProtectedRoute({ children, requireAdmin = false }: ProtectedRout
   const mountedRef = useRef(true);
   const bootstrappedRef = useRef(false);
 
-  const getSessionWithTimeout = async (ms: number) => {
-    return await Promise.race([
-      supabase.auth.getSession(),
-      new Promise<never>((_, reject) => setTimeout(() => reject(new Error("GET_SESSION_TIMEOUT")), ms)),
-    ]);
+  const withTimeout = async <T,>(p: Promise<T>, ms: number, code: string) => {
+    return await Promise.race([p, new Promise<T>((_, reject) => setTimeout(() => reject(new Error(code)), ms))]);
   };
 
-  const getCachedSessionFromStorage = () => {
+  const getCachedAuth = (): CachedAuth | null => {
     try {
-      // Supabase costuma salvar algo como sb-<project>-auth-token
-      const keys = Object.keys(localStorage || {}).filter((k) => k.includes("auth-token") && k.startsWith("sb-"));
+      const keys = Object.keys(localStorage || {}).filter((k) => k.startsWith("sb-") && k.includes("auth-token"));
+
       for (const k of keys) {
         const raw = localStorage.getItem(k);
         if (!raw) continue;
         const parsed = JSON.parse(raw);
-        // formato comum: { access_token, expires_at, refresh_token, user, ... }
-        if (parsed?.access_token && parsed?.user && parsed?.expires_at) {
-          const expiresAt = Number(parsed.expires_at);
-          const now = Math.floor(Date.now() / 1000);
-          if (Number.isFinite(expiresAt) && expiresAt > now) return parsed;
+
+        if (parsed?.access_token && parsed?.refresh_token) {
+          // se tiver expires_at e já expirou, ignora
+          const exp = Number(parsed.expires_at ?? 0);
+          if (exp) {
+            const now = Math.floor(Date.now() / 1000);
+            if (exp <= now) continue;
+          }
+          return parsed as CachedAuth;
         }
       }
     } catch {
-      // ignora
+      // ignore
     }
     return null;
+  };
+
+  const rehydrateSessionFromCache = async () => {
+    const cached = getCachedAuth();
+    if (!cached?.access_token || !cached?.refresh_token) return false;
+
+    try {
+      await withTimeout(
+        supabase.auth.setSession({
+          access_token: cached.access_token,
+          refresh_token: cached.refresh_token,
+        }),
+        2000,
+        "SET_SESSION_TIMEOUT",
+      );
+      return true;
+    } catch (e) {
+      console.warn("ProtectedRoute: falhou rehydrateSessionFromCache:", e);
+      return false;
+    }
+  };
+
+  const getSessionSafe = async () => {
+    try {
+      const { data, error } = (await withTimeout(supabase.auth.getSession(), 6000, "GET_SESSION_TIMEOUT")) as Awaited<
+        ReturnType<typeof supabase.auth.getSession>
+      >;
+
+      if (error) throw error;
+      return data.session ?? null;
+    } catch (err: any) {
+      const msg = String(err?.message || err);
+
+      if (msg === "GET_SESSION_TIMEOUT") {
+        // ✅ Se travou, re-hidrata a sessão no Supabase client e tenta de novo
+        const ok = await rehydrateSessionFromCache();
+        if (!ok) return null;
+
+        try {
+          const { data } = (await withTimeout(supabase.auth.getSession(), 3000, "GET_SESSION_TIMEOUT_2")) as Awaited<
+            ReturnType<typeof supabase.auth.getSession>
+          >;
+          return data.session ?? null;
+        } catch {
+          return null;
+        }
+      }
+
+      // outros erros => trata como sem sessão
+      return null;
+    }
   };
 
   const runCheck = async (opts?: { silent?: boolean }) => {
@@ -57,20 +111,16 @@ export function ProtectedRoute({ children, requireAdmin = false }: ProtectedRout
     inFlightRef.current = true;
 
     try {
-      // ✅ Só mostra tela azul se ainda não bootstrapou.
       if (!silent && !bootstrappedRef.current) setChecking(true);
 
-      const { data, error } = (await getSessionWithTimeout(4000)) as Awaited<
-        ReturnType<typeof supabase.auth.getSession>
-      >;
+      const session = await getSessionSafe();
 
       if (!mountedRef.current) return;
 
-      if (error || !data.session) {
+      if (!session) {
         setAllowed(false);
         setChecking(false);
         bootstrappedRef.current = true;
-
         navigate("/", { replace: true, state: { from: location } });
         return;
       }
@@ -82,8 +132,7 @@ export function ProtectedRoute({ children, requireAdmin = false }: ProtectedRout
         return;
       }
 
-      // requireAdmin => checa is_admin
-      const userId = data.session.user.id;
+      const userId = session.user.id;
 
       const { data: profile, error: profileError } = await supabase
         .from("profiles")
@@ -97,7 +146,6 @@ export function ProtectedRoute({ children, requireAdmin = false }: ProtectedRout
         setAllowed(false);
         setChecking(false);
         bootstrappedRef.current = true;
-
         navigate("/dashboard", { replace: true, state: { from: location } });
         return;
       }
@@ -105,49 +153,6 @@ export function ProtectedRoute({ children, requireAdmin = false }: ProtectedRout
       setAllowed(true);
       setChecking(false);
       bootstrappedRef.current = true;
-    } catch (err: any) {
-      const msg = String(err?.message || err);
-
-      // ✅ Timeout NÃO deve expulsar o usuário nem jogar tela azul.
-      if (msg === "GET_SESSION_TIMEOUT") {
-        console.warn("ProtectedRoute: getSession timeout (usando cache local).");
-
-        if (!mountedRef.current) return;
-
-        const cached = getCachedSessionFromStorage();
-
-        // Se já estava permitido, mantém a página (recheck é silencioso)
-        if (allowed) {
-          setChecking(false);
-          bootstrappedRef.current = true;
-          return;
-        }
-
-        // Se existe cache de sessão válido, libera (e deixa o Supabase normalizar depois)
-        if (cached) {
-          setAllowed(true);
-          setChecking(false);
-          bootstrappedRef.current = true;
-          return;
-        }
-
-        // Sem cache: finaliza checagem e manda pra landing
-        setAllowed(false);
-        setChecking(false);
-        bootstrappedRef.current = true;
-        navigate("/", { replace: true, state: { from: location } });
-        return;
-      }
-
-      console.error("ProtectedRoute: erro ao checar sessão:", err);
-
-      if (!mountedRef.current) return;
-
-      setAllowed(false);
-      setChecking(false);
-      bootstrappedRef.current = true;
-
-      navigate("/", { replace: true, state: { from: location } });
     } finally {
       inFlightRef.current = false;
     }
@@ -156,10 +161,10 @@ export function ProtectedRoute({ children, requireAdmin = false }: ProtectedRout
   useEffect(() => {
     mountedRef.current = true;
 
-    // Bootstrap (aqui pode ter tela azul)
+    // bootstrap (pode mostrar carregando)
     runCheck({ silent: false });
 
-    // ✅ Ao voltar pra aba: recheck silencioso (sem tela azul)
+    // ✅ ao voltar pra aba: recheck silencioso + rehydrate se travar
     const onVisibility = () => {
       if (document.visibilityState === "visible") {
         runCheck({ silent: true });
@@ -183,6 +188,5 @@ export function ProtectedRoute({ children, requireAdmin = false }: ProtectedRout
   }
 
   if (!allowed) return null;
-
   return <>{children}</>;
 }
