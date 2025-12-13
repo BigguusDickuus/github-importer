@@ -18,6 +18,15 @@ function LandingGate() {
   const mountedRef = useRef(true);
   const inFlightRef = useRef(false);
 
+  const canReloadNow = () => {
+    const key = "to_wakeup_reload_ts";
+    const last = Number(sessionStorage.getItem(key) || "0");
+    const now = Date.now();
+    if (now - last < 15000) return false; // no máx 1 reload a cada 15s por aba
+    sessionStorage.setItem(key, String(now));
+    return true;
+  };
+
   const run = async (opts?: { bootstrap?: boolean }) => {
     const bootstrap = opts?.bootstrap ?? false;
     if (inFlightRef.current) return;
@@ -64,15 +73,34 @@ function LandingGate() {
     });
 
     // Ao voltar pra aba: revalida em background (não seta checking=true)
-    const onVisibility = () => {
-      if (document.visibilityState === "visible") run({ bootstrap: false });
+    const wake = () => {
+      if (document.visibilityState !== "visible") return;
+
+      // Se existe uma checagem travada, run() nunca vai rodar (inFlightRef fica true).
+      // Então: reload imediato ao voltar pra aba.
+      if (inFlightRef.current) {
+        if (canReloadNow()) {
+          console.warn("LandingGate: voltou pra aba com inFlight travado. Reload imediato.");
+          window.location.reload();
+        }
+        return;
+      }
+
+      // Caso normal: reseta o client e revalida em background
+      try {
+        resetSupabaseClient();
+      } catch {}
+      run({ bootstrap: false });
     };
-    document.addEventListener("visibilitychange", onVisibility);
+
+    document.addEventListener("visibilitychange", wake);
+    window.addEventListener("focus", wake);
 
     return () => {
       mountedRef.current = false;
       listener?.subscription?.unsubscribe();
-      document.removeEventListener("visibilitychange", onVisibility);
+      document.removeEventListener("visibilitychange", wake);
+      window.removeEventListener("focus", wake);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -96,6 +124,15 @@ function LoginGate() {
 
   const mountedRef = useRef(true);
   const inFlightRef = useRef(false);
+
+  const canReloadNow = () => {
+    const key = "to_wakeup_reload_ts";
+    const last = Number(sessionStorage.getItem(key) || "0");
+    const now = Date.now();
+    if (now - last < 15000) return false;
+    sessionStorage.setItem(key, String(now));
+    return true;
+  };
 
   const run = async (opts?: { bootstrap?: boolean }) => {
     const bootstrap = opts?.bootstrap ?? false;
@@ -139,15 +176,31 @@ function LoginGate() {
       setChecking(false);
     });
 
-    const onVisibility = () => {
-      if (document.visibilityState === "visible") run({ bootstrap: false });
+    const wake = () => {
+      if (document.visibilityState !== "visible") return;
+
+      if (inFlightRef.current) {
+        if (canReloadNow()) {
+          console.warn("LoginGate: voltou pra aba com inFlight travado. Reload imediato.");
+          window.location.reload();
+        }
+        return;
+      }
+
+      try {
+        resetSupabaseClient();
+      } catch {}
+      run({ bootstrap: false });
     };
-    document.addEventListener("visibilitychange", onVisibility);
+
+    document.addEventListener("visibilitychange", wake);
+    window.addEventListener("focus", wake);
 
     return () => {
       mountedRef.current = false;
       listener?.subscription?.unsubscribe();
-      document.removeEventListener("visibilitychange", onVisibility);
+      document.removeEventListener("visibilitychange", wake);
+      window.removeEventListener("focus", wake);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);

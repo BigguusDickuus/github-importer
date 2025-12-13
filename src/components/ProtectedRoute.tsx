@@ -1,6 +1,6 @@
 import { ReactNode, useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase, resetSupabaseClient } from "@/integrations/supabase/client";
 
 interface ProtectedRouteProps {
   children: ReactNode;
@@ -16,6 +16,15 @@ export function ProtectedRoute({ children, requireAdmin = false }: ProtectedRout
 
   const mountedRef = useRef(true);
   const inFlightRef = useRef(false);
+
+  const canReloadNow = () => {
+    const key = "to_wakeup_reload_ts";
+    const last = Number(sessionStorage.getItem(key) || "0");
+    const now = Date.now();
+    if (now - last < 15000) return false;
+    sessionStorage.setItem(key, String(now));
+    return true;
+  };
 
   const runCheck = async (opts?: { bootstrap?: boolean }) => {
     const bootstrap = opts?.bootstrap ?? false;
@@ -81,14 +90,31 @@ export function ProtectedRoute({ children, requireAdmin = false }: ProtectedRout
     runCheck({ bootstrap: true });
 
     // Ao voltar pra aba: revalida em background (sem tela azul)
-    const onVisibility = () => {
-      if (document.visibilityState === "visible") runCheck({ bootstrap: false });
+    const wake = () => {
+      if (document.visibilityState !== "visible") return;
+
+      // Se ficou travado em inFlight, runCheck nunca roda -> reload imediato
+      if (inFlightRef.current) {
+        if (canReloadNow()) {
+          console.warn("ProtectedRoute: voltou pra aba com inFlight travado. Reload imediato.");
+          window.location.reload();
+        }
+        return;
+      }
+
+      try {
+        resetSupabaseClient();
+      } catch {}
+      runCheck({ bootstrap: false });
     };
-    document.addEventListener("visibilitychange", onVisibility);
+
+    document.addEventListener("visibilitychange", wake);
+    window.addEventListener("focus", wake);
 
     return () => {
       mountedRef.current = false;
-      document.removeEventListener("visibilitychange", onVisibility);
+      document.removeEventListener("visibilitychange", wake);
+      window.removeEventListener("focus", wake);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [requireAdmin, location.pathname]);
