@@ -455,9 +455,7 @@ export function CardSelectionModal({
         }
       }
 
-      const rankLabel = rankToken
-        ? rankMap[rankToken] || rankMap[String(Number(rankToken))] || rankToken
-        : null;
+      const rankLabel = rankToken ? rankMap[rankToken] || rankMap[String(Number(rankToken))] || rankToken : null;
 
       if (rankLabel && suitLabel) {
         return `${rankLabel} de ${suitLabel}` + (isRev ? " (invertida)" : "");
@@ -539,129 +537,163 @@ export function CardSelectionModal({
     return raw;
   };
 
-// Componente individual da carta com animação de flip 3D
-interface CardProps {
-  index: number;
-  isFlipped: boolean;
-  isSelected: boolean;
-  onClick: () => void;
-  delay: number;
-  oracleType: OracleType;
-  cardSize: "small" | "medium";
-  cardCode?: string;
-  isReversed?: boolean;
-}
+  // Componente individual da carta com animação de flip 3D
+  interface CardProps {
+    index: number;
+    isFlipped: boolean;
+    isSelected: boolean;
+    onClick: () => void;
+    delay: number;
+    oracleType: OracleType;
+    cardSize: "small" | "medium";
+    cardCode?: string;
+    isReversed?: boolean;
+  }
 
-function Card({ index, isFlipped, isSelected, onClick, delay, oracleType, cardSize, cardCode, isReversed }: CardProps) {
-  const width = cardSize === "small" ? "60px" : "80px";
-  const height = cardSize === "small" ? "96px" : "128px";
+  function Card({
+    index,
+    isFlipped,
+    isSelected,
+    onClick,
+    delay,
+    oracleType,
+    cardSize,
+    cardCode,
+    isReversed,
+  }: CardProps) {
+    const width = cardSize === "small" ? "60px" : "80px";
+    const height = cardSize === "small" ? "96px" : "128px";
 
-  const backUrl = getCardBackImageUrl(oracleType);
-  const frontUrl = cardCode ? getCardImageUrl(cardCode) : null;
+    const backUrl = getCardBackImageUrl(oracleType);
+    const frontUrl = cardCode ? getCardImageUrl(cardCode) : null;
 
-  const [backLoaded, setBackLoaded] = useState(false);
-  const [frontLoaded, setFrontLoaded] = useState(false);
+    const [backLoaded, setBackLoaded] = useState(false);
+    const [frontLoaded, setFrontLoaded] = useState(false);
 
-  return (
-    <motion.div
-      initial={{ opacity: 0, scale: 0.8, y: 20 }}
-      animate={{ opacity: 1, scale: isSelected ? 1.05 : 1, y: 0 }}
-      transition={{
-        duration: 0.3,
-        delay,
-        ease: "easeOut",
-      }}
-      className="relative cursor-pointer"
-      style={{ width, height }}
-      onClick={onClick}
-    >
+    return (
       <motion.div
-        className="relative w-full h-full"
-        style={{ transformStyle: "preserve-3d" }}
-        animate={{ rotateY: isFlipped ? 180 : 0 }}
-        transition={{ duration: 0.6, ease: "easeInOut" }}
+        initial={{ opacity: 0, scale: 0.8, y: 20 }}
+        animate={{ opacity: 1, scale: isSelected ? 1.05 : 1, y: 0 }}
+        transition={{
+          duration: 0.3,
+          delay,
+          ease: "easeOut",
+        }}
+        className="relative cursor-pointer"
+        style={{ width, height }}
+        onClick={onClick}
       >
-        {/* VERSO DA CARTA */}
-        <div className="absolute inset-0" style={{ backfaceVisibility: "hidden" }}>
-          {/* placeholder enquanto o verso não carrega */}
-          {!backLoaded && <div className="w-full h-full bg-black border border-neutral-700" />}
+        <motion.div
+          className="relative w-full h-full"
+          style={{ transformStyle: "preserve-3d" }}
+          animate={{ rotateY: isFlipped ? 180 : 0 }}
+          transition={{ duration: 0.6, ease: "easeInOut" }}
+        >
+          {/* VERSO DA CARTA */}
+          <div className="absolute inset-0" style={{ backfaceVisibility: "hidden" }}>
+            {/* placeholder enquanto o verso não carrega */}
+            {!backLoaded && <div className="w-full h-full bg-black border border-neutral-700" />}
 
-          <img
-            src={backUrl}
-            alt="Verso da carta"
-            className="w-full h-full object-contain"
-            style={{ display: backLoaded ? "block" : "none" }}
-            onLoad={() => setBackLoaded(true)}
-            loading="lazy"
-          />
-        </div>
-
-        {/* FRENTE DA CARTA */}
-        <div className="absolute inset-0" style={{ backfaceVisibility: "hidden", transform: "rotateY(180deg)" }}>
-          {/* placeholder enquanto a frente não carrega */}
-          {!frontLoaded && <div className="w-full h-full bg-black border border-neutral-700" />}
-
-          {frontUrl && (
             <img
-              src={frontUrl}
-              alt={cardCode ?? `Carta ${index + 1}`}
+              src={backUrl}
+              alt="Verso da carta"
               className="w-full h-full object-contain"
-              style={{
-                display: frontLoaded ? "block" : "none",
-                ...(oracleType === "tarot" && isReversed ? { transform: "rotate(180deg)" } : {}),
-              }}
-              onLoad={() => setFrontLoaded(true)}
+              style={{ display: backLoaded ? "block" : "none" }}
+              onLoad={() => setBackLoaded(true)}
               loading="lazy"
             />
-          )}
+          </div>
 
-          {/* fallback se por algum motivo não tiver frontUrl */}
-          {!frontUrl && !frontLoaded && (
-            <div className="w-full h-full flex items-center justify-center bg-black border border-neutral-700 text-xs text-starlight-text/60">
-              {index + 1}
-            </div>
-          )}
-        </div>
+          {/* FRENTE DA CARTA */}
+          <div className="absolute inset-0" style={{ backfaceVisibility: "hidden", transform: "rotateY(180deg)" }}>
+            {/* placeholder enquanto a frente não carrega */}
+            {!frontLoaded && <div className="w-full h-full bg-black border border-neutral-700" />}
+
+            {frontUrl && (
+              <img
+                src={frontUrl}
+                alt={cardCode ?? `Carta ${index + 1}`}
+                className="w-full h-full object-contain"
+                style={{
+                  display: frontLoaded ? "block" : "none",
+                  ...(oracleType === "tarot" && isReversed ? { transform: "rotate(180deg)" } : {}),
+                }}
+                onLoad={() => setFrontLoaded(true)}
+                loading="lazy"
+              />
+            )}
+
+            {/* fallback se por algum motivo não tiver frontUrl */}
+            {!frontUrl && !frontLoaded && (
+              <div className="w-full h-full flex items-center justify-center bg-black border border-neutral-700 text-xs text-starlight-text/60">
+                {index + 1}
+              </div>
+            )}
+          </div>
+        </motion.div>
       </motion.div>
-    </motion.div>
-  );
-}
+    );
+  }
 
-// Componente para o layout especial do Grand Tableau
-interface GrandTableauGridProps {
-  shuffleKey: number;
-  flippedCards: Set<number>;
-  selectedCards: number[];
-  onCardClick: (cardIndex: number) => void;
-  oracleType: OracleType;
-  currentDeck: {
-    code: string;
-    reversed?: boolean;
-    is_reversed?: boolean;
-    orientation?: string;
-  }[];
-}
+  // Componente para o layout especial do Grand Tableau
+  interface GrandTableauGridProps {
+    shuffleKey: number;
+    flippedCards: Set<number>;
+    selectedCards: number[];
+    onCardClick: (cardIndex: number) => void;
+    oracleType: OracleType;
+    currentDeck: {
+      code: string;
+      reversed?: boolean;
+      is_reversed?: boolean;
+      orientation?: string;
+    }[];
+  }
 
-function GrandTableauGrid({
-  shuffleKey,
-  flippedCards,
-  selectedCards,
-  onCardClick,
-  oracleType,
-  currentDeck,
-}: GrandTableauGridProps) {
-  // Tamanho das cartas no Grand Tableau
-  const cardWidth = 70; // px
-  const cardHeight = cardWidth * 1.5; // aspect ratio 2:3
-  const gap = 12; // gap entre cartas
+  function GrandTableauGrid({
+    shuffleKey,
+    flippedCards,
+    selectedCards,
+    onCardClick,
+    oracleType,
+    currentDeck,
+  }: GrandTableauGridProps) {
+    // Tamanho das cartas no Grand Tableau
+    const cardWidth = 70; // px
+    const cardHeight = cardWidth * 1.5; // aspect ratio 2:3
+    const gap = 12; // gap entre cartas
 
-  return (
-    <div className="flex flex-col items-center gap-6">
-      {/* Primeiras 4 linhas: 8 cartas cada em desktop, responsivo em mobile */}
-      {[0, 1, 2, 3].map((row) => (
-        <div key={`row-${row}`} className="flex flex-wrap justify-center gap-3 max-w-full">
-          {Array.from({ length: 8 }, (_, col) => {
-            const cardIndex = row * 8 + col; // 0-31
+    return (
+      <div className="flex flex-col items-center gap-6">
+        {/* Primeiras 4 linhas: 8 cartas cada em desktop, responsivo em mobile */}
+        {[0, 1, 2, 3].map((row) => (
+          <div key={`row-${row}`} className="flex flex-wrap justify-center gap-3 max-w-full">
+            {Array.from({ length: 8 }, (_, col) => {
+              const cardIndex = row * 8 + col; // 0-31
+              const house = GRAND_TABLEAU_HOUSES[cardIndex];
+
+              return (
+                <GrandTableauCard
+                  key={`${shuffleKey}-${cardIndex}`}
+                  cardIndex={cardIndex}
+                  house={house}
+                  isFlipped={flippedCards.has(cardIndex)}
+                  isSelected={selectedCards.includes(cardIndex)}
+                  onClick={() => onCardClick(cardIndex)}
+                  delay={cardIndex * 0.008}
+                  cardWidth={cardWidth}
+                  oracleType={oracleType}
+                  currentDeck={currentDeck}
+                />
+              );
+            })}
+          </div>
+        ))}
+
+        {/* 5ª linha: 4 cartas centralizadas */}
+        <div className="flex flex-wrap justify-center gap-3">
+          {Array.from({ length: 4 }, (_, col) => {
+            const cardIndex = 32 + col; // 32-35
             const house = GRAND_TABLEAU_HOUSES[cardIndex];
 
             return (
@@ -680,184 +712,161 @@ function GrandTableauGrid({
             );
           })}
         </div>
-      ))}
-
-      {/* 5ª linha: 4 cartas centralizadas */}
-      <div className="flex flex-wrap justify-center gap-3">
-        {Array.from({ length: 4 }, (_, col) => {
-          const cardIndex = 32 + col; // 32-35
-          const house = GRAND_TABLEAU_HOUSES[cardIndex];
-
-          return (
-            <GrandTableauCard
-              key={`${shuffleKey}-${cardIndex}`}
-              cardIndex={cardIndex}
-              house={house}
-              isFlipped={flippedCards.has(cardIndex)}
-              isSelected={selectedCards.includes(cardIndex)}
-              onClick={() => onCardClick(cardIndex)}
-              delay={cardIndex * 0.008}
-              cardWidth={cardWidth}
-              oracleType={oracleType}
-              currentDeck={currentDeck}
-            />
-          );
-        })}
       </div>
-    </div>
-  );
-}
+    );
+  }
 
-// Componente individual para carta do Grand Tableau com legenda de casa
-interface GrandTableauCardProps {
-  cardIndex: number;
-  house: { number: number; name: string; meaning: string };
-  isFlipped: boolean;
-  isSelected: boolean;
-  onClick: () => void;
-  delay: number;
-  cardWidth: number;
-  oracleType: OracleType;
-  currentDeck: {
-    code: string;
-    reversed?: boolean;
-    is_reversed?: boolean;
-    orientation?: string;
-  }[];
-}
+  // Componente individual para carta do Grand Tableau com legenda de casa
+  interface GrandTableauCardProps {
+    cardIndex: number;
+    house: { number: number; name: string; meaning: string };
+    isFlipped: boolean;
+    isSelected: boolean;
+    onClick: () => void;
+    delay: number;
+    cardWidth: number;
+    oracleType: OracleType;
+    currentDeck: {
+      code: string;
+      reversed?: boolean;
+      is_reversed?: boolean;
+      orientation?: string;
+    }[];
+  }
 
-function GrandTableauCard({
-  cardIndex,
-  house,
-  isFlipped,
-  isSelected,
-  onClick,
-  delay,
-  cardWidth,
-  oracleType,
-  currentDeck,
-}: GrandTableauCardProps) {
-  const cardHeight = cardWidth * 1.5;
+  function GrandTableauCard({
+    cardIndex,
+    house,
+    isFlipped,
+    isSelected,
+    onClick,
+    delay,
+    cardWidth,
+    oracleType,
+    currentDeck,
+  }: GrandTableauCardProps) {
+    const cardHeight = cardWidth * 1.5;
 
-  // Pega a carta correspondente no deck retornado pela edge function
-  const deckCard = (currentDeck[cardIndex] as any) || undefined;
-  const cardCode = deckCard?.code as string | undefined;
+    // Pega a carta correspondente no deck retornado pela edge function
+    const deckCard = (currentDeck[cardIndex] as any) || undefined;
+    const cardCode = deckCard?.code as string | undefined;
 
-  const isReversed =
-    oracleType === "tarot" && !!(deckCard?.reversed || deckCard?.is_reversed || deckCard?.orientation === "reversed");
+    const isReversed =
+      oracleType === "tarot" && !!(deckCard?.reversed || deckCard?.is_reversed || deckCard?.orientation === "reversed");
 
-  const backUrl = getCardBackImageUrl(oracleType);
-  const frontUrl = cardCode ? getCardImageUrl(cardCode) : null;
+    const backUrl = getCardBackImageUrl(oracleType);
+    const frontUrl = cardCode ? getCardImageUrl(cardCode) : null;
 
-  const [backLoaded, setBackLoaded] = useState(false);
-  const [frontLoaded, setFrontLoaded] = useState(false);
+    const [backLoaded, setBackLoaded] = useState(false);
+    const [frontLoaded, setFrontLoaded] = useState(false);
 
-  return (
-    <div
-      className="flex flex-col items-center gap-2"
-      style={{
-        width: `${cardWidth}px`,
-        flexShrink: 0,
-      }}
-    >
-      {/* Carta com flip 3D */}
-      <motion.div
-        initial={{ opacity: 0, scale: 0.8, y: 20 }}
-        animate={{ opacity: 1, scale: isSelected ? 1.05 : 1, y: 0 }}
-        transition={{
-          duration: 0.3,
-          delay: delay,
-          ease: "easeOut",
-        }}
-        className="relative cursor-pointer"
+    return (
+      <div
+        className="flex flex-col items-center gap-2"
         style={{
           width: `${cardWidth}px`,
-          height: `${cardHeight}px`,
-          perspective: "1000px",
+          flexShrink: 0,
         }}
-        onClick={onClick}
       >
+        {/* Carta com flip 3D */}
         <motion.div
-          className="relative w-full h-full"
-          style={{
-            transformStyle: "preserve-3d",
-          }}
-          animate={{ rotateY: isFlipped ? 180 : 0 }}
+          initial={{ opacity: 0, scale: 0.8, y: 20 }}
+          animate={{ opacity: 1, scale: isSelected ? 1.05 : 1, y: 0 }}
           transition={{
-            duration: 0.6,
-            ease: "easeInOut",
+            duration: 0.3,
+            delay: delay,
+            ease: "easeOut",
           }}
+          className="relative cursor-pointer"
+          style={{
+            width: `${cardWidth}px`,
+            height: `${cardHeight}px`,
+            perspective: "1000px",
+          }}
+          onClick={onClick}
         >
-          {/* Verso da carta */}
-          <div className="absolute inset-0" style={{ backfaceVisibility: "hidden" }}>
-            {!backLoaded && <div className="w-full h-full bg-black border border-neutral-700" />}
-
-            <img
-              src={backUrl}
-              alt="Verso da carta"
-              className="w-full h-full object-contain"
-              style={{ display: backLoaded ? "block" : "none" }}
-              onLoad={() => setBackLoaded(true)}
-              loading="lazy"
-            />
-          </div>
-
-          {/* Frente da carta */}
-          <div
-            className="absolute inset-0"
+          <motion.div
+            className="relative w-full h-full"
             style={{
-              backfaceVisibility: "hidden",
-              transform: "rotateY(180deg)",
+              transformStyle: "preserve-3d",
+            }}
+            animate={{ rotateY: isFlipped ? 180 : 0 }}
+            transition={{
+              duration: 0.6,
+              ease: "easeInOut",
             }}
           >
-            {!frontLoaded && <div className="w-full h-full bg-black border border-neutral-700" />}
+            {/* Verso da carta */}
+            <div className="absolute inset-0" style={{ backfaceVisibility: "hidden" }}>
+              {!backLoaded && <div className="w-full h-full bg-black border border-neutral-700" />}
 
-            {frontUrl && (
               <img
-                src={frontUrl}
-                alt={cardCode ?? `Carta ${cardIndex + 1}`}
+                src={backUrl}
+                alt="Verso da carta"
                 className="w-full h-full object-contain"
-                style={{
-                  display: frontLoaded ? "block" : "none",
-                  ...(oracleType === "tarot" && isReversed ? { transform: "rotate(180deg)" } : {}),
-                }}
-                onLoad={() => setFrontLoaded(true)}
+                style={{ display: backLoaded ? "block" : "none" }}
+                onLoad={() => setBackLoaded(true)}
                 loading="lazy"
               />
-            )}
+            </div>
 
-            {!frontUrl && !frontLoaded && (
-              <div className="w-full h-full flex items-center justify-center bg-black border border-neutral-700 text-xs text-starlight-text/60">
-                {cardIndex + 1}
-              </div>
-            )}
-          </div>
+            {/* Frente da carta */}
+            <div
+              className="absolute inset-0"
+              style={{
+                backfaceVisibility: "hidden",
+                transform: "rotateY(180deg)",
+              }}
+            >
+              {!frontLoaded && <div className="w-full h-full bg-black border border-neutral-700" />}
+
+              {frontUrl && (
+                <img
+                  src={frontUrl}
+                  alt={cardCode ?? `Carta ${cardIndex + 1}`}
+                  className="w-full h-full object-contain"
+                  style={{
+                    display: frontLoaded ? "block" : "none",
+                    ...(oracleType === "tarot" && isReversed ? { transform: "rotate(180deg)" } : {}),
+                  }}
+                  onLoad={() => setFrontLoaded(true)}
+                  loading="lazy"
+                />
+              )}
+
+              {!frontUrl && !frontLoaded && (
+                <div className="w-full h-full flex items-center justify-center bg-black border border-neutral-700 text-xs text-starlight-text/60">
+                  {cardIndex + 1}
+                </div>
+              )}
+            </div>
+          </motion.div>
+
+          {/* Indicador de seleção */}
+          {isSelected && (
+            <motion.div
+              initial={{ scale: 0 }}
+              animate={{ scale: 1 }}
+              className="absolute -top-2 -right-2 w-6 h-6 bg-mystic-indigo rounded-full flex items-center justify-center shadow-lg"
+              style={{ zIndex: 30 }}
+            >
+              <span className="text-starlight-text text-xs">✓</span>
+            </motion.div>
+          )}
         </motion.div>
 
-        {/* Indicador de seleção */}
-        {isSelected && (
-          <motion.div
-            initial={{ scale: 0 }}
-            animate={{ scale: 1 }}
-            className="absolute -top-2 -right-2 w-6 h-6 bg-mystic-indigo rounded-full flex items-center justify-center shadow-lg"
-            style={{ zIndex: 30 }}
-          >
-            <span className="text-starlight-text text-xs">✓</span>
-          </motion.div>
-        )}
-      </motion.div>
-
-      {/* Legenda da casa (sempre visível) */}
-      <div
-        className="text-center"
-        style={{
-          width: `${cardWidth}px`,
-        }}
-      >
-        <p className="text-xs text-mystic-indigo leading-tight">
-          {house.number}. {house.name}
-        </p>
+        {/* Legenda da casa (sempre visível) */}
+        <div
+          className="text-center"
+          style={{
+            width: `${cardWidth}px`,
+          }}
+        >
+          <p className="text-xs text-mystic-indigo leading-tight">
+            {house.number}. {house.name}
+          </p>
+        </div>
       </div>
-    </div>
-  );
+    );
+  }
 }
