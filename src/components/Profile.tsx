@@ -9,6 +9,7 @@ import { User, Shield, CreditCard, Check, Sparkles, Settings } from "lucide-reac
 import { supabase } from "@/integrations/supabase/client";
 import { HelloBar } from "./HelloBar";
 import { Modal } from "./Modal";
+import { Link } from "react-router-dom";
 
 type CreateCheckoutSessionResponse = {
   ok: boolean;
