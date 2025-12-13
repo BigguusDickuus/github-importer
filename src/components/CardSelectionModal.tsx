@@ -351,69 +351,113 @@ export function CardSelectionModal({
 
       const majorSlugMap: Record<string, string> = {
         fool: "O Louco",
-        louco: "O Louco",
+        the_fool: "O Louco",
+
         magician: "O Mago",
-        mago: "O Mago",
+        the_magician: "O Mago",
+
         high_priestess: "A Sacerdotisa",
+        the_high_priestess: "A Sacerdotisa",
         priestess: "A Sacerdotisa",
-        sacerdotisa: "A Sacerdotisa",
+
         empress: "A Imperatriz",
-        imperatriz: "A Imperatriz",
+        the_empress: "A Imperatriz",
+
         emperor: "O Imperador",
-        imperador: "O Imperador",
+        the_emperor: "O Imperador",
+
         hierophant: "O Hierofante",
-        hierofante: "O Hierofante",
+        the_hierophant: "O Hierofante",
         pope: "O Hierofante",
-        papa: "O Hierofante",
+
         lovers: "Os Enamorados",
-        enamorados: "Os Enamorados",
-        amantes: "Os Enamorados",
+        the_lovers: "Os Enamorados",
+
         chariot: "O Carro",
-        carro: "O Carro",
+        the_chariot: "O Carro",
+
         justice: "A Justiça",
-        justica: "A Justiça",
+        the_justice: "A Justiça",
+
         hermit: "O Eremita",
-        eremita: "O Eremita",
-        wheel: "A Roda da Fortuna",
+        the_hermit: "O Eremita",
+
         wheel_of_fortune: "A Roda da Fortuna",
-        roda: "A Roda da Fortuna",
-        fortuna: "A Roda da Fortuna",
+        the_wheel_of_fortune: "A Roda da Fortuna",
+        wheel: "A Roda da Fortuna",
+
         strength: "A Força",
-        forca: "A Força",
-        hanged: "O Enforcado",
+        the_strength: "A Força",
+
         hanged_man: "O Enforcado",
-        enforcado: "O Enforcado",
+        the_hanged_man: "O Enforcado",
+        hanged: "O Enforcado",
+
         death: "A Morte",
-        morte: "A Morte",
+        the_death: "A Morte",
+
         temperance: "A Temperança",
-        temperanca: "A Temperança",
+        the_temperance: "A Temperança",
+
         devil: "O Diabo",
-        diabo: "O Diabo",
+        the_devil: "O Diabo",
+
         tower: "A Torre",
-        torre: "A Torre",
+        the_tower: "A Torre",
+
         star: "A Estrela",
-        estrela: "A Estrela",
+        the_star: "A Estrela",
+
         moon: "A Lua",
-        lua: "A Lua",
+        the_moon: "A Lua",
+
         sun: "O Sol",
-        sol: "O Sol",
+        the_sun: "O Sol",
+
         judgement: "O Julgamento",
         judgment: "O Julgamento",
-        julgamento: "O Julgamento",
+        the_judgement: "O Julgamento",
+        the_judgment: "O Julgamento",
+
         world: "O Mundo",
-        mundo: "O Mundo",
+        the_world: "O Mundo",
       };
 
       if (!hasSuitHint) {
-        const slug = normalized.replace(/[^a-z0-9]+/g, "_");
+        // Normaliza pra algo tipo "tarot_major_10_wheel_of_fortune"
+        const norm = normalized.replace(/[^a-z0-9]+/g, "_");
+        const normNoExt = norm.replace(/^_+|_+$/g, "");
 
-        for (const k of Object.keys(majorSlugMap)) {
-          if (slug.includes(k)) {
+        // 1) Padrão forte: (tarot_)?major_XX_slug
+        const m = normNoExt.match(/(?:^|_) (?:tarot_)?major_([01]?\d|2[01])_([a-z0-9_]+)$/i);
+        // Regex acima tem espaço acidental se colar errado; então use esta versão correta:
+        const m2 = normNoExt.match(/(?:^|_)(?:tarot_)?major_([01]?\d|2[01])_([a-z0-9_]+)$/i);
+
+        if (m2) {
+          const n = Number(m2[1]);
+          const slug = m2[2].replace(/^the_/, "");
+          const name = majorSlugMap[slug] || majorSlugMap[`the_${slug}`] || majors[n];
+          if (name) return name + (isRev ? " (invertida)" : "");
+        }
+
+        // 2) Match por slug direto (tirando prefixos comuns)
+        const directSlug = normNoExt
+          .replace(/^tarot_/, "")
+          .replace(/^major_/, "")
+          .replace(/^the_/, "");
+
+        if (majorSlugMap[directSlug]) return majorSlugMap[directSlug] + (isRev ? " (invertida)" : "");
+        if (majorSlugMap[`the_${directSlug}`]) return majorSlugMap[`the_${directSlug}`] + (isRev ? " (invertida)" : "");
+
+        // 3) Fallback por "contains" (keys maiores primeiro)
+        const keys = Object.keys(majorSlugMap).sort((a, b) => b.length - a.length);
+        for (const k of keys) {
+          if (directSlug.includes(k)) {
             return majorSlugMap[k] + (isRev ? " (invertida)" : "");
           }
         }
 
-        // número 0..21 em qualquer lugar (delimitado por não-dígito)
+        // 4) Fallback por número 0..21 (delimitado por não-dígito)
         const numMatch = normalized.match(/(?:^|[^0-9])([01]?\d|2[01])(?:[^0-9]|$)/);
         if (numMatch) {
           const n = Number(numMatch[1]);
