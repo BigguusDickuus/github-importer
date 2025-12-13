@@ -7,6 +7,9 @@ import { Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import type { OracleType } from "@/types/oracles";
 import { HelloBar } from "./HelloBar";
+import { Modal } from "./Modal";
+import { Label } from "./ui/label";
+import { Input } from "./ui/input";
 
 type FilterKey = "all" | OracleType;
 
