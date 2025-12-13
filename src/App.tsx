@@ -18,12 +18,34 @@ function LandingGate() {
 
   useEffect(() => {
     let isMounted = true;
+    let inFlight = false;
+
+    const getSessionWithTimeout = async (ms: number) => {
+      return await Promise.race([
+        supabase.auth.getSession(),
+        new Promise<never>((_, reject) => setTimeout(() => reject(new Error("GET_SESSION_TIMEOUT")), ms)),
+      ]);
+    };
 
     const run = async () => {
-      const { data } = await supabase.auth.getSession();
-      if (!isMounted) return;
-      setHasSession(!!data.session);
-      setChecking(false);
+      if (inFlight) return;
+      inFlight = true;
+
+      try {
+        setChecking(true);
+        const { data } = (await getSessionWithTimeout(2500)) as Awaited<ReturnType<typeof supabase.auth.getSession>>;
+
+        if (!isMounted) return;
+        setHasSession(!!data.session);
+        setChecking(false);
+      } catch (err) {
+        console.error("LandingGate: erro ao checar sessão:", err);
+        if (!isMounted) return;
+        setHasSession(false);
+        setChecking(false);
+      } finally {
+        inFlight = false;
+      }
     };
 
     run();
@@ -34,9 +56,17 @@ function LandingGate() {
       setChecking(false);
     });
 
+    const onVisibility = () => {
+      if (document.visibilityState === "visible") {
+        run();
+      }
+    };
+    document.addEventListener("visibilitychange", onVisibility);
+
     return () => {
       isMounted = false;
       listener?.subscription?.unsubscribe();
+      document.removeEventListener("visibilitychange", onVisibility);
     };
   }, []);
 
@@ -48,7 +78,6 @@ function LandingGate() {
     );
   }
 
-  // Se já está logado e caiu na Landing (/), manda pro dashboard.
   if (hasSession) return <Navigate to="/dashboard" replace />;
 
   return <HomeDeslogada />;
@@ -60,12 +89,34 @@ function LoginGate() {
 
   useEffect(() => {
     let isMounted = true;
+    let inFlight = false;
+
+    const getSessionWithTimeout = async (ms: number) => {
+      return await Promise.race([
+        supabase.auth.getSession(),
+        new Promise<never>((_, reject) => setTimeout(() => reject(new Error("GET_SESSION_TIMEOUT")), ms)),
+      ]);
+    };
 
     const run = async () => {
-      const { data } = await supabase.auth.getSession();
-      if (!isMounted) return;
-      setHasSession(!!data.session);
-      setChecking(false);
+      if (inFlight) return;
+      inFlight = true;
+
+      try {
+        setChecking(true);
+        const { data } = (await getSessionWithTimeout(2500)) as Awaited<ReturnType<typeof supabase.auth.getSession>>;
+
+        if (!isMounted) return;
+        setHasSession(!!data.session);
+        setChecking(false);
+      } catch (err) {
+        console.error("LoginGate: erro ao checar sessão:", err);
+        if (!isMounted) return;
+        setHasSession(false);
+        setChecking(false);
+      } finally {
+        inFlight = false;
+      }
     };
 
     run();
@@ -76,9 +127,17 @@ function LoginGate() {
       setChecking(false);
     });
 
+    const onVisibility = () => {
+      if (document.visibilityState === "visible") {
+        run();
+      }
+    };
+    document.addEventListener("visibilitychange", onVisibility);
+
     return () => {
       isMounted = false;
       listener?.subscription?.unsubscribe();
+      document.removeEventListener("visibilitychange", onVisibility);
     };
   }, []);
 
@@ -90,7 +149,6 @@ function LoginGate() {
     );
   }
 
-  // Logado não deve ver /login
   if (hasSession) return <Navigate to="/dashboard" replace />;
 
   return <Login />;
