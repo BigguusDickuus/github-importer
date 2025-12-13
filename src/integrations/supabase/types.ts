@@ -121,6 +121,7 @@ export type Database = {
           is_admin: boolean | null
           keep_context: boolean
           phone: string | null
+          two_factor_enabled: boolean | null
           usage_limit_credits: number | null
           usage_limit_period: string | null
         }
@@ -134,6 +135,7 @@ export type Database = {
           is_admin?: boolean | null
           keep_context?: boolean
           phone?: string | null
+          two_factor_enabled?: boolean | null
           usage_limit_credits?: number | null
           usage_limit_period?: string | null
         }
@@ -147,6 +149,7 @@ export type Database = {
           is_admin?: boolean | null
           keep_context?: boolean
           phone?: string | null
+          two_factor_enabled?: boolean | null
           usage_limit_credits?: number | null
           usage_limit_period?: string | null
         }
@@ -158,6 +161,7 @@ export type Database = {
           completion_tokens: number | null
           created_at: string | null
           id: string
+          is_deleted: boolean
           model: string | null
           oracle_types: Database["public"]["Enums"]["oracle_type"][]
           oracles: Json
@@ -173,6 +177,7 @@ export type Database = {
           completion_tokens?: number | null
           created_at?: string | null
           id?: string
+          is_deleted?: boolean
           model?: string | null
           oracle_types: Database["public"]["Enums"]["oracle_type"][]
           oracles: Json
@@ -188,6 +193,7 @@ export type Database = {
           completion_tokens?: number | null
           created_at?: string | null
           id?: string
+          is_deleted?: boolean
           model?: string | null
           oracle_types?: Database["public"]["Enums"]["oracle_type"][]
           oracles?: Json
@@ -205,6 +211,69 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      admin_adjust_credits: {
+        Args: { _credits_change: number; _reason: string; _user_id: string }
+        Returns: Json
+      }
+      admin_get_dashboard_metrics: {
+        Args: { _end: string; _start: string }
+        Returns: Json
+      }
+      admin_get_dashboard_timeseries: {
+        Args: { _end: string; _start: string }
+        Returns: {
+          active_users: number
+          credits_sold: number
+          credits_used: number
+          day: string
+          new_users: number
+          packages_10: number
+          packages_25: number
+          packages_60: number
+          packages_sold: number
+          readings_completed: number
+          revenue_cents: number
+          tokens_in: number
+          tokens_out: number
+        }[]
+      }
+      admin_get_recent_logs: {
+        Args: { _limit?: number }
+        Returns: {
+          amount_cents: number
+          created_at: string
+          credits_change: number
+          currency: string
+          description: string
+          id: string
+          tx_type: string
+          user_email: string
+          user_id: string
+        }[]
+      }
+      admin_get_user_detail: {
+        Args: {
+          _limit_purchases?: number
+          _limit_readings?: number
+          _user_id: string
+        }
+        Returns: Json
+      }
+      admin_search_users: {
+        Args: { _limit?: number; _search_key: string; _search_value: string }
+        Returns: {
+          balance: number
+          birthday: string
+          cpf: string
+          created_at: string
+          email: string
+          full_name: string
+          id: string
+          is_admin: boolean
+          phone: string
+        }[]
+      }
+      cancel_stale_pending_readings: { Args: never; Returns: undefined }
       check_credits_for_oracles: {
         Args: { _oracle_types: Database["public"]["Enums"]["oracle_type"][] }
         Returns: {
@@ -222,6 +291,32 @@ export type Database = {
         }
         Returns: string
       }
+      finalize_reading:
+        | {
+            Args: {
+              _completion_tokens: number
+              _deck_log: Json
+              _model: string
+              _prompt_tokens: number
+              _reading_id: string
+              _response: string
+              _spreads: Json
+            }
+            Returns: undefined
+          }
+        | {
+            Args: {
+              _completion_tokens: number
+              _credits_cost: number
+              _deck_log: Json
+              _model: string
+              _prompt_tokens: number
+              _reading_id: string
+              _response: string
+              _spreads: Json
+            }
+            Returns: undefined
+          }
       get_current_balance: {
         Args: never
         Returns: {
@@ -241,6 +336,7 @@ export type Database = {
       grant_signup_bonus:
         | { Args: never; Returns: undefined }
         | { Args: { p_user_id?: string }; Returns: undefined }
+      is_admin: { Args: never; Returns: boolean }
     }
     Enums: {
       credit_transaction_type:

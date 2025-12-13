@@ -7,7 +7,6 @@ import { HomeLogada } from "./components/HomeLogada";
 import { Dashboard } from "./components/Dashboard";
 import { History } from "./components/History";
 import { TransactionHistory } from "./components/TransactionHistory";
-import { Credits } from "./components/Credits";
 import { Profile } from "./components/Profile";
 import { Admin } from "./components/Admin";
 import { Login } from "./components/Login";
@@ -135,14 +134,6 @@ export default function App() {
         <Route path="/History" element={<Navigate to="/history" replace />} />
         <Route path="/TransactionHistory" element={<Navigate to="/transaction-history" replace />} />
 
-        <Route
-          path="/credits"
-          element={
-            <ProtectedRoute>
-              <Credits />
-            </ProtectedRoute>
-          }
-        />
         <Route
           path="/profile"
           element={
