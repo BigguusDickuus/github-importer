@@ -1,18 +1,11 @@
 import { ReactNode, useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase, resetSupabaseClient } from "@/integrations/supabase/client";
 
 interface ProtectedRouteProps {
   children: ReactNode;
   requireAdmin?: boolean;
 }
-
-type CachedAuth = {
-  access_token: string;
-  refresh_token: string;
-  expires_at?: number;
-  user?: any;
-};
 
 export function ProtectedRoute({ children, requireAdmin = false }: ProtectedRouteProps) {
   const [checking, setChecking] = useState(true); // só no bootstrap
@@ -29,51 +22,6 @@ export function ProtectedRoute({ children, requireAdmin = false }: ProtectedRout
     return await Promise.race([p, new Promise<T>((_, reject) => setTimeout(() => reject(new Error(code)), ms))]);
   };
 
-  const getCachedAuth = (): CachedAuth | null => {
-    try {
-      const keys = Object.keys(localStorage || {}).filter((k) => k.startsWith("sb-") && k.includes("auth-token"));
-
-      for (const k of keys) {
-        const raw = localStorage.getItem(k);
-        if (!raw) continue;
-        const parsed = JSON.parse(raw);
-
-        if (parsed?.access_token && parsed?.refresh_token) {
-          // se tiver expires_at e já expirou, ignora
-          const exp = Number(parsed.expires_at ?? 0);
-          if (exp) {
-            const now = Math.floor(Date.now() / 1000);
-            if (exp <= now) continue;
-          }
-          return parsed as CachedAuth;
-        }
-      }
-    } catch {
-      // ignore
-    }
-    return null;
-  };
-
-  const rehydrateSessionFromCache = async () => {
-    const cached = getCachedAuth();
-    if (!cached?.access_token || !cached?.refresh_token) return false;
-
-    try {
-      await withTimeout(
-        supabase.auth.setSession({
-          access_token: cached.access_token,
-          refresh_token: cached.refresh_token,
-        }),
-        2000,
-        "SET_SESSION_TIMEOUT",
-      );
-      return true;
-    } catch (e) {
-      console.warn("ProtectedRoute: falhou rehydrateSessionFromCache:", e);
-      return false;
-    }
-  };
-
   const getSessionSafe = async () => {
     try {
       const { data, error } = (await withTimeout(supabase.auth.getSession(), 6000, "GET_SESSION_TIMEOUT")) as Awaited<
@@ -84,14 +32,11 @@ export function ProtectedRoute({ children, requireAdmin = false }: ProtectedRout
       return data.session ?? null;
     } catch (err: any) {
       const msg = String(err?.message || err);
-
       if (msg === "GET_SESSION_TIMEOUT") {
-        // ✅ Se travou, re-hidrata a sessão no Supabase client e tenta de novo
-        const ok = await rehydrateSessionFromCache();
-        if (!ok) return null;
-
+        // ✅ correção determinística: reset e tenta 1 vez
+        resetSupabaseClient();
         try {
-          const { data } = (await withTimeout(supabase.auth.getSession(), 3000, "GET_SESSION_TIMEOUT_2")) as Awaited<
+          const { data } = (await withTimeout(supabase.auth.getSession(), 4000, "GET_SESSION_TIMEOUT_2")) as Awaited<
             ReturnType<typeof supabase.auth.getSession>
           >;
           return data.session ?? null;
@@ -99,8 +44,6 @@ export function ProtectedRoute({ children, requireAdmin = false }: ProtectedRout
           return null;
         }
       }
-
-      // outros erros => trata como sem sessão
       return null;
     }
   };
@@ -114,7 +57,6 @@ export function ProtectedRoute({ children, requireAdmin = false }: ProtectedRout
       if (!silent && !bootstrappedRef.current) setChecking(true);
 
       const session = await getSessionSafe();
-
       if (!mountedRef.current) return;
 
       if (!session) {
@@ -161,12 +103,11 @@ export function ProtectedRoute({ children, requireAdmin = false }: ProtectedRout
   useEffect(() => {
     mountedRef.current = true;
 
-    // bootstrap (pode mostrar carregando)
     runCheck({ silent: false });
 
-    // ✅ ao voltar pra aba: recheck silencioso + rehydrate se travar
     const onVisibility = () => {
       if (document.visibilityState === "visible") {
+        resetSupabaseClient();
         runCheck({ silent: true });
       }
     };
