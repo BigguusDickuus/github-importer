@@ -15,73 +15,63 @@ function LandingGate() {
   const [checking, setChecking] = useState(true);
   const [hasSession, setHasSession] = useState(false);
 
-  const inFlightRef = useRef(false);
   const mountedRef = useRef(true);
-  const bootstrappedRef = useRef(false);
+  const inFlightRef = useRef(false);
 
-  const withTimeout = async <T,>(p: Promise<T>, ms: number, code: string) => {
-    return await Promise.race([p, new Promise<T>((_, reject) => setTimeout(() => reject(new Error(code)), ms))]);
-  };
-
-  const getSessionSafe = async () => {
-    try {
-      const { data } = (await withTimeout(supabase.auth.getSession(), 6000, "GET_SESSION_TIMEOUT")) as Awaited<
-        ReturnType<typeof supabase.auth.getSession>
-      >;
-      return data.session ?? null;
-    } catch (err: any) {
-      const msg = String(err?.message || err);
-      if (msg === "GET_SESSION_TIMEOUT") {
-        // ✅ correção determinística: reset do client e tenta 1 vez de novo
-        resetSupabaseClient();
-        try {
-          const { data } = (await withTimeout(supabase.auth.getSession(), 4000, "GET_SESSION_TIMEOUT_2")) as Awaited<
-            ReturnType<typeof supabase.auth.getSession>
-          >;
-          return data.session ?? null;
-        } catch {
-          return null;
-        }
-      }
-      return null;
-    }
-  };
-
-  const run = async (opts?: { silent?: boolean }) => {
-    const silent = opts?.silent ?? false;
+  const run = async (opts?: { bootstrap?: boolean }) => {
+    const bootstrap = opts?.bootstrap ?? false;
     if (inFlightRef.current) return;
     inFlightRef.current = true;
 
-    try {
-      if (!silent && !bootstrappedRef.current) setChecking(true);
+    if (bootstrap) setChecking(true);
 
-      const session = await getSessionSafe();
+    // Watchdog: se auth travar de novo (caso raro), reload resolve o lock de verdade.
+    const watchdog = window.setTimeout(() => {
+      if (document.visibilityState === "visible") {
+        console.warn("LandingGate: auth travou; recarregando página para destravar.");
+        window.location.reload();
+      }
+    }, 12000);
+
+    try {
+      const { data, error } = await supabase.auth.getSession();
       if (!mountedRef.current) return;
 
-      setHasSession(!!session);
-      setChecking(false);
-      bootstrappedRef.current = true;
+      if (error) {
+        console.error("LandingGate: erro getSession:", error);
+        setHasSession(false);
+      } else {
+        setHasSession(!!data.session);
+      }
     } finally {
+      clearTimeout(watchdog);
       inFlightRef.current = false;
+      if (mountedRef.current) setChecking(false);
     }
   };
 
   useEffect(() => {
     mountedRef.current = true;
 
-    run({ silent: false });
+    // Bootstrap inicial (pode mostrar "Carregando...")
+    run({ bootstrap: true });
 
-    // ✅ ao voltar da aba: reseta client e revalida sem tela azul
+    // Mantém sincronizado com login/logout sem precisar ficar chamando getSession em loop
+    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (!mountedRef.current) return;
+      setHasSession(!!session);
+      setChecking(false);
+    });
+
+    // Ao voltar pra aba: revalida em background (não seta checking=true)
     const onVisibility = () => {
-      if (document.visibilityState === "visible") {
-        resetSupabaseClient();
-        run({ silent: true });
-      }
+      if (document.visibilityState === "visible") run({ bootstrap: false });
     };
     document.addEventListener("visibilitychange", onVisibility);
 
     return () => {
       mountedRef.current = false;
+      listener?.subscription?.unsubscribe();
       document.removeEventListener("visibilitychange", onVisibility);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -96,6 +86,7 @@ function LandingGate() {
   }
 
   if (hasSession) return <Navigate to="/dashboard" replace />;
+
   return <HomeDeslogada />;
 }
 
@@ -103,71 +94,59 @@ function LoginGate() {
   const [checking, setChecking] = useState(true);
   const [hasSession, setHasSession] = useState(false);
 
-  const inFlightRef = useRef(false);
   const mountedRef = useRef(true);
-  const bootstrappedRef = useRef(false);
+  const inFlightRef = useRef(false);
 
-  const withTimeout = async <T,>(p: Promise<T>, ms: number, code: string) => {
-    return await Promise.race([p, new Promise<T>((_, reject) => setTimeout(() => reject(new Error(code)), ms))]);
-  };
-
-  const getSessionSafe = async () => {
-    try {
-      const { data } = (await withTimeout(supabase.auth.getSession(), 6000, "GET_SESSION_TIMEOUT")) as Awaited<
-        ReturnType<typeof supabase.auth.getSession>
-      >;
-      return data.session ?? null;
-    } catch (err: any) {
-      const msg = String(err?.message || err);
-      if (msg === "GET_SESSION_TIMEOUT") {
-        resetSupabaseClient();
-        try {
-          const { data } = (await withTimeout(supabase.auth.getSession(), 4000, "GET_SESSION_TIMEOUT_2")) as Awaited<
-            ReturnType<typeof supabase.auth.getSession>
-          >;
-          return data.session ?? null;
-        } catch {
-          return null;
-        }
-      }
-      return null;
-    }
-  };
-
-  const run = async (opts?: { silent?: boolean }) => {
-    const silent = opts?.silent ?? false;
+  const run = async (opts?: { bootstrap?: boolean }) => {
+    const bootstrap = opts?.bootstrap ?? false;
     if (inFlightRef.current) return;
     inFlightRef.current = true;
 
-    try {
-      if (!silent && !bootstrappedRef.current) setChecking(true);
+    if (bootstrap) setChecking(true);
 
-      const session = await getSessionSafe();
+    const watchdog = window.setTimeout(() => {
+      if (document.visibilityState === "visible") {
+        console.warn("LoginGate: auth travou; recarregando página para destravar.");
+        window.location.reload();
+      }
+    }, 12000);
+
+    try {
+      const { data, error } = await supabase.auth.getSession();
       if (!mountedRef.current) return;
 
-      setHasSession(!!session);
-      setChecking(false);
-      bootstrappedRef.current = true;
+      if (error) {
+        console.error("LoginGate: erro getSession:", error);
+        setHasSession(false);
+      } else {
+        setHasSession(!!data.session);
+      }
     } finally {
+      clearTimeout(watchdog);
       inFlightRef.current = false;
+      if (mountedRef.current) setChecking(false);
     }
   };
 
   useEffect(() => {
     mountedRef.current = true;
 
-    run({ silent: false });
+    run({ bootstrap: true });
+
+    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (!mountedRef.current) return;
+      setHasSession(!!session);
+      setChecking(false);
+    });
 
     const onVisibility = () => {
-      if (document.visibilityState === "visible") {
-        resetSupabaseClient();
-        run({ silent: true });
-      }
+      if (document.visibilityState === "visible") run({ bootstrap: false });
     };
     document.addEventListener("visibilitychange", onVisibility);
 
     return () => {
       mountedRef.current = false;
+      listener?.subscription?.unsubscribe();
       document.removeEventListener("visibilitychange", onVisibility);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -182,6 +161,7 @@ function LoginGate() {
   }
 
   if (hasSession) return <Navigate to="/dashboard" replace />;
+
   return <Login />;
 }
 

@@ -1,6 +1,6 @@
 import { ReactNode, useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { supabase, resetSupabaseClient } from "@/integrations/supabase/client";
+import { supabase } from "@/integrations/supabase/client";
 
 interface ProtectedRouteProps {
   children: ReactNode;
@@ -8,61 +8,36 @@ interface ProtectedRouteProps {
 }
 
 export function ProtectedRoute({ children, requireAdmin = false }: ProtectedRouteProps) {
-  const [checking, setChecking] = useState(true); // só no bootstrap
+  const [checking, setChecking] = useState(true); // só bootstrap
   const [allowed, setAllowed] = useState(false);
 
   const navigate = useNavigate();
   const location = useLocation();
 
-  const inFlightRef = useRef(false);
   const mountedRef = useRef(true);
-  const bootstrappedRef = useRef(false);
+  const inFlightRef = useRef(false);
 
-  const withTimeout = async <T,>(p: Promise<T>, ms: number, code: string) => {
-    return await Promise.race([p, new Promise<T>((_, reject) => setTimeout(() => reject(new Error(code)), ms))]);
-  };
-
-  const getSessionSafe = async () => {
-    try {
-      const { data, error } = (await withTimeout(supabase.auth.getSession(), 6000, "GET_SESSION_TIMEOUT")) as Awaited<
-        ReturnType<typeof supabase.auth.getSession>
-      >;
-
-      if (error) throw error;
-      return data.session ?? null;
-    } catch (err: any) {
-      const msg = String(err?.message || err);
-      if (msg === "GET_SESSION_TIMEOUT") {
-        // ✅ correção determinística: reset e tenta 1 vez
-        resetSupabaseClient();
-        try {
-          const { data } = (await withTimeout(supabase.auth.getSession(), 4000, "GET_SESSION_TIMEOUT_2")) as Awaited<
-            ReturnType<typeof supabase.auth.getSession>
-          >;
-          return data.session ?? null;
-        } catch {
-          return null;
-        }
-      }
-      return null;
-    }
-  };
-
-  const runCheck = async (opts?: { silent?: boolean }) => {
-    const silent = opts?.silent ?? false;
+  const runCheck = async (opts?: { bootstrap?: boolean }) => {
+    const bootstrap = opts?.bootstrap ?? false;
     if (inFlightRef.current) return;
     inFlightRef.current = true;
 
-    try {
-      if (!silent && !bootstrappedRef.current) setChecking(true);
+    if (bootstrap) setChecking(true);
 
-      const session = await getSessionSafe();
+    const watchdog = window.setTimeout(() => {
+      if (document.visibilityState === "visible") {
+        console.warn("ProtectedRoute: auth travou; recarregando página para destravar.");
+        window.location.reload();
+      }
+    }, 12000);
+
+    try {
+      const { data, error } = await supabase.auth.getSession();
       if (!mountedRef.current) return;
 
-      if (!session) {
+      if (error || !data.session) {
         setAllowed(false);
         setChecking(false);
-        bootstrappedRef.current = true;
         navigate("/", { replace: true, state: { from: location } });
         return;
       }
@@ -70,11 +45,10 @@ export function ProtectedRoute({ children, requireAdmin = false }: ProtectedRout
       if (!requireAdmin) {
         setAllowed(true);
         setChecking(false);
-        bootstrappedRef.current = true;
         return;
       }
 
-      const userId = session.user.id;
+      const userId = data.session.user.id;
 
       const { data: profile, error: profileError } = await supabase
         .from("profiles")
@@ -87,29 +61,28 @@ export function ProtectedRoute({ children, requireAdmin = false }: ProtectedRout
       if (profileError || !profile?.is_admin) {
         setAllowed(false);
         setChecking(false);
-        bootstrappedRef.current = true;
         navigate("/dashboard", { replace: true, state: { from: location } });
         return;
       }
 
       setAllowed(true);
       setChecking(false);
-      bootstrappedRef.current = true;
     } finally {
+      clearTimeout(watchdog);
       inFlightRef.current = false;
+      if (mountedRef.current && bootstrap) setChecking(false);
     }
   };
 
   useEffect(() => {
     mountedRef.current = true;
 
-    runCheck({ silent: false });
+    // Bootstrap inicial (pode mostrar carregando)
+    runCheck({ bootstrap: true });
 
+    // Ao voltar pra aba: revalida em background (sem tela azul)
     const onVisibility = () => {
-      if (document.visibilityState === "visible") {
-        resetSupabaseClient();
-        runCheck({ silent: true });
-      }
+      if (document.visibilityState === "visible") runCheck({ bootstrap: false });
     };
     document.addEventListener("visibilitychange", onVisibility);
 
