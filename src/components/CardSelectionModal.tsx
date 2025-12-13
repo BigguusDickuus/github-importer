@@ -283,7 +283,7 @@ export function CardSelectionModal({
   }, [selectedCards, cardsNeeded, isGrandTableau]);
 
   // ===== Label da carta (preview) + preload de imagem =====
-  const formatSelectedCardLabel = (type: OracleType, code?: string, reversed?: boolean) => {
+  const CardLabel = (type: OracleType, code?: string, reversed?: boolean) => {
     const isRev = !!reversed;
 
     const rankMap: Record<string, string> = {
@@ -338,115 +338,95 @@ export function CardSelectionModal({
     const raw = String(code).trim();
     const upper = raw.toUpperCase();
 
-    // TAROT - majors: tenta por slug (fool/magician/etc) e por número (sem depender de \b)
-    const normalized = raw
-      .toLowerCase()
-      .split("/")
-      .pop()!
-      .replace(/\.[a-z0-9]+$/i, ""); // remove extensão
+    // ===== TAROT =====
+    if (type === "tarot") {
+      // majors: tenta por slug (fool/magician/etc) e por número (sem depender de \b)
+      const normalized = raw
+        .toLowerCase()
+        .split("/")
+        .pop()!
+        .replace(/\.[a-z0-9]+$/i, ""); // remove extensão
 
-    const hasSuitHint = /(wands|paus|cups|copas|swords|espadas|pentacles|coins|ouros)/i.test(normalized);
+      const hasSuitHint = /(wands|paus|cups|copas|swords|espadas|pentacles|coins|ouros)/i.test(normalized);
 
-    const majorSlugMap: Record<string, string> = {
-      fool: "O Louco",
-      louco: "O Louco",
+      const majorSlugMap: Record<string, string> = {
+        fool: "O Louco",
+        louco: "O Louco",
+        magician: "O Mago",
+        mago: "O Mago",
+        high_priestess: "A Sacerdotisa",
+        priestess: "A Sacerdotisa",
+        sacerdotisa: "A Sacerdotisa",
+        empress: "A Imperatriz",
+        imperatriz: "A Imperatriz",
+        emperor: "O Imperador",
+        imperador: "O Imperador",
+        hierophant: "O Hierofante",
+        hierofante: "O Hierofante",
+        pope: "O Hierofante",
+        papa: "O Hierofante",
+        lovers: "Os Enamorados",
+        enamorados: "Os Enamorados",
+        amantes: "Os Enamorados",
+        chariot: "O Carro",
+        carro: "O Carro",
+        justice: "A Justiça",
+        justica: "A Justiça",
+        hermit: "O Eremita",
+        eremita: "O Eremita",
+        wheel: "A Roda da Fortuna",
+        wheel_of_fortune: "A Roda da Fortuna",
+        roda: "A Roda da Fortuna",
+        fortuna: "A Roda da Fortuna",
+        strength: "A Força",
+        forca: "A Força",
+        hanged: "O Enforcado",
+        hanged_man: "O Enforcado",
+        enforcado: "O Enforcado",
+        death: "A Morte",
+        morte: "A Morte",
+        temperance: "A Temperança",
+        temperanca: "A Temperança",
+        devil: "O Diabo",
+        diabo: "O Diabo",
+        tower: "A Torre",
+        torre: "A Torre",
+        star: "A Estrela",
+        estrela: "A Estrela",
+        moon: "A Lua",
+        lua: "A Lua",
+        sun: "O Sol",
+        sol: "O Sol",
+        judgement: "O Julgamento",
+        judgment: "O Julgamento",
+        julgamento: "O Julgamento",
+        world: "O Mundo",
+        mundo: "O Mundo",
+      };
 
-      magician: "O Mago",
-      mago: "O Mago",
+      if (!hasSuitHint) {
+        const slug = normalized.replace(/[^a-z0-9]+/g, "_");
 
-      high_priestess: "A Sacerdotisa",
-      priestess: "A Sacerdotisa",
-      sacerdotisa: "A Sacerdotisa",
+        for (const k of Object.keys(majorSlugMap)) {
+          if (slug.includes(k)) {
+            return majorSlugMap[k] + (isRev ? " (invertida)" : "");
+          }
+        }
 
-      empress: "A Imperatriz",
-      imperatriz: "A Imperatriz",
-
-      emperor: "O Imperador",
-      imperador: "O Imperador",
-
-      hierophant: "O Hierofante",
-      hierofante: "O Hierofante",
-      pope: "O Hierofante",
-      papa: "O Hierofante",
-
-      lovers: "Os Enamorados",
-      enamorados: "Os Enamorados",
-      amantes: "Os Enamorados",
-
-      chariot: "O Carro",
-      carro: "O Carro",
-
-      justice: "A Justiça",
-      justica: "A Justiça",
-
-      hermit: "O Eremita",
-      eremita: "O Eremita",
-
-      wheel: "A Roda da Fortuna",
-      wheel_of_fortune: "A Roda da Fortuna",
-      roda: "A Roda da Fortuna",
-      fortuna: "A Roda da Fortuna",
-
-      strength: "A Força",
-      forca: "A Força",
-
-      hanged: "O Enforcado",
-      hanged_man: "O Enforcado",
-      enforcado: "O Enforcado",
-
-      death: "A Morte",
-      morte: "A Morte",
-
-      temperance: "A Temperança",
-      temperanca: "A Temperança",
-
-      devil: "O Diabo",
-      diabo: "O Diabo",
-
-      tower: "A Torre",
-      torre: "A Torre",
-
-      star: "A Estrela",
-      estrela: "A Estrela",
-
-      moon: "A Lua",
-      lua: "A Lua",
-
-      sun: "O Sol",
-      sol: "O Sol",
-
-      judgement: "O Julgamento",
-      judgment: "O Julgamento",
-      julgamento: "O Julgamento",
-
-      world: "O Mundo",
-      mundo: "O Mundo",
-    };
-
-    if (!hasSuitHint) {
-      const slug = normalized.replace(/[^a-z0-9]+/g, "_");
-
-      for (const k of Object.keys(majorSlugMap)) {
-        if (slug.includes(k)) {
-          return majorSlugMap[k] + (isRev ? " (invertida)" : "");
+        // número 0..21 em qualquer lugar (delimitado por não-dígito)
+        const numMatch = normalized.match(/(?:^|[^0-9])([01]?\d|2[01])(?:[^0-9]|$)/);
+        if (numMatch) {
+          const n = Number(numMatch[1]);
+          if (Number.isFinite(n) && majors[n]) {
+            return majors[n] + (isRev ? " (invertida)" : "");
+          }
         }
       }
 
-      // número 0..21 em QUALQUER lugar, desde que delimitado por não-dígito
-      const numMatch = normalized.match(/(?:^|[^0-9])([01]?\d|2[01])(?:[^0-9]|$)/);
-      if (numMatch) {
-        const n = Number(numMatch[1]);
-        if (Number.isFinite(n) && majors[n]) {
-          return majors[n] + (isRev ? " (invertida)" : "");
-        }
-      }
-    }
-
-      // TAROT minors - tenta achar rank + suit em padrões comuns
+      // minors: rank + suit
       let rankToken: string | null = null;
       let suitLabel: string | null = null;
 
-      // rank: A/J/Q/K ou 1-10
       const rankMatch =
         upper.match(/\b(ACE|PAGE|KNIGHT|KING|QUEEN|[AJQKN]|\d{1,2})\b/) ||
         upper.match(/^(ACE|PAGE|KNIGHT|KING|QUEEN|[AJQKN]|\d{1,2})/) ||
@@ -461,7 +441,6 @@ export function CardSelectionModal({
         }
       }
 
-      // fallback de suit por último/primeiro char (ex.: 05W / W05)
       if (!suitLabel) {
         const m1 = upper.match(/(\d{1,2})([WCHSPEOD])/);
         const m2 = upper.match(/([WCHSPEOD])(\d{1,2})/);
@@ -476,18 +455,18 @@ export function CardSelectionModal({
         }
       }
 
-      const rankLabel = rankToken ? rankMap[rankToken] || rankMap[String(Number(rankToken))] || rankToken : null;
+      const rankLabel = rankToken
+        ? rankMap[rankToken] || rankMap[String(Number(rankToken))] || rankToken
+        : null;
 
       if (rankLabel && suitLabel) {
-        const r = rankLabel;
-        return `${r} de ${suitLabel}` + (isRev ? " (invertida)" : "");
+        return `${rankLabel} de ${suitLabel}` + (isRev ? " (invertida)" : "");
       }
 
-      // se não conseguiu parsear, mostra o code como fallback
       return raw + (isRev ? " (invertida)" : "");
     }
 
-    // LENORMAND - tenta extrair número 1..36 do code e usa nome (fallback: code)
+    // ===== LENORMAND =====
     if (type === "lenormand") {
       const numMatch = upper.match(/\b([1-9]|[12]\d|3[0-6])\b/);
       if (numMatch) {
@@ -535,7 +514,7 @@ export function CardSelectionModal({
       return raw;
     }
 
-    // CARTOMANCIA - tenta ler como baralho padrão (ex.: H7/D10/AS etc.)
+    // ===== CARTOMANCIA =====
     if (type === "cartomancia") {
       const suit = /H|HEART/i.test(upper)
         ? "Copas"
@@ -559,301 +538,6 @@ export function CardSelectionModal({
 
     return raw;
   };
-
-  // Preload das imagens das cartas selecionadas (ajuda MUITO no preview)
-  useEffect(() => {
-    if (!selectedCards?.length) return;
-
-    const urls = selectedCards
-      .map((idx) => {
-        const card = (currentDeck?.[idx] as any) || undefined;
-        const code = card?.code as string | undefined;
-        return code ? getCardImageUrl(code) : null;
-      })
-      .filter(Boolean) as string[];
-
-    const unique = Array.from(new Set(urls));
-    unique.forEach((url) => {
-      const img = new Image();
-      (img as any).fetchPriority = "high";
-      img.decoding = "async";
-      img.src = url;
-    });
-  }, [selectedCards, currentDeck]);
-
-  if (!isOpen) return null;
-
-  return (
-    <>
-      {/* Backdrop com blur */}
-      <div className="fixed inset-0 z-50 bg-night-sky/90 backdrop-blur-md" onClick={onClose} />
-
-      {/* Modal */}
-      <div
-        className="fixed inset-0 z-50 flex items-center justify-center pointer-events-none"
-        style={{ padding: "16px" }}
-      >
-        <div className="relative pointer-events-auto w-full max-w-7xl flex flex-col" style={{ maxHeight: "90vh" }}>
-          {/* Botão X fora do modal */}
-          <button
-            onClick={onClose}
-            className="absolute -top-4 -right-4 w-10 h-10 rounded-full bg-midnight-surface border border-obsidian-border text-moonlight-text hover:text-starlight-text hover:border-mystic-indigo transition-colors flex items-center justify-center z-10"
-            aria-label="Fechar"
-          >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              width="20"
-              height="20"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <line x1="18" y1="6" x2="6" y2="18"></line>
-              <line x1="6" y1="6" x2="18" y2="18"></line>
-            </svg>
-          </button>
-
-          {/* Header fixo */}
-          <div
-            className="bg-midnight-surface border border-obsidian-border rounded-t-3xl shadow-2xl"
-            style={{ padding: "24px" }}
-          >
-            <div className="flex items-center justify-between">
-              <div>
-                <h2 className="text-2xl md:text-3xl text-starlight-text">{ORACLE_NAMES[oracleType]}</h2>
-                <p className="text-base text-moonlight-text/80" style={{ marginTop: "8px" }}>
-                  {isGrandTableau
-                    ? "Clique em qualquer carta para revelar todas"
-                    : `Escolha ${cardsNeeded} ${cardsNeeded === 1 ? "carta" : "cartas"}`}
-                  {!isGrandTableau && selectedCards.length > 0 && (
-                    <span className="text-mystic-indigo ml-2">
-                      ({selectedCards.length}/{cardsNeeded})
-                    </span>
-                  )}
-                </p>
-              </div>
-            </div>
-          </div>
-
-          {/* Área de cartas com textura de feltro - scrollável */}
-          <div
-            className="flex-1 overflow-y-auto bg-midnight-surface border-x border-obsidian-border"
-            style={{
-              background: `
-      radial-gradient(ellipse at center, rgba(16, 19, 34, 0.95) 0%, rgba(5, 8, 22, 0.98) 100%),
-      repeating-linear-gradient(
-        0deg,
-        rgba(99, 102, 241, 0.03) 0px,
-        transparent 1px,
-        transparent 2px,
-        rgba(99, 102, 241, 0.03) 3px
-      ),
-      repeating-linear-gradient(
-        90deg,
-        rgba(249, 115, 22, 0.02) 0px,
-        transparent 1px,
-        transparent 2px,
-        rgba(249, 115, 22, 0.02) 3px
-      ),
-      linear-gradient(135deg, #0a0e1a 0%, #050816 50%, #0a0e1a 100%)
-    `,
-              boxShadow: "inset 0 2px 10px rgba(0, 0, 0, 0.5)",
-            }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div style={{ padding: "24px 32px" }} className="relative">
-              {/* Pré-carrega o verso do baralho atual */}
-              <img src={getCardBackImageUrl(oracleType as OracleType)} alt="" className="hidden" />
-
-              {/* CONTAINER DA MESA: recebe blur quando o preview está ativo (exceto Grand Tableau) */}
-              <div
-                className={
-                  !isGrandTableau && showSelectionPreview
-                    ? "transition-all duration-300 blur-sm pointer-events-none"
-                    : "transition-all duration-300"
-                }
-              >
-                {/* Renderização condicional: Grand Tableau vs outros métodos */}
-                {isGrandTableau ? (
-                  // Layout especial do Grand Tableau: 8x4 + 4
-                  <GrandTableauGrid
-                    shuffleKey={shuffleKey}
-                    flippedCards={flippedCards}
-                    selectedCards={selectedCards}
-                    onCardClick={handleCardClick}
-                    oracleType={oracleType as OracleType}
-                    currentDeck={localDeck}
-                  />
-                ) : (
-                  <div
-                    style={{
-                      position: "relative",
-                      display: "flex",
-                      flexWrap: "wrap",
-                      justifyContent: "center",
-                      alignItems: "flex-start",
-                      gap: "0",
-                      margin: "0 auto",
-                      transform: totalCards > 52 ? "translateX(-12px)" : "translateX(-16px)",
-                    }}
-                  >
-                    {Array.from({ length: totalCards }, (_, i) => {
-                      const cardSize: "small" | "medium" = totalCards > 52 ? "small" : "medium";
-                      const cardWidth = cardSize === "small" ? 60 : 80;
-                      const visiblePart = cardWidth * 0.6;
-
-                      const deckCard = localDeck[i] as any | undefined;
-                      const cardCode = deckCard?.code as string | undefined;
-                      const isReversed =
-                        oracleType === "tarot" &&
-                        !!(deckCard?.reversed || deckCard?.is_reversed || deckCard?.orientation === "reversed");
-
-                      return (
-                        <div
-                          key={`${shuffleKey}-${i}`}
-                          style={{
-                            width: `${visiblePart}px`,
-                            height: `${cardWidth * 1.5}px`,
-                            marginTop: "12px",
-                            marginBottom: "12px",
-                            position: "relative",
-                            flexShrink: 0,
-                          }}
-                        >
-                          <div
-                            style={{
-                              width: `${cardWidth}px`,
-                              height: `${cardWidth * 1.5}px`,
-                              position: "absolute",
-                              left: 0,
-                              top: 0,
-                              zIndex: selectedCards.includes(i) ? 20 : 10,
-                            }}
-                          >
-                            <Card
-                              index={i}
-                              isFlipped={flippedCards.has(i)}
-                              isSelected={selectedCards.includes(i)}
-                              onClick={() => handleCardClick(i)}
-                              delay={i * 0.008}
-                              oracleType={oracleType as OracleType}
-                              cardSize={cardSize}
-                              cardCode={cardCode}
-                              isReversed={isReversed}
-                            />
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-
-              {/* OVERLAY DE PREVIEW DAS CARTAS SELECIONADAS (somente se NÃO for Grand Tableau) */}
-              {!isGrandTableau && showSelectionPreview && selectedCards.length > 0 && (
-                <div className="pointer-events-auto absolute inset-0 flex items-center justify-center">
-                  <div className="relative w-full max-w-6xl mx-auto px-4">
-                    {/* Fundo esfumado */}
-                    <div className="absolute inset-0 rounded-3xl bg-black/60 backdrop-blur-xl shadow-2xl" />
-
-                    <div className="relative z-10 flex flex-col items-center gap-4 p-6 md:p-8">
-                      <p className="text-sm md:text-base text-moonlight-text/80 text-center">Cartas selecionadas</p>
-
-                      <div className="flex flex-wrap justify-center gap-4 md:gap-6 max-h-[70vh] overflow-auto px-2">
-                        {selectedCards.map((cardIndex) => {
-                          const deckCard = (currentDeck[cardIndex] as any) || undefined;
-                          const cardCode = deckCard?.code as string | undefined;
-
-                          const isReversed =
-                            oracleType === "tarot" && (deckCard?.is_reversed || deckCard?.orientation === "reversed");
-
-                          const frontUrl = cardCode ? getCardImageUrl(cardCode) : null;
-
-                          const label = formatSelectedCardLabel(oracleType, cardCode, isReversed);
-
-                          return (
-                            <div key={`preview-${cardIndex}`} className="flex flex-col items-center">
-                              <div className="relative w-[160px] h-[256px] sm:w-[190px] sm:h-[304px] md:w-[220px] md:h-[352px] lg:w-[250px] lg:h-[400px]">
-                                {/* Fundo do preview (sem borda) */}
-                                <div className="absolute inset-0 rounded-xl bg-black/70 shadow-xl" />
-
-                                {frontUrl ? (
-                                  <img
-                                    src={frontUrl}
-                                    alt={label || cardCode || `Carta ${cardIndex + 1}`}
-                                    loading="eager"
-                                    decoding="async"
-                                    fetchPriority="high"
-                                    draggable={false}
-                                    className="relative z-10 w-full h-full object-contain rounded-lg"
-                                    style={oracleType === "tarot" && isReversed ? { transform: "rotate(180deg)" } : {}}
-                                  />
-                                ) : (
-                                  <div className="relative z-10 w-full h-full flex items-center justify-center text-xs text-starlight-text/70">
-                                    {cardIndex + 1}
-                                  </div>
-                                )}
-                              </div>
-
-                              {/* Label abaixo */}
-                              <div className="mt-2 text-xs sm:text-sm text-starlight-text/90 text-center leading-tight max-w-[260px]">
-                                {label}
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Footer fixo com botões */}
-          <div
-            className="bg-midnight-surface border border-obsidian-border rounded-b-3xl shadow-2xl"
-            style={{ padding: "24px" }}
-          >
-            <div className="flex flex-col sm:flex-row gap-4 justify-between items-center">
-              <Button
-                size="lg"
-                className="w-full sm:w-auto bg-oracle-ember/90 hover:bg-oracle-ember border-2 border-oracle-ember text-starlight-text disabled:opacity-30 disabled:cursor-not-allowed disabled:bg-obsidian-border disabled:border-obsidian-border"
-                style={{ padding: "16px 32px" }}
-                onClick={handleShuffle}
-                disabled={hasFlippedAny || isShuffling}
-              >
-                <Shuffle className="mr-2 w-5 h-5" />
-                {isShuffling ? "Reembaralhando..." : "Embaralhar"}
-              </Button>
-
-              <Button
-                size="lg"
-                className="w-full sm:w-auto bg-mystic-indigo hover:bg-mystic-indigo-dark border-2 border-mystic-indigo text-starlight-text disabled:opacity-50 disabled:cursor-not-allowed"
-                style={{ padding: "16px 32px" }}
-                onClick={handleProceed}
-                disabled={!canProceed}
-              >
-                <Sparkles className="mr-2 w-5 h-5" />
-                Seguir
-              </Button>
-            </div>
-
-            {!canProceed && hasFlippedAny && !isGrandTableau && (
-              <p className="text-sm text-oracle-ember text-center" style={{ marginTop: "12px" }}>
-                Selecione mais {cardsNeeded - selectedCards.length}{" "}
-                {cardsNeeded - selectedCards.length === 1 ? "carta" : "cartas"}
-              </p>
-            )}
-          </div>
-        </div>
-      </div>
-    </>
-  );
-}
 
 // Componente individual da carta com animação de flip 3D
 interface CardProps {
