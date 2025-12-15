@@ -468,8 +468,9 @@ export function HomeLogada() {
       setCurrentOracleQueue(queue);
       setCurrentOracleIndex(0);
       setAllSelectedCards({});
-      setShowOracleSelectionModal(false);
+      // Abre o próximo modal primeiro e fecha o atual no próximo tick (evita “sumir” em produção)
       setShowCardSelectionModal(true);
+      requestAnimationFrame(() => setShowOracleSelectionModal(false));
     } catch (err) {
       console.error("Erro inesperado ao iniciar tiragem:", err);
       alert("Erro inesperado ao iniciar a tiragem. Tente novamente.");

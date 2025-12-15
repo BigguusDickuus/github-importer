@@ -122,9 +122,16 @@ export function CardSelectionModal({
   onComplete,
   oracleDecks,
 }: CardSelectionModalProps) {
-  // Verifica se há um oráculo na fila antes de continuar
+  // Primeiro: se o modal não está aberto, não renderiza nada
+  if (!isOpen) return null;
+
+  // Se abriu mas a fila ainda não chegou nesse render, NÃO some — mostra um loading simples
   if (!currentOracleQueue || currentOracleQueue.length === 0 || !currentOracleQueue[currentOracleIndex]) {
-    return null;
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 text-starlight-text">
+        Carregando tiragem...
+      </div>
+    );
   }
 
   // Tipo de oráculo e método atual
