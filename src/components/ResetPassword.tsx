@@ -186,7 +186,7 @@ export function ResetPassword() {
     return (
       <div className="min-h-screen bg-night-sky text-starlight-text flex items-center justify-center p-4 relative">
         <Background />
-        <div className="relative z-10 w-full max-w-md rounded-2xl border border-obsidian-border bg-obsidian-card/60 p-6 shadow-xl">
+        <div className="relative z-10 w-full max-w-md rounded-2xl border border-obsidian-border bg-midnight-surface p-6 shadow-2xl">
           Carregando...
         </div>
       </div>
@@ -197,7 +197,7 @@ export function ResetPassword() {
     <div className="min-h-screen bg-night-sky text-starlight-text flex items-center justify-center p-4 relative">
       <Background />
 
-      <div className="relative z-10 w-full max-w-md rounded-2xl border border-obsidian-border bg-obsidian-card/60 p-6 shadow-xl">
+      <div className="relative z-10 w-full max-w-md rounded-2xl border border-obsidian-border bg-midnight-surface p-6 shadow-2xl">
         <h1 className="text-xl font-semibold mb-4">Redefinir senha</h1>
 
         {error ? (
