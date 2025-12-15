@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "@/hooks/use-toast";
+import { Check } from "lucide-react";
 
 export function ResetPassword() {
   const navigate = useNavigate();
@@ -14,10 +15,30 @@ export function ResetPassword() {
   const [ready, setReady] = useState(false);
 
   const [error, setError] = useState<string | null>(null);
+
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
 
   const origin = useMemo(() => window.location.origin, []);
+
+  // Mesma regra do cadastro (Landing): 8+, maiúscula, minúscula, especial
+  const passwordValidation = useMemo(() => {
+    const hasMinLength = password.length >= 8;
+    const hasUpperCase = /[A-Z]/.test(password);
+    const hasLowerCase = /[a-z]/.test(password);
+    const hasSpecialChar = /[!@#$%^&*(),.?":{}|<>]/.test(password);
+
+    return {
+      isValid: hasMinLength && hasUpperCase && hasLowerCase && hasSpecialChar,
+      hasMinLength,
+      hasUpperCase,
+      hasLowerCase,
+      hasSpecialChar,
+    };
+  }, [password]);
+
+  const confirmTouched = confirm.length > 0;
+  const confirmMatches = confirmTouched && password === confirm;
 
   useEffect(() => {
     let mounted = true;
@@ -51,6 +72,7 @@ export function ResetPassword() {
         const code = new URL(url).searchParams.get("code");
         if (code) {
           const { error: exErr } = await supabase.auth.exchangeCodeForSession(url);
+
           // Se falhar, pode ser porque o link já foi consumido (scanner/tracking) ou expirou
           if (exErr) {
             if (mounted) {
@@ -117,6 +139,8 @@ export function ResetPassword() {
     };
   }, [origin]);
 
+  const canSubmit = ready && passwordValidation.isValid && password === confirm && !saving && !error;
+
   const onSubmit = async () => {
     setError(null);
 
@@ -125,11 +149,12 @@ export function ResetPassword() {
       return;
     }
 
-    if (!password || password.length < 8) {
-      setError("A senha deve ter no mínimo 8 caracteres.");
+    if (!passwordValidation.isValid) {
+      setError("A senha não atende aos requisitos.");
       return;
     }
-    if (password !== confirm) {
+
+    if (!confirm || password !== confirm) {
       setError("As senhas não conferem.");
       return;
     }
@@ -149,22 +174,35 @@ export function ResetPassword() {
     }
   };
 
+  const Background = () => (
+    <div className="fixed inset-0 overflow-hidden pointer-events-none">
+      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[800px] bg-mystic-indigo/20 rounded-full blur-[150px]" />
+      <div className="absolute bottom-0 right-1/4 w-[600px] h-[600px] bg-oracle-ember/10 rounded-full blur-[120px]" />
+      <div className="absolute top-1/3 left-1/4 w-[400px] h-[400px] bg-mystic-indigo/10 rounded-full blur-[100px]" />
+    </div>
+  );
+
   if (checking) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-night-sky text-starlight-text">
-        Carregando...
+      <div className="min-h-screen bg-night-sky text-starlight-text flex items-center justify-center p-4 relative">
+        <Background />
+        <div className="relative z-10 w-full max-w-md rounded-2xl border border-obsidian-border bg-obsidian-card/60 p-6 shadow-xl">
+          Carregando...
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-night-sky text-starlight-text flex items-center justify-center p-4">
-      <div className="w-full max-w-md rounded-2xl border border-obsidian-border bg-obsidian-card/60 p-6 shadow-xl">
+    <div className="min-h-screen bg-night-sky text-starlight-text flex items-center justify-center p-4 relative">
+      <Background />
+
+      <div className="relative z-10 w-full max-w-md rounded-2xl border border-obsidian-border bg-obsidian-card/60 p-6 shadow-xl">
         <h1 className="text-xl font-semibold mb-4">Redefinir senha</h1>
 
-        {error && <div className="mb-4 rounded-lg border border-red-500/30 bg-red-500/10 p-3 text-sm">{error}</div>}
-
-        {!error && (
+        {error ? (
+          <div className="mb-4 rounded-lg border border-red-500/30 bg-red-500/10 p-3 text-sm">{error}</div>
+        ) : (
           <div className="mb-4 rounded-lg border border-emerald-500/20 bg-emerald-500/10 p-3 text-sm">
             Link validado. Defina sua nova senha.
           </div>
@@ -177,8 +215,70 @@ export function ResetPassword() {
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              placeholder="Mínimo 8 caracteres"
+              placeholder="Crie uma senha forte"
+              className="bg-night-sky border-obsidian-border text-starlight-text"
             />
+
+            {/* Checklist de requisitos (mesmo padrão do cadastro) */}
+            {password.length > 0 && (
+              <div className="flex flex-col gap-1 pt-1">
+                <div className="flex items-center gap-2">
+                  {passwordValidation.hasMinLength ? (
+                    <>
+                      <Check className="w-4 h-4 text-verdant-success" />
+                      <span className="text-sm text-verdant-success">Pelo menos 8 caracteres</span>
+                    </>
+                  ) : (
+                    <>
+                      <div className="w-4 h-4 rounded-full border-2 border-oracle-ember" />
+                      <span className="text-sm text-oracle-ember">Pelo menos 8 caracteres</span>
+                    </>
+                  )}
+                </div>
+
+                <div className="flex items-center gap-2">
+                  {passwordValidation.hasUpperCase ? (
+                    <>
+                      <Check className="w-4 h-4 text-verdant-success" />
+                      <span className="text-sm text-verdant-success">Letras maiúsculas</span>
+                    </>
+                  ) : (
+                    <>
+                      <div className="w-4 h-4 rounded-full border-2 border-oracle-ember" />
+                      <span className="text-sm text-oracle-ember">Letras maiúsculas</span>
+                    </>
+                  )}
+                </div>
+
+                <div className="flex items-center gap-2">
+                  {passwordValidation.hasLowerCase ? (
+                    <>
+                      <Check className="w-4 h-4 text-verdant-success" />
+                      <span className="text-sm text-verdant-success">Letras minúsculas</span>
+                    </>
+                  ) : (
+                    <>
+                      <div className="w-4 h-4 rounded-full border-2 border-oracle-ember" />
+                      <span className="text-sm text-oracle-ember">Letras minúsculas</span>
+                    </>
+                  )}
+                </div>
+
+                <div className="flex items-center gap-2">
+                  {passwordValidation.hasSpecialChar ? (
+                    <>
+                      <Check className="w-4 h-4 text-verdant-success" />
+                      <span className="text-sm text-verdant-success">Um caractere especial</span>
+                    </>
+                  ) : (
+                    <>
+                      <div className="w-4 h-4 rounded-full border-2 border-oracle-ember" />
+                      <span className="text-sm text-oracle-ember">Um caractere especial</span>
+                    </>
+                  )}
+                </div>
+              </div>
+            )}
           </div>
 
           <div className="space-y-2">
@@ -188,12 +288,27 @@ export function ResetPassword() {
               value={confirm}
               onChange={(e) => setConfirm(e.target.value)}
               placeholder="Repita a senha"
+              className="bg-night-sky border-obsidian-border text-starlight-text"
             />
+
+            {confirmTouched && (
+              <p className={`text-sm ${confirmMatches ? "text-verdant-success" : "text-oracle-ember"}`}>
+                {confirmMatches ? "As senhas coincidem." : "As senhas não coincidem."}
+              </p>
+            )}
           </div>
 
-          <Button className="w-full" onClick={onSubmit} disabled={saving || !!error}>
+          <Button className="w-full" onClick={onSubmit} disabled={!canSubmit}>
             {saving ? "Atualizando..." : "Atualizar senha"}
           </Button>
+
+          <button
+            type="button"
+            onClick={() => navigate("/login", { replace: true })}
+            className="w-full text-sm text-moonlight-text/70 hover:text-mystic-indigo transition-colors"
+          >
+            Voltar para o login
+          </button>
         </div>
       </div>
     </div>
