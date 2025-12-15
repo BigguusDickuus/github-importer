@@ -10,6 +10,7 @@ import { Profile } from "./components/Profile";
 import { Admin } from "./components/Admin";
 import { Login } from "./components/Login";
 import { ProtectedRoute } from "./components/ProtectedRoute";
+import { ResetPassword } from "./components/ResetPassword";
 
 function LandingGate() {
   const [checking, setChecking] = useState(true);
@@ -275,6 +276,8 @@ export default function App() {
 
         {/* /login também vira gate */}
         <Route path="/login" element={<LoginGate />} />
+
+        <Route path="/reset-password" element={<ResetPassword />} />
 
         {/* Catch-all */}
         <Route path="*" element={<Navigate to="/" replace />} />
