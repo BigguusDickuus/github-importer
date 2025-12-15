@@ -1,56 +1,112 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import { Button } from "./ui/button";
-import { Input } from "./ui/input";
-import { Label } from "./ui/label";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { toast } from "@/hooks/use-toast";
 
 export function ResetPassword() {
   const navigate = useNavigate();
 
   const [checking, setChecking] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState<string | null>(null);
+  const [ready, setReady] = useState(false);
 
+  const [error, setError] = useState<string | null>(null);
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
 
+  const origin = useMemo(() => window.location.origin, []);
+
   useEffect(() => {
     let mounted = true;
+
+    const parseHashParams = () => {
+      const hash = window.location.hash?.startsWith("#") ? window.location.hash.slice(1) : window.location.hash || "";
+      return new URLSearchParams(hash);
+    };
 
     const run = async () => {
       try {
         setChecking(true);
         setError(null);
+        setReady(false);
 
-        // Se o fluxo veio via PKCE (param "code"), troca por sessão
-        const url = window.location.href;
-        const hasCode = new URL(url).searchParams.get("code");
-        if (hasCode) {
-          const { error: exErr } = await supabase.auth.exchangeCodeForSession(url);
-          if (exErr) {
-            if (!mounted) return;
-            setError("Link inválido ou expirado. Solicite a recuperação novamente.");
+        // 1) Se o link já veio com erro no hash, é token inválido/expirado de verdade
+        const hashParams = parseHashParams();
+        const hashError = hashParams.get("error");
+        const hashDesc = hashParams.get("error_description");
+        if (hashError) {
+          const msg = hashDesc ? decodeURIComponent(hashDesc.replace(/\+/g, " ")) : "Link inválido ou expirado.";
+          if (mounted) {
+            setError(msg);
             setChecking(false);
+          }
+          return;
+        }
+
+        // 2) PKCE flow: ?code=...
+        const url = window.location.href;
+        const code = new URL(url).searchParams.get("code");
+        if (code) {
+          const { error: exErr } = await supabase.auth.exchangeCodeForSession(url);
+          // Se falhar, pode ser porque o link já foi consumido (scanner/tracking) ou expirou
+          if (exErr) {
+            if (mounted) {
+              setError("Link inválido ou expirado. Solicite a recuperação novamente.");
+              setChecking(false);
+            }
             return;
           }
         }
 
+        // 3) Espera evento de recuperação / login para garantir que a sessão existe
+        const { data: sub } = supabase.auth.onAuthStateChange((event, session) => {
+          if (!mounted) return;
+
+          if ((event === "PASSWORD_RECOVERY" || event === "SIGNED_IN") && session) {
+            setReady(true);
+            setChecking(false);
+          }
+        });
+
+        // 4) Fallback: tenta sessão direto (caso já esteja hidratada)
         const { data, error: sessErr } = await supabase.auth.getSession();
         if (!mounted) return;
 
-        if (sessErr || !data.session) {
-          setError("Link inválido ou expirado. Solicite a recuperação novamente.");
+        if (sessErr) {
+          setError("Não foi possível validar o link. Tente novamente.");
           setChecking(false);
+          sub?.subscription?.unsubscribe();
           return;
         }
 
-        setChecking(false);
-      } catch (e) {
-        if (!mounted) return;
-        setError("Não foi possível validar o link. Tente novamente.");
-        setChecking(false);
+        if (data.session) {
+          setReady(true);
+          setChecking(false);
+          sub?.subscription?.unsubscribe();
+          return;
+        }
+
+        // Se ainda não tem sessão, dá um pequeno tempo pra URL ser processada pelo client
+        setTimeout(async () => {
+          if (!mounted) return;
+          const { data: data2 } = await supabase.auth.getSession();
+          if (data2.session) {
+            setReady(true);
+            setChecking(false);
+          } else {
+            setError("Link inválido ou expirado. Solicite a recuperação novamente.");
+            setChecking(false);
+          }
+          sub?.subscription?.unsubscribe();
+        }, 350);
+      } catch {
+        if (mounted) {
+          setError("Não foi possível validar o link. Tente novamente.");
+          setChecking(false);
+        }
       }
     };
 
@@ -59,11 +115,15 @@ export function ResetPassword() {
     return () => {
       mounted = false;
     };
-  }, []);
+  }, [origin]);
 
   const onSubmit = async () => {
     setError(null);
-    setSuccess(null);
+
+    if (!ready) {
+      setError("Link inválido ou expirado. Solicite a recuperação novamente.");
+      return;
+    }
 
     if (!password || password.length < 8) {
       setError("A senha deve ter no mínimo 8 caracteres.");
@@ -82,8 +142,8 @@ export function ResetPassword() {
         return;
       }
 
-      setSuccess("Senha atualizada com sucesso! Redirecionando…");
-      setTimeout(() => navigate("/dashboard", { replace: true }), 600);
+      toast({ title: "Senha atualizada!", description: "Você já pode entrar normalmente." });
+      navigate("/login", { replace: true });
     } finally {
       setSaving(false);
     }
@@ -104,8 +164,10 @@ export function ResetPassword() {
 
         {error && <div className="mb-4 rounded-lg border border-red-500/30 bg-red-500/10 p-3 text-sm">{error}</div>}
 
-        {success && (
-          <div className="mb-4 rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-3 text-sm">{success}</div>
+        {!error && (
+          <div className="mb-4 rounded-lg border border-emerald-500/20 bg-emerald-500/10 p-3 text-sm">
+            Link validado. Defina sua nova senha.
+          </div>
         )}
 
         <div className="space-y-4">
@@ -129,7 +191,7 @@ export function ResetPassword() {
             />
           </div>
 
-          <Button className="w-full" onClick={onSubmit} disabled={saving}>
+          <Button className="w-full" onClick={onSubmit} disabled={saving || !!error}>
             {saving ? "Atualizando..." : "Atualizar senha"}
           </Button>
         </div>
