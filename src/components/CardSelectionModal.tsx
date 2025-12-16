@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useMemo } from "react";
+import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "./ui/button";
 import { Shuffle, Sparkles } from "lucide-react";
@@ -15,7 +15,7 @@ interface OracleDeck {
     code: string;
     reversed?: boolean;
     is_reversed?: boolean;
-    orientation?: string; // "reversed" ou "upright"
+    orientation?: string; // "reversed" ou "upright", se você escolher esse formato
   }[];
 }
 
@@ -30,7 +30,7 @@ interface CardSelectionModalProps {
   allSelectedCards: Record<string, number[]>;
   onCardSelect?: (oracleType: string, cardIndex: number) => void;
   onComplete: (selectedCards: number[]) => void;
-  oracleDecks?: OracleDeck[];
+  oracleDecks?: OracleDeck[]; // <- NOVO
 }
 
 // Mapeamento de métodos para número de cartas necessárias
@@ -122,39 +122,6 @@ export function CardSelectionModal({
   onComplete,
   oracleDecks,
 }: CardSelectionModalProps) {
-  // ===== Anti "click-through" (mouseup do modal anterior fechando este imediatamente) =====
-  const [backdropCloseEnabled, setBackdropCloseEnabled] = useState(false);
-  const openGuardTimerRef = useRef<number | null>(null);
-
-  useEffect(() => {
-    if (!isOpen) {
-      setBackdropCloseEnabled(false);
-      if (openGuardTimerRef.current) {
-        window.clearTimeout(openGuardTimerRef.current);
-        openGuardTimerRef.current = null;
-      }
-      return;
-    }
-
-    setBackdropCloseEnabled(false);
-    openGuardTimerRef.current = window.setTimeout(() => {
-      setBackdropCloseEnabled(true);
-      openGuardTimerRef.current = null;
-    }, 350);
-
-    return () => {
-      if (openGuardTimerRef.current) {
-        window.clearTimeout(openGuardTimerRef.current);
-        openGuardTimerRef.current = null;
-      }
-    };
-  }, [isOpen]);
-
-  const handleBackdropClick = () => {
-    if (!backdropCloseEnabled) return;
-    onClose();
-  };
-
   // Primeiro: se o modal não está aberto, não renderiza nada
   if (!isOpen) return null;
 
@@ -172,23 +139,28 @@ export function CardSelectionModal({
   const isGrandTableau = method === "grand_tableau";
 
   // Deck que efetivamente está sendo exibido na mesa
+  // (começa vazio, será sincronizado com o que veio do backend via oracleDecks)
   const [localDeck, setLocalDeck] = useState<any[]>([]);
+
   const [selectedCards, setSelectedCards] = useState<number[]>([]);
   const [flippedCards, setFlippedCards] = useState<Set<number>>(new Set());
   const [hasFlippedAny, setHasFlippedAny] = useState(false);
   const [shuffleKey, setShuffleKey] = useState(0);
   const [isShuffling, setIsShuffling] = useState(false);
 
-  // Deck "corrente"
+  // Deck "corrente" que o resto do componente já usa (inclusive GrandTableauGrid)
   const currentDeck = localDeck;
 
   // Número total de cartas na mesa
+  // PRIORIDADE: usar sempre o tamanho do deck retornado pela edge function.
+  // Se por algum motivo vier vazio, cai no mapping estático como fallback.
   const totalCards = (currentDeck && currentDeck.length > 0 ? currentDeck.length : TOTAL_CARDS[oracleType]) || 0;
 
-  // Quantidade de cartas necessárias
+  // Quantidade de cartas que o usuário precisa escolher para esse método
   const cardsNeeded = CARDS_PER_METHOD[method] || 1;
 
-  // Sincroniza o deck local com o que veio do backend e reseta estado
+  // Sempre que abrirmos o modal OU trocar o método/oráculo,
+  // sincroniza o deck local com o que veio do backend e reseta estado.
   useEffect(() => {
     if (!isOpen) return;
 
@@ -196,6 +168,7 @@ export function CardSelectionModal({
     const deckFromBackend = entry?.deck ?? [];
 
     if (!deckFromBackend.length) {
+      // fallback: zera deck local, mas não quebra o layout
       setLocalDeck([]);
       setSelectedCards([]);
       setFlippedCards(new Set());
@@ -211,13 +184,6 @@ export function CardSelectionModal({
     setShuffleKey((prev) => prev + 1);
   }, [isOpen, method, oracleType, oracleDecks]);
 
-  // Preload do verso (acelera muito a primeira renderização da mesa)
-  useEffect(() => {
-    const backUrl = getCardBackImageUrl(oracleType);
-    const img = new Image();
-    img.src = backUrl;
-  }, [oracleType]);
-
   const handleCardClick = (cardIndex: number) => {
     // Grand Tableau: ao clicar em qualquer carta, vira todas
     if (isGrandTableau && !hasFlippedAny) {
@@ -228,25 +194,36 @@ export function CardSelectionModal({
       return;
     }
 
+    // Se já está virada, não faz nada
     if (flippedCards.has(cardIndex)) return;
+
+    // Se já selecionou o número necessário de cartas, não permite mais
     if (selectedCards.length >= cardsNeeded) return;
 
+    // Adiciona carta à seleção
     setSelectedCards((prev) => [...prev, cardIndex]);
     setFlippedCards((prev) => new Set([...prev, cardIndex]));
     setHasFlippedAny(true);
-
-    onCardSelect?.(oracleType, cardIndex);
+    if (onCardSelect) {
+      onCardSelect(oracleType, cardIndex);
+    }
   };
 
   const handleShuffle = async () => {
+    // Não pode embaralhar após virar primeira carta
+    // e não dispara de novo enquanto já está reembaralhando
     if (hasFlippedAny || isShuffling) return;
 
     setIsShuffling(true);
 
     try {
+      // Descobre o "entry" desse oráculo/método no array oracleDecks
       const entry = oracleDecks?.find((d) => d.type === oracleType && d.method === method);
+
+      // spread_code que vamos mandar para a função (se tiver no entry, usa; senão cai no method)
       const spreadCode = (entry as any)?.spreadCode || method;
 
+      // Chama a edge function rerandomize-oracle
       const { data, error } = await supabase.functions.invoke("rerandomize-oracle", {
         body: {
           oracle_type: oracleType,
@@ -260,18 +237,25 @@ export function CardSelectionModal({
       }
 
       const newDeck = (data as any)?.deck ?? [];
+
       if (!newDeck.length) {
         console.error("rerandomize-oracle retornou deck vazio:", data);
         return;
       }
 
-      // Atualiza entry (mantém coerência para leitura/edge)
+      // Opcional, mas importante: atualiza o objeto dentro de oracleDecks
+      // para que quem usar esse deck depois (GPT, interpretação, etc.) veja o novo deck.
       if (entry) {
         (entry as any).deck = newDeck;
-        if ((data as any)?.spread_code) (entry as any).spreadCode = (data as any).spread_code;
+        if ((data as any)?.spread_code) {
+          (entry as any).spreadCode = (data as any).spread_code;
+        }
       }
 
+      // Atualiza o deck local que a mesa está usando
       setLocalDeck(newDeck);
+
+      // Reseta seleção/animação e força a animação de spread de novo
       setSelectedCards([]);
       setFlippedCards(new Set());
       setHasFlippedAny(false);
@@ -291,18 +275,21 @@ export function CardSelectionModal({
 
   const canProceed = selectedCards.length === cardsNeeded || (isGrandTableau && hasFlippedAny);
 
-  // Preview (exceto Grand Tableau)
+  // Quando o usuário termina de escolher as cartas (exceto Grand Tableau),
+  // mostramos o preview em destaque
   const [showSelectionPreview, setShowSelectionPreview] = useState(false);
 
   useEffect(() => {
     if (!isGrandTableau && cardsNeeded > 0 && selectedCards.length === cardsNeeded) {
       setShowSelectionPreview(true);
     } else if (selectedCards.length < cardsNeeded) {
+      // Se por algum motivo voltarmos a ter menos cartas (reset, embaralhar, outro método),
+      // some o preview
       setShowSelectionPreview(false);
     }
   }, [selectedCards, cardsNeeded, isGrandTableau]);
 
-  // Label da carta + reverso
+  // ===== Label da carta (preview) + preload de imagem =====
   const CardLabel = (type: OracleType, code?: string, reversed?: boolean) => {
     const isRev = !!reversed;
 
@@ -358,75 +345,101 @@ export function CardSelectionModal({
     const raw = String(code).trim();
     const upper = raw.toUpperCase();
 
-    // TAROT
+    // ===== TAROT =====
     if (type === "tarot") {
+      // majors: tenta por slug (fool/magician/etc) e por número (sem depender de \b)
       const normalized = raw
         .toLowerCase()
         .split("/")
         .pop()!
-        .replace(/\.[a-z0-9]+$/i, "");
+        .replace(/\.[a-z0-9]+$/i, ""); // remove extensão
 
       const hasSuitHint = /(wands|paus|cups|copas|swords|espadas|pentacles|coins|ouros)/i.test(normalized);
 
       const majorSlugMap: Record<string, string> = {
         fool: "O Louco",
         the_fool: "O Louco",
+
         magician: "O Mago",
         the_magician: "O Mago",
+
         high_priestess: "A Sacerdotisa",
         the_high_priestess: "A Sacerdotisa",
         priestess: "A Sacerdotisa",
+
         empress: "A Imperatriz",
         the_empress: "A Imperatriz",
+
         emperor: "O Imperador",
         the_emperor: "O Imperador",
+
         hierophant: "O Hierofante",
         the_hierophant: "O Hierofante",
         pope: "O Hierofante",
+
         lovers: "Os Enamorados",
         the_lovers: "Os Enamorados",
+
         chariot: "O Carro",
         the_chariot: "O Carro",
+
         justice: "A Justiça",
         the_justice: "A Justiça",
+
         hermit: "O Eremita",
         the_hermit: "O Eremita",
+
         wheel_of_fortune: "A Roda da Fortuna",
         the_wheel_of_fortune: "A Roda da Fortuna",
         wheel: "A Roda da Fortuna",
+
         strength: "A Força",
         the_strength: "A Força",
+
         hanged_man: "O Enforcado",
         the_hanged_man: "O Enforcado",
         hanged: "O Enforcado",
+
         death: "A Morte",
         the_death: "A Morte",
+
         temperance: "A Temperança",
         the_temperance: "A Temperança",
+
         devil: "O Diabo",
         the_devil: "O Diabo",
+
         tower: "A Torre",
         the_tower: "A Torre",
+
         star: "A Estrela",
         the_star: "A Estrela",
+
         moon: "A Lua",
         the_moon: "A Lua",
+
         sun: "O Sol",
         the_sun: "O Sol",
+
         judgement: "O Julgamento",
         judgment: "O Julgamento",
         the_judgement: "O Julgamento",
         the_judgment: "O Julgamento",
+
         world: "O Mundo",
         the_world: "O Mundo",
       };
 
       if (!hasSuitHint) {
+        // Normaliza pra algo tipo "tarot_major_10_wheel_of_fortune"
         const norm = normalized.replace(/[^a-z0-9]+/g, "_");
         const normNoExt = norm.replace(/^_+|_+$/g, "");
 
-        // Padrão forte: (tarot_)?major_XX_slug
+        // 1) Padrão forte: (tarot_)?major_XX_slug
+        const m = normNoExt.match(/(?:^|_) (?:tarot_)?major_([01]?\d|2[01])_([a-z0-9_]+)$/i);
+        // Regex acima tem espaço acidental se colar errado; então use esta versão correta:
         const m2 = normNoExt.match(/(?:^|_)(?:tarot_)?major_([01]?\d|2[01])_([a-z0-9_]+)$/i);
+
         if (m2) {
           const n = Number(m2[1]);
           const slug = m2[2].replace(/^the_/, "");
@@ -434,25 +447,30 @@ export function CardSelectionModal({
           if (name) return name + (isRev ? " (invertida)" : "");
         }
 
-        // Match por slug direto
+        // 2) Match por slug direto (tirando prefixos comuns)
         const directSlug = normNoExt
           .replace(/^tarot_/, "")
           .replace(/^major_/, "")
           .replace(/^the_/, "");
+
         if (majorSlugMap[directSlug]) return majorSlugMap[directSlug] + (isRev ? " (invertida)" : "");
         if (majorSlugMap[`the_${directSlug}`]) return majorSlugMap[`the_${directSlug}`] + (isRev ? " (invertida)" : "");
 
-        // Fallback por contains
+        // 3) Fallback por "contains" (keys maiores primeiro)
         const keys = Object.keys(majorSlugMap).sort((a, b) => b.length - a.length);
         for (const k of keys) {
-          if (directSlug.includes(k)) return majorSlugMap[k] + (isRev ? " (invertida)" : "");
+          if (directSlug.includes(k)) {
+            return majorSlugMap[k] + (isRev ? " (invertida)" : "");
+          }
         }
 
-        // Fallback por número 0..21
+        // 4) Fallback por número 0..21 (delimitado por não-dígito)
         const numMatch = normalized.match(/(?:^|[^0-9])([01]?\d|2[01])(?:[^0-9]|$)/);
         if (numMatch) {
           const n = Number(numMatch[1]);
-          if (Number.isFinite(n) && majors[n]) return majors[n] + (isRev ? " (invertida)" : "");
+          if (Number.isFinite(n) && majors[n]) {
+            return majors[n] + (isRev ? " (invertida)" : "");
+          }
         }
       }
 
@@ -475,9 +493,9 @@ export function CardSelectionModal({
       }
 
       if (!suitLabel) {
-        const mm1 = upper.match(/(\d{1,2})([WCHSPEOD])/);
-        const mm2 = upper.match(/([WCHSPEOD])(\d{1,2})/);
-        const suitChar = (mm1?.[2] || mm2?.[1] || "").toUpperCase();
+        const m1 = upper.match(/(\d{1,2})([WCHSPEOD])/);
+        const m2 = upper.match(/([WCHSPEOD])(\d{1,2})/);
+        const suitChar = (m1?.[2] || m2?.[1] || "").toUpperCase();
         if (suitChar) {
           for (const [re, label] of suitMap) {
             if (re.test(suitChar)) {
@@ -489,12 +507,15 @@ export function CardSelectionModal({
       }
 
       const rankLabel = rankToken ? rankMap[rankToken] || rankMap[String(Number(rankToken))] || rankToken : null;
-      if (rankLabel && suitLabel) return `${rankLabel} de ${suitLabel}` + (isRev ? " (invertida)" : "");
+
+      if (rankLabel && suitLabel) {
+        return `${rankLabel} de ${suitLabel}` + (isRev ? " (invertida)" : "");
+      }
 
       return raw + (isRev ? " (invertida)" : "");
     }
 
-    // LENORMAND
+    // ===== LENORMAND =====
     if (type === "lenormand") {
       const numMatch = upper.match(/\b([1-9]|[12]\d|3[0-6])\b/);
       if (numMatch) {
@@ -542,7 +563,7 @@ export function CardSelectionModal({
       return raw;
     }
 
-    // CARTOMANCIA
+    // ===== CARTOMANCIA =====
     if (type === "cartomancia") {
       const suit = /H|HEART/i.test(upper)
         ? "Copas"
@@ -567,31 +588,7 @@ export function CardSelectionModal({
     return raw;
   };
 
-  // ===== Dados do preview =====
-  const previewCards = useMemo(() => {
-    if (isGrandTableau) return [];
-    return selectedCards.map((idx) => {
-      const deckCard = currentDeck?.[idx] as any;
-      const code = deckCard?.code as string | undefined;
-      const isReversed =
-        oracleType === "tarot" &&
-        !!(deckCard?.reversed || deckCard?.is_reversed || deckCard?.orientation === "reversed");
-      return { idx, code, isReversed };
-    });
-  }, [selectedCards, currentDeck, oracleType, isGrandTableau]);
-
-  // Preload das frentes do preview (pra ficar instantâneo)
-  useEffect(() => {
-    if (!previewCards.length) return;
-    for (const c of previewCards) {
-      if (!c.code) continue;
-      const url = getCardImageUrl(c.code);
-      const img = new Image();
-      img.src = url;
-    }
-  }, [previewCards]);
-
-  // ===== Componente de carta (mesa) =====
+  // Componente individual da carta com animação de flip 3D
   interface CardProps {
     index: number;
     isFlipped: boolean;
@@ -628,7 +625,11 @@ export function CardSelectionModal({
       <motion.div
         initial={{ opacity: 0, scale: 0.8, y: 20 }}
         animate={{ opacity: 1, scale: isSelected ? 1.05 : 1, y: 0 }}
-        transition={{ duration: 0.3, delay, ease: "easeOut" }}
+        transition={{
+          duration: 0.3,
+          delay,
+          ease: "easeOut",
+        }}
         className="relative cursor-pointer"
         style={{ width, height }}
         onClick={onClick}
@@ -639,22 +640,24 @@ export function CardSelectionModal({
           animate={{ rotateY: isFlipped ? 180 : 0 }}
           transition={{ duration: 0.6, ease: "easeInOut" }}
         >
-          {/* VERSO */}
+          {/* VERSO DA CARTA */}
           <div className="absolute inset-0" style={{ backfaceVisibility: "hidden" }}>
+            {/* placeholder enquanto o verso não carrega */}
             {!backLoaded && <div className="w-full h-full bg-black border border-neutral-700" />}
+
             <img
               src={backUrl}
               alt="Verso da carta"
               className="w-full h-full object-contain"
               style={{ display: backLoaded ? "block" : "none" }}
               onLoad={() => setBackLoaded(true)}
-              loading="eager"
-              decoding="async"
+              loading="lazy"
             />
           </div>
 
-          {/* FRENTE */}
+          {/* FRENTE DA CARTA */}
           <div className="absolute inset-0" style={{ backfaceVisibility: "hidden", transform: "rotateY(180deg)" }}>
+            {/* placeholder enquanto a frente não carrega */}
             {!frontLoaded && <div className="w-full h-full bg-black border border-neutral-700" />}
 
             {frontUrl && (
@@ -667,11 +670,11 @@ export function CardSelectionModal({
                   ...(oracleType === "tarot" && isReversed ? { transform: "rotate(180deg)" } : {}),
                 }}
                 onLoad={() => setFrontLoaded(true)}
-                loading="eager"
-                decoding="async"
+                loading="lazy"
               />
             )}
 
+            {/* fallback se por algum motivo não tiver frontUrl */}
             {!frontUrl && !frontLoaded && (
               <div className="w-full h-full flex items-center justify-center bg-black border border-neutral-700 text-xs text-starlight-text/60">
                 {index + 1}
@@ -683,7 +686,7 @@ export function CardSelectionModal({
     );
   }
 
-  // ===== Grand Tableau =====
+  // Componente para o layout especial do Grand Tableau
   interface GrandTableauGridProps {
     shuffleKey: number;
     flippedCards: Set<number>;
@@ -706,20 +709,20 @@ export function CardSelectionModal({
     oracleType,
     currentDeck,
   }: GrandTableauGridProps) {
-    const cardWidth = 70;
-    const cardHeight = cardWidth * 1.5;
-    const gap = 12;
-
-    void cardHeight;
-    void gap;
+    // Tamanho das cartas no Grand Tableau
+    const cardWidth = 70; // px
+    const cardHeight = cardWidth * 1.5; // aspect ratio 2:3
+    const gap = 12; // gap entre cartas
 
     return (
       <div className="flex flex-col items-center gap-6">
+        {/* Primeiras 4 linhas: 8 cartas cada em desktop, responsivo em mobile */}
         {[0, 1, 2, 3].map((row) => (
           <div key={`row-${row}`} className="flex flex-wrap justify-center gap-3 max-w-full">
             {Array.from({ length: 8 }, (_, col) => {
-              const cardIndex = row * 8 + col;
+              const cardIndex = row * 8 + col; // 0-31
               const house = GRAND_TABLEAU_HOUSES[cardIndex];
+
               return (
                 <GrandTableauCard
                   key={`${shuffleKey}-${cardIndex}`}
@@ -738,10 +741,12 @@ export function CardSelectionModal({
           </div>
         ))}
 
+        {/* 5ª linha: 4 cartas centralizadas */}
         <div className="flex flex-wrap justify-center gap-3">
           {Array.from({ length: 4 }, (_, col) => {
-            const cardIndex = 32 + col;
+            const cardIndex = 32 + col; // 32-35
             const house = GRAND_TABLEAU_HOUSES[cardIndex];
+
             return (
               <GrandTableauCard
                 key={`${shuffleKey}-${cardIndex}`}
@@ -762,6 +767,7 @@ export function CardSelectionModal({
     );
   }
 
+  // Componente individual para carta do Grand Tableau com legenda de casa
   interface GrandTableauCardProps {
     cardIndex: number;
     house: { number: number; name: string; meaning: string };
@@ -792,6 +798,7 @@ export function CardSelectionModal({
   }: GrandTableauCardProps) {
     const cardHeight = cardWidth * 1.5;
 
+    // Pega a carta correspondente no deck retornado pela edge function
     const deckCard = (currentDeck[cardIndex] as any) || undefined;
     const cardCode = deckCard?.code as string | undefined;
 
@@ -805,35 +812,63 @@ export function CardSelectionModal({
     const [frontLoaded, setFrontLoaded] = useState(false);
 
     return (
-      <div className="flex flex-col items-center gap-2" style={{ width: `${cardWidth}px`, flexShrink: 0 }}>
+      <div
+        className="flex flex-col items-center gap-2"
+        style={{
+          width: `${cardWidth}px`,
+          flexShrink: 0,
+        }}
+      >
+        {/* Carta com flip 3D */}
         <motion.div
           initial={{ opacity: 0, scale: 0.8, y: 20 }}
           animate={{ opacity: 1, scale: isSelected ? 1.05 : 1, y: 0 }}
-          transition={{ duration: 0.3, delay, ease: "easeOut" }}
+          transition={{
+            duration: 0.3,
+            delay: delay,
+            ease: "easeOut",
+          }}
           className="relative cursor-pointer"
-          style={{ width: `${cardWidth}px`, height: `${cardHeight}px`, perspective: "1000px" }}
+          style={{
+            width: `${cardWidth}px`,
+            height: `${cardHeight}px`,
+            perspective: "1000px",
+          }}
           onClick={onClick}
         >
           <motion.div
             className="relative w-full h-full"
-            style={{ transformStyle: "preserve-3d" }}
+            style={{
+              transformStyle: "preserve-3d",
+            }}
             animate={{ rotateY: isFlipped ? 180 : 0 }}
-            transition={{ duration: 0.6, ease: "easeInOut" }}
+            transition={{
+              duration: 0.6,
+              ease: "easeInOut",
+            }}
           >
+            {/* Verso da carta */}
             <div className="absolute inset-0" style={{ backfaceVisibility: "hidden" }}>
               {!backLoaded && <div className="w-full h-full bg-black border border-neutral-700" />}
+
               <img
                 src={backUrl}
                 alt="Verso da carta"
                 className="w-full h-full object-contain"
                 style={{ display: backLoaded ? "block" : "none" }}
                 onLoad={() => setBackLoaded(true)}
-                loading="eager"
-                decoding="async"
+                loading="lazy"
               />
             </div>
 
-            <div className="absolute inset-0" style={{ backfaceVisibility: "hidden", transform: "rotateY(180deg)" }}>
+            {/* Frente da carta */}
+            <div
+              className="absolute inset-0"
+              style={{
+                backfaceVisibility: "hidden",
+                transform: "rotateY(180deg)",
+              }}
+            >
               {!frontLoaded && <div className="w-full h-full bg-black border border-neutral-700" />}
 
               {frontUrl && (
@@ -846,8 +881,7 @@ export function CardSelectionModal({
                     ...(oracleType === "tarot" && isReversed ? { transform: "rotate(180deg)" } : {}),
                   }}
                   onLoad={() => setFrontLoaded(true)}
-                  loading="eager"
-                  decoding="async"
+                  loading="lazy"
                 />
               )}
 
@@ -859,6 +893,7 @@ export function CardSelectionModal({
             </div>
           </motion.div>
 
+          {/* Indicador de seleção */}
           {isSelected && (
             <motion.div
               initial={{ scale: 0 }}
@@ -871,7 +906,13 @@ export function CardSelectionModal({
           )}
         </motion.div>
 
-        <div className="text-center" style={{ width: `${cardWidth}px` }}>
+        {/* Legenda da casa (sempre visível) */}
+        <div
+          className="text-center"
+          style={{
+            width: `${cardWidth}px`,
+          }}
+        >
           <p className="text-xs text-mystic-indigo leading-tight">
             {house.number}. {house.name}
           </p>
@@ -879,172 +920,4 @@ export function CardSelectionModal({
       </div>
     );
   }
-
-  // ===== Render principal do modal (ESTAVA FALTANDO) =====
-  const backUrl = getCardBackImageUrl(oracleType);
-
-  return (
-    <AnimatePresence>
-      {isOpen && (
-        <motion.div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-        >
-          {/* Backdrop */}
-          <div className="absolute inset-0 bg-night-sky/90 backdrop-blur-md" onClick={handleBackdropClick} />
-
-          {/* Container: altura da tela com margem (p-4 = 16px em cima/baixo e laterais) */}
-          <motion.div
-            className="relative pointer-events-auto w-full max-w-7xl h-[calc(100vh-2rem)] rounded-2xl bg-midnight-surface border border-obsidian-border shadow-2xl flex flex-col overflow-hidden"
-            initial={{ scale: 0.98, y: 10 }}
-            animate={{ scale: 1, y: 0 }}
-            exit={{ scale: 0.98, y: 10 }}
-            transition={{ duration: 0.15 }}
-          >
-            {/* Header */}
-            <div className="flex items-center justify-between px-6 py-4 border-b border-obsidian-border">
-              <div className="flex items-center gap-3">
-                <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-mystic-indigo to-oracle-ember flex items-center justify-center">
-                  <Sparkles className="w-5 h-5 text-starlight-text" />
-                </div>
-                <div className="flex flex-col">
-                  <h2 className="text-starlight-text font-semibold">
-                    {ORACLE_NAMES[oracleType]} — {method.replace(/_/g, " ")}
-                  </h2>
-                  {!isGrandTableau && (
-                    <p className="text-moonlight-text text-sm">
-                      Selecione {cardsNeeded} carta(s) ({selectedCards.length}/{cardsNeeded})
-                    </p>
-                  )}
-                  {isGrandTableau && (
-                    <p className="text-moonlight-text text-sm">
-                      Clique em qualquer carta para virar o Grand Tableau (36 cartas)
-                    </p>
-                  )}
-                </div>
-              </div>
-
-              <div className="flex items-center gap-2">
-                {!isGrandTableau && (
-                  <Button
-                    variant="outline"
-                    onClick={handleShuffle}
-                    disabled={hasFlippedAny || isShuffling}
-                    className="gap-2"
-                  >
-                    <Shuffle className="w-4 h-4" />
-                    {isShuffling ? "Embaralhando..." : "Reembaralhar"}
-                  </Button>
-                )}
-
-                <Button variant="outline" onClick={onClose}>
-                  Fechar
-                </Button>
-
-                <Button onClick={handleProceed} disabled={!canProceed}>
-                  Continuar
-                </Button>
-              </div>
-            </div>
-
-            {/* Body */}
-            <div className="flex-1 overflow-auto px-6 py-6">
-              {/* Preview (exceto GT) */}
-              <AnimatePresence>
-                {showSelectionPreview && !isGrandTableau && (
-                  <motion.div
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: 10 }}
-                    className="mb-6 rounded-xl border border-obsidian-border bg-obsidian-card p-4 shadow-xl"
-                  >
-                    <div className="flex items-center justify-between mb-3">
-                      <p className="text-starlight-text font-medium">Cartas escolhidas</p>
-                      <Button onClick={handleProceed} disabled={!canProceed}>
-                        Prosseguir
-                      </Button>
-                    </div>
-
-                    <div className="flex flex-wrap gap-4">
-                      {previewCards.map((c) => {
-                        const frontUrl = c.code ? getCardImageUrl(c.code) : null;
-                        const label = CardLabel(oracleType, c.code, c.isReversed);
-
-                        return (
-                          <div key={`preview-${c.idx}`} className="flex flex-col items-center gap-2">
-                            <div className="w-[140px] h-[224px] rounded-xl bg-black/80 border border-obsidian-border shadow-xl flex items-center justify-center overflow-hidden">
-                              {frontUrl ? (
-                                <img
-                                  src={frontUrl}
-                                  alt={label || c.code || "Carta"}
-                                  className="w-full h-full object-contain"
-                                  style={
-                                    oracleType === "tarot" && c.isReversed ? { transform: "rotate(180deg)" } : undefined
-                                  }
-                                  loading="eager"
-                                  decoding="async"
-                                />
-                              ) : (
-                                <img
-                                  src={backUrl}
-                                  alt="Verso"
-                                  className="w-full h-full object-contain"
-                                  loading="eager"
-                                  decoding="async"
-                                />
-                              )}
-                            </div>
-                            <p className="text-sm text-starlight-text text-center">{label || c.code || ""}</p>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </motion.div>
-                )}
-              </AnimatePresence>
-
-              {/* Mesa */}
-              {isGrandTableau ? (
-                <GrandTableauGrid
-                  shuffleKey={shuffleKey}
-                  flippedCards={flippedCards}
-                  selectedCards={selectedCards}
-                  onCardClick={handleCardClick}
-                  oracleType={oracleType}
-                  currentDeck={currentDeck}
-                />
-              ) : (
-                <div className="flex flex-wrap justify-center gap-3">
-                  {Array.from({ length: totalCards }, (_, i) => {
-                    const deckCard = (currentDeck?.[i] as any) || undefined;
-                    const cardCode = deckCard?.code as string | undefined;
-                    const isReversed =
-                      oracleType === "tarot" &&
-                      !!(deckCard?.reversed || deckCard?.is_reversed || deckCard?.orientation === "reversed");
-
-                    return (
-                      <Card
-                        key={`${shuffleKey}-${i}`}
-                        index={i}
-                        isFlipped={flippedCards.has(i)}
-                        isSelected={selectedCards.includes(i)}
-                        onClick={() => handleCardClick(i)}
-                        delay={Math.min(i * 0.004, 0.25)}
-                        oracleType={oracleType}
-                        cardSize="medium"
-                        cardCode={cardCode}
-                        isReversed={isReversed}
-                      />
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-          </motion.div>
-        </motion.div>
-      )}
-    </AnimatePresence>
-  );
 }
