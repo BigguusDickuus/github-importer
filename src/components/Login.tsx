@@ -1,20 +1,103 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
 import { Sparkles } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client"; // caminho da sua pasta supabase
-import { toast } from "@/hooks/use-toast"; // caminho do hook de toast (pode ser diferente, veja abaixo)
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "@/hooks/use-toast";
 
 export function Login() {
   const [isLogin, setIsLogin] = useState(true);
   const navigate = useNavigate();
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const [fullName, setFullName] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+
+  const [loading, setLoading] = useState(false);
+
+  const redirectTo = useMemo(() => {
+    // você já criou a redirect URL no Supabase; isso garante que vai bater no domínio publicado
+    return `${window.location.origin}/reset-password`;
+  }, []);
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // In a real app, this would handle authentication
-    navigate("/dashboard");
+    setLoading(true);
+
+    try {
+      if (isLogin) {
+        const { error } = await supabase.auth.signInWithPassword({
+          email,
+          password,
+        });
+
+        if (error) {
+          toast({ title: "Erro ao entrar", description: error.message, variant: "destructive" });
+          return;
+        }
+
+        navigate("/dashboard", { replace: true });
+        return;
+      }
+
+      // signup
+      const { error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: {
+            full_name: fullName,
+          },
+        },
+      });
+
+      if (error) {
+        toast({ title: "Erro ao criar conta", description: error.message, variant: "destructive" });
+        return;
+      }
+
+      toast({
+        title: "Conta criada!",
+        description: "Se necessário, verifique seu e-mail para confirmar o cadastro.",
+      });
+
+      // após signup, pode ir pro dashboard (se confirmação não for obrigatória)
+      navigate("/dashboard", { replace: true });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleForgotPassword = async () => {
+    if (!email) {
+      toast({
+        title: "Informe seu e-mail",
+        description: "Digite seu e-mail acima para enviarmos o link de recuperação.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo,
+      });
+
+      if (error) {
+        toast({ title: "Erro ao enviar link", description: error.message, variant: "destructive" });
+        return;
+      }
+
+      toast({
+        title: "Link enviado!",
+        description: "Verifique seu e-mail para redefinir sua senha.",
+      });
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -31,7 +114,7 @@ export function Login() {
           <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-mystic-indigo to-oracle-ember flex items-center justify-center">
             <Sparkles className="w-6 h-6 text-starlight-text" />
           </div>
-          <span className="text-2xl text-starlight-text">Oráculo IA</span>
+          <span className="text-2xl text-starlight-text">Tarot Online</span>
         </Link>
 
         {/* Form Card */}
@@ -39,7 +122,7 @@ export function Login() {
           <div className="mb-6">
             <h2 className="text-starlight-text mb-2">{isLogin ? "Entrar" : "Criar conta"}</h2>
             <p className="text-moonlight-text">
-              {isLogin ? "Acesse sua conta e consulte o oráculo" : "Comece sua jornada com o Oráculo IA"}
+              {isLogin ? "Acesse sua conta e consulte o oráculo" : "Comece sua jornada no Tarot Online"}
             </p>
           </div>
 
@@ -53,6 +136,8 @@ export function Login() {
                   id="name"
                   placeholder="Seu nome"
                   required
+                  value={fullName}
+                  onChange={(e) => setFullName(e.target.value)}
                   className="bg-night-sky border-obsidian-border text-starlight-text"
                 />
               </div>
@@ -67,6 +152,8 @@ export function Login() {
                 type="email"
                 placeholder="seu@email.com"
                 required
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
                 className="bg-night-sky border-obsidian-border text-starlight-text"
               />
             </div>
@@ -80,6 +167,8 @@ export function Login() {
                 type="password"
                 placeholder="••••••••"
                 required
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
                 className="bg-night-sky border-obsidian-border text-starlight-text"
               />
             </div>
@@ -88,15 +177,21 @@ export function Login() {
               <div className="text-right">
                 <button
                   type="button"
+                  onClick={handleForgotPassword}
                   className="text-sm text-mystic-indigo hover:text-mystic-indigo-dark transition-colors"
+                  disabled={loading}
                 >
                   Esqueceu a senha?
                 </button>
               </div>
             )}
 
-            <Button type="submit" className="w-full bg-mystic-indigo hover:bg-mystic-indigo-dark text-starlight-text">
-              {isLogin ? "Entrar" : "Criar conta"}
+            <Button
+              type="submit"
+              className="w-full bg-mystic-indigo hover:bg-mystic-indigo-dark text-starlight-text"
+              disabled={loading}
+            >
+              {loading ? "Aguarde..." : isLogin ? "Entrar" : "Criar conta"}
             </Button>
           </form>
 
@@ -106,6 +201,7 @@ export function Login() {
               <button
                 onClick={() => setIsLogin(!isLogin)}
                 className="text-mystic-indigo hover:text-mystic-indigo-dark transition-colors"
+                disabled={loading}
               >
                 {isLogin ? "Criar conta" : "Entrar"}
               </button>
