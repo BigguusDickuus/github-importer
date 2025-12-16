@@ -1141,11 +1141,15 @@ export function CardSelectionModal({
 
                   {/* Preview (sem borda individual nas imagens) */}
                   {!isGrandTableau && showSelectionPreview && selectedCards.length > 0 && (
-                    <div className="pointer-events-auto absolute inset-0 flex items-center justify-center">
-                      <div className="relative max-w-5xl w-full mx-auto">
+                    <div className="fixed inset-0 z-[70] pointer-events-auto flex items-center justify-center p-4">
+                      {/* fundo do overlay */}
+                      <div className="absolute inset-0 bg-black/60" onClick={() => setShowSelectionPreview(false)} />
+
+                      {/* card do preview */}
+                      <div className="relative max-w-5xl w-full">
                         <div className="absolute inset-0 bg-night-sky/80 backdrop-blur-xl rounded-3xl border border-obsidian-border shadow-2xl" />
 
-                        <div className="relative z-10 flex flex-col items-center gap-4 p-6 md:p-8">
+                        <div className="relative z-10 flex flex-col items-center gap-4 p-6 md:p-8 max-h-[calc(100vh-2rem)] overflow-y-auto">
                           <p className="text-sm md:text-base text-moonlight-text/80 text-center">Cartas selecionadas</p>
 
                           <div className="flex flex-wrap justify-center gap-4">
