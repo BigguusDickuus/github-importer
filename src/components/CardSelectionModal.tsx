@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "./ui/button";
 import { Shuffle, Sparkles } from "lucide-react";
@@ -123,6 +123,39 @@ export function CardSelectionModal({
   oracleDecks,
 }: CardSelectionModalProps) {
   // Primeiro: se o modal não está aberto, não renderiza nada
+  // Evita "click-through" quando um modal fecha e o próximo abre rápido (mouseup cai no backdrop do novo modal)
+  const [backdropCloseEnabled, setBackdropCloseEnabled] = useState(false);
+  const openGuardTimerRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    if (!isOpen) {
+      setBackdropCloseEnabled(false);
+      if (openGuardTimerRef.current) {
+        window.clearTimeout(openGuardTimerRef.current);
+        openGuardTimerRef.current = null;
+      }
+      return;
+    }
+
+    setBackdropCloseEnabled(false);
+    openGuardTimerRef.current = window.setTimeout(() => {
+      setBackdropCloseEnabled(true);
+      openGuardTimerRef.current = null;
+    }, 350);
+
+    return () => {
+      if (openGuardTimerRef.current) {
+        window.clearTimeout(openGuardTimerRef.current);
+        openGuardTimerRef.current = null;
+      }
+    };
+  }, [isOpen]);
+
+  const handleBackdropClick = () => {
+    if (!backdropCloseEnabled) return;
+    onClose();
+  };
+
   if (!isOpen) return null;
 
   // Se abriu mas a fila ainda não chegou nesse render, NÃO some — mostra um loading simples
