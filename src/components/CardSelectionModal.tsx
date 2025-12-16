@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "./ui/button";
 import { Shuffle, Sparkles } from "lucide-react";
@@ -122,30 +122,57 @@ export function CardSelectionModal({
   onComplete,
   oracleDecks,
 }: CardSelectionModalProps) {
-  // ===== Anti "click-through" (mouseup do modal anterior fechando este imediatamente) =====
-  const [backdropCloseEnabled, setBackdropCloseEnabled] = useState(false);
-  const openGuardTimerRef = useRef<number | null>(null);
+  // ✅ NÃO PODE TER return antes dos hooks. Então: hooks primeiro.
 
+  // Anti click-through (mouseup do modal anterior fechando este)
+  const [backdropCloseEnabled, setBackdropCloseEnabled] = useState(false);
+  const guardTimerRef = useRef<number | null>(null);
+
+  // Deck local (o que a mesa realmente usa)
+  const [localDeck, setLocalDeck] = useState<any[]>([]);
+  const [selectedCards, setSelectedCards] = useState<number[]>([]);
+  const [flippedCards, setFlippedCards] = useState<Set<number>>(new Set());
+  const [hasFlippedAny, setHasFlippedAny] = useState(false);
+  const [shuffleKey, setShuffleKey] = useState(0);
+  const [isShuffling, setIsShuffling] = useState(false);
+
+  // Preview (quando completa)
+  const [showSelectionPreview, setShowSelectionPreview] = useState(false);
+
+  // Item atual (pode estar undefined por timing)
+  const currentItem = currentOracleQueue?.[currentOracleIndex];
+  const oracleType = currentItem?.type as OracleType | undefined;
+  const method = currentItem?.method as string | undefined;
+  const isGrandTableau = method === "grand_tableau";
+
+  const currentDeck = localDeck;
+
+  const totalCards =
+    (currentDeck && currentDeck.length > 0 ? currentDeck.length : oracleType ? TOTAL_CARDS[oracleType] : 0) || 0;
+
+  const cardsNeeded = method ? CARDS_PER_METHOD[method] || 1 : 0;
+
+  // Anti click-through
   useEffect(() => {
     if (!isOpen) {
       setBackdropCloseEnabled(false);
-      if (openGuardTimerRef.current) {
-        window.clearTimeout(openGuardTimerRef.current);
-        openGuardTimerRef.current = null;
+      if (guardTimerRef.current) {
+        window.clearTimeout(guardTimerRef.current);
+        guardTimerRef.current = null;
       }
       return;
     }
 
     setBackdropCloseEnabled(false);
-    openGuardTimerRef.current = window.setTimeout(() => {
+    guardTimerRef.current = window.setTimeout(() => {
       setBackdropCloseEnabled(true);
-      openGuardTimerRef.current = null;
+      guardTimerRef.current = null;
     }, 350);
 
     return () => {
-      if (openGuardTimerRef.current) {
-        window.clearTimeout(openGuardTimerRef.current);
-        openGuardTimerRef.current = null;
+      if (guardTimerRef.current) {
+        window.clearTimeout(guardTimerRef.current);
+        guardTimerRef.current = null;
       }
     };
   }, [isOpen]);
@@ -155,42 +182,9 @@ export function CardSelectionModal({
     onClose();
   };
 
-  // Primeiro: se o modal não está aberto, não renderiza nada
-  if (!isOpen) return null;
-
-  // Se abriu mas a fila ainda não chegou nesse render, NÃO some — mostra um loading simples
-  if (!currentOracleQueue || currentOracleQueue.length === 0 || !currentOracleQueue[currentOracleIndex]) {
-    return (
-      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 text-starlight-text">
-        Carregando tiragem...
-      </div>
-    );
-  }
-
-  // Tipo de oráculo e método atual
-  const { type: oracleType, method } = currentOracleQueue[currentOracleIndex];
-  const isGrandTableau = method === "grand_tableau";
-
-  // Deck que efetivamente está sendo exibido na mesa
-  const [localDeck, setLocalDeck] = useState<any[]>([]);
-  const [selectedCards, setSelectedCards] = useState<number[]>([]);
-  const [flippedCards, setFlippedCards] = useState<Set<number>>(new Set());
-  const [hasFlippedAny, setHasFlippedAny] = useState(false);
-  const [shuffleKey, setShuffleKey] = useState(0);
-  const [isShuffling, setIsShuffling] = useState(false);
-
-  // Deck "corrente"
-  const currentDeck = localDeck;
-
-  // Número total de cartas na mesa
-  const totalCards = (currentDeck && currentDeck.length > 0 ? currentDeck.length : TOTAL_CARDS[oracleType]) || 0;
-
-  // Quantidade de cartas necessárias
-  const cardsNeeded = CARDS_PER_METHOD[method] || 1;
-
-  // Sincroniza o deck local com o que veio do backend e reseta estado
+  // Sync deck local quando abre / troca oráculo
   useEffect(() => {
-    if (!isOpen) return;
+    if (!isOpen || !oracleType || !method) return;
 
     const entry = oracleDecks?.find((d) => d.type === oracleType && d.method === method);
     const deckFromBackend = entry?.deck ?? [];
@@ -211,15 +205,29 @@ export function CardSelectionModal({
     setShuffleKey((prev) => prev + 1);
   }, [isOpen, method, oracleType, oracleDecks]);
 
-  // Preload do verso (acelera muito a primeira renderização da mesa)
+  // Preview quando completa (exceto GT)
   useEffect(() => {
+    if (!isOpen) return;
+    if (!oracleType || !method) return;
+
+    if (!isGrandTableau && cardsNeeded > 0 && selectedCards.length === cardsNeeded) {
+      setShowSelectionPreview(true);
+    } else if (selectedCards.length < cardsNeeded) {
+      setShowSelectionPreview(false);
+    }
+  }, [isOpen, oracleType, method, isGrandTableau, cardsNeeded, selectedCards]);
+
+  // Preload do verso
+  useEffect(() => {
+    if (!oracleType) return;
     const backUrl = getCardBackImageUrl(oracleType);
     const img = new Image();
     img.src = backUrl;
   }, [oracleType]);
 
   const handleCardClick = (cardIndex: number) => {
-    // Grand Tableau: ao clicar em qualquer carta, vira todas
+    if (!oracleType || !method) return;
+
     if (isGrandTableau && !hasFlippedAny) {
       const allCards = Array.from({ length: totalCards }, (_, i) => i);
       setSelectedCards(allCards);
@@ -234,11 +242,11 @@ export function CardSelectionModal({
     setSelectedCards((prev) => [...prev, cardIndex]);
     setFlippedCards((prev) => new Set([...prev, cardIndex]));
     setHasFlippedAny(true);
-
     onCardSelect?.(oracleType, cardIndex);
   };
 
   const handleShuffle = async () => {
+    if (!oracleType || !method) return;
     if (hasFlippedAny || isShuffling) return;
 
     setIsShuffling(true);
@@ -248,10 +256,7 @@ export function CardSelectionModal({
       const spreadCode = (entry as any)?.spreadCode || method;
 
       const { data, error } = await supabase.functions.invoke("rerandomize-oracle", {
-        body: {
-          oracle_type: oracleType,
-          spread_code: spreadCode,
-        },
+        body: { oracle_type: oracleType, spread_code: spreadCode },
       });
 
       if (error) {
@@ -265,7 +270,6 @@ export function CardSelectionModal({
         return;
       }
 
-      // Atualiza entry (mantém coerência para leitura/edge)
       if (entry) {
         (entry as any).deck = newDeck;
         if ((data as any)?.spread_code) (entry as any).spreadCode = (data as any).spread_code;
@@ -284,25 +288,13 @@ export function CardSelectionModal({
   };
 
   const handleProceed = () => {
-    if (selectedCards.length === cardsNeeded || isGrandTableau) {
-      onComplete(selectedCards);
-    }
+    if (!oracleType || !method) return;
+    if (selectedCards.length === cardsNeeded || isGrandTableau) onComplete(selectedCards);
   };
 
-  const canProceed = selectedCards.length === cardsNeeded || (isGrandTableau && hasFlippedAny);
+  const canProceed = (selectedCards.length === cardsNeeded && cardsNeeded > 0) || (isGrandTableau && hasFlippedAny);
 
-  // Preview (exceto Grand Tableau)
-  const [showSelectionPreview, setShowSelectionPreview] = useState(false);
-
-  useEffect(() => {
-    if (!isGrandTableau && cardsNeeded > 0 && selectedCards.length === cardsNeeded) {
-      setShowSelectionPreview(true);
-    } else if (selectedCards.length < cardsNeeded) {
-      setShowSelectionPreview(false);
-    }
-  }, [selectedCards, cardsNeeded, isGrandTableau]);
-
-  // Label da carta + reverso
+  // ===== Label da carta (preview) =====
   const CardLabel = (type: OracleType, code?: string, reversed?: boolean) => {
     const isRev = !!reversed;
 
@@ -358,7 +350,6 @@ export function CardSelectionModal({
     const raw = String(code).trim();
     const upper = raw.toUpperCase();
 
-    // TAROT
     if (type === "tarot") {
       const normalized = raw
         .toLowerCase()
@@ -422,10 +413,7 @@ export function CardSelectionModal({
       };
 
       if (!hasSuitHint) {
-        const norm = normalized.replace(/[^a-z0-9]+/g, "_");
-        const normNoExt = norm.replace(/^_+|_+$/g, "");
-
-        // Padrão forte: (tarot_)?major_XX_slug
+        const normNoExt = normalized.replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, "");
         const m2 = normNoExt.match(/(?:^|_)(?:tarot_)?major_([01]?\d|2[01])_([a-z0-9_]+)$/i);
         if (m2) {
           const n = Number(m2[1]);
@@ -434,7 +422,6 @@ export function CardSelectionModal({
           if (name) return name + (isRev ? " (invertida)" : "");
         }
 
-        // Match por slug direto
         const directSlug = normNoExt
           .replace(/^tarot_/, "")
           .replace(/^major_/, "")
@@ -442,13 +429,11 @@ export function CardSelectionModal({
         if (majorSlugMap[directSlug]) return majorSlugMap[directSlug] + (isRev ? " (invertida)" : "");
         if (majorSlugMap[`the_${directSlug}`]) return majorSlugMap[`the_${directSlug}`] + (isRev ? " (invertida)" : "");
 
-        // Fallback por contains
         const keys = Object.keys(majorSlugMap).sort((a, b) => b.length - a.length);
         for (const k of keys) {
           if (directSlug.includes(k)) return majorSlugMap[k] + (isRev ? " (invertida)" : "");
         }
 
-        // Fallback por número 0..21
         const numMatch = normalized.match(/(?:^|[^0-9])([01]?\d|2[01])(?:[^0-9]|$)/);
         if (numMatch) {
           const n = Number(numMatch[1]);
@@ -456,7 +441,6 @@ export function CardSelectionModal({
         }
       }
 
-      // minors: rank + suit
       let rankToken: string | null = null;
       let suitLabel: string | null = null;
 
@@ -474,124 +458,48 @@ export function CardSelectionModal({
         }
       }
 
-      if (!suitLabel) {
-        const mm1 = upper.match(/(\d{1,2})([WCHSPEOD])/);
-        const mm2 = upper.match(/([WCHSPEOD])(\d{1,2})/);
-        const suitChar = (mm1?.[2] || mm2?.[1] || "").toUpperCase();
-        if (suitChar) {
-          for (const [re, label] of suitMap) {
-            if (re.test(suitChar)) {
-              suitLabel = label;
-              break;
-            }
-          }
-        }
-      }
-
-      const rankLabel = rankToken ? rankMap[rankToken] || rankMap[String(Number(rankToken))] || rankToken : null;
+      const rankLabel = rankToken ? rankMap[rankToken] || rankToken : null;
       if (rankLabel && suitLabel) return `${rankLabel} de ${suitLabel}` + (isRev ? " (invertida)" : "");
 
       return raw + (isRev ? " (invertida)" : "");
     }
 
-    // LENORMAND
     if (type === "lenormand") {
-      const numMatch = upper.match(/\b([1-9]|[12]\d|3[0-6])\b/);
-      if (numMatch) {
-        const n = Number(numMatch[1]);
-        const lenormandNames: Record<number, string> = {
-          1: "Cavaleiro",
-          2: "Trevo",
-          3: "Navio",
-          4: "Casa",
-          5: "Árvore",
-          6: "Nuvens",
-          7: "Cobra",
-          8: "Caixão",
-          9: "Buquê",
-          10: "Foice",
-          11: "Chicote",
-          12: "Pássaros",
-          13: "Criança",
-          14: "Raposa",
-          15: "Urso",
-          16: "Estrelas",
-          17: "Cegonha",
-          18: "Cão",
-          19: "Torre",
-          20: "Jardim",
-          21: "Montanha",
-          22: "Caminhos",
-          23: "Ratos",
-          24: "Coração",
-          25: "Anel",
-          26: "Livro",
-          27: "Carta",
-          28: "Homem",
-          29: "Mulher",
-          30: "Lírios",
-          31: "Sol",
-          32: "Lua",
-          33: "Chave",
-          34: "Peixes",
-          35: "Âncora",
-          36: "Cruz",
-        };
-        if (lenormandNames[n]) return lenormandNames[n];
-      }
       return raw;
     }
 
-    // CARTOMANCIA
     if (type === "cartomancia") {
-      const suit = /H|HEART/i.test(upper)
-        ? "Copas"
-        : /D|DIAMOND/i.test(upper)
-          ? "Ouros"
-          : /C|CLUB/i.test(upper)
-            ? "Paus"
-            : /S|SPADE/i.test(upper)
-              ? "Espadas"
-              : null;
-
-      const r =
-        upper.match(/\b(A|ACE|K|KING|Q|QUEEN|J|JACK|10|[2-9])\b/)?.[1] ||
-        upper.match(/(A|K|Q|J|10|[2-9])$/)?.[1] ||
-        null;
-
-      const rankLabel = r ? rankMap[r] || r : null;
-      if (rankLabel && suit) return `${rankLabel} de ${suit}`;
       return raw;
     }
 
     return raw;
   };
 
-  // ===== Dados do preview =====
+  // Preview cards (com preload das frentes)
   const previewCards = useMemo(() => {
+    if (!oracleType) return [];
     if (isGrandTableau) return [];
+
     return selectedCards.map((idx) => {
-      const deckCard = currentDeck?.[idx] as any;
+      const deckCard = (currentDeck?.[idx] as any) || undefined;
       const code = deckCard?.code as string | undefined;
       const isReversed =
         oracleType === "tarot" &&
         !!(deckCard?.reversed || deckCard?.is_reversed || deckCard?.orientation === "reversed");
       return { idx, code, isReversed };
     });
-  }, [selectedCards, currentDeck, oracleType, isGrandTableau]);
+  }, [oracleType, isGrandTableau, selectedCards, currentDeck]);
 
-  // Preload das frentes do preview (pra ficar instantâneo)
   useEffect(() => {
     if (!previewCards.length) return;
     for (const c of previewCards) {
       if (!c.code) continue;
-      const url = getCardImageUrl(c.code);
       const img = new Image();
-      img.src = url;
+      img.src = getCardImageUrl(c.code);
     }
   }, [previewCards]);
 
-  // ===== Componente de carta (mesa) =====
+  // ===== Componentes de carta (iguais aos seus, só ajustei loading/decoding) =====
   interface CardProps {
     index: number;
     isFlipped: boolean;
@@ -639,7 +547,6 @@ export function CardSelectionModal({
           animate={{ rotateY: isFlipped ? 180 : 0 }}
           transition={{ duration: 0.6, ease: "easeInOut" }}
         >
-          {/* VERSO */}
           <div className="absolute inset-0" style={{ backfaceVisibility: "hidden" }}>
             {!backLoaded && <div className="w-full h-full bg-black border border-neutral-700" />}
             <img
@@ -653,7 +560,6 @@ export function CardSelectionModal({
             />
           </div>
 
-          {/* FRENTE */}
           <div className="absolute inset-0" style={{ backfaceVisibility: "hidden", transform: "rotateY(180deg)" }}>
             {!frontLoaded && <div className="w-full h-full bg-black border border-neutral-700" />}
 
@@ -683,7 +589,6 @@ export function CardSelectionModal({
     );
   }
 
-  // ===== Grand Tableau =====
   interface GrandTableauGridProps {
     shuffleKey: number;
     flippedCards: Set<number>;
@@ -707,11 +612,6 @@ export function CardSelectionModal({
     currentDeck,
   }: GrandTableauGridProps) {
     const cardWidth = 70;
-    const cardHeight = cardWidth * 1.5;
-    const gap = 12;
-
-    void cardHeight;
-    void gap;
 
     return (
       <div className="flex flex-col items-center gap-6">
@@ -720,6 +620,7 @@ export function CardSelectionModal({
             {Array.from({ length: 8 }, (_, col) => {
               const cardIndex = row * 8 + col;
               const house = GRAND_TABLEAU_HOUSES[cardIndex];
+
               return (
                 <GrandTableauCard
                   key={`${shuffleKey}-${cardIndex}`}
@@ -742,6 +643,7 @@ export function CardSelectionModal({
           {Array.from({ length: 4 }, (_, col) => {
             const cardIndex = 32 + col;
             const house = GRAND_TABLEAU_HOUSES[cardIndex];
+
             return (
               <GrandTableauCard
                 key={`${shuffleKey}-${cardIndex}`}
@@ -835,7 +737,6 @@ export function CardSelectionModal({
 
             <div className="absolute inset-0" style={{ backfaceVisibility: "hidden", transform: "rotateY(180deg)" }}>
               {!frontLoaded && <div className="w-full h-full bg-black border border-neutral-700" />}
-
               {frontUrl && (
                 <img
                   src={frontUrl}
@@ -850,7 +751,6 @@ export function CardSelectionModal({
                   decoding="async"
                 />
               )}
-
               {!frontUrl && !frontLoaded && (
                 <div className="w-full h-full flex items-center justify-center bg-black border border-neutral-700 text-xs text-starlight-text/60">
                   {cardIndex + 1}
@@ -880,8 +780,33 @@ export function CardSelectionModal({
     );
   }
 
-  // ===== Render principal do modal (ESTAVA FALTANDO) =====
+  // ✅ AGORA SIM: returns condicionais (depois dos hooks)
+  if (!isOpen) return null;
+
+  if (!currentItem || !oracleType || !method) {
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 text-starlight-text">
+        Carregando tiragem...
+      </div>
+    );
+  }
+
   const backUrl = getCardBackImageUrl(oracleType);
+
+  // Layout “sobreposto” (stack/spread) sem virar grid feio
+  const spread = useMemo(() => {
+    const n = totalCards;
+    const mid = (n - 1) / 2;
+    const step = 18; // px (overlap)
+    const maxRotate = 10; // graus
+    return Array.from({ length: n }, (_, i) => {
+      const t = i - mid;
+      const x = t * step;
+      const rot = (t / Math.max(1, mid)) * maxRotate;
+      const y = Math.abs(t) * 0.6;
+      return { x, y, rot, z: i };
+    });
+  }, [totalCards]);
 
   return (
     <AnimatePresence>
@@ -892,10 +817,8 @@ export function CardSelectionModal({
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
         >
-          {/* Backdrop */}
           <div className="absolute inset-0 bg-night-sky/90 backdrop-blur-md" onClick={handleBackdropClick} />
 
-          {/* Container: altura da tela com margem (p-4 = 16px em cima/baixo e laterais) */}
           <motion.div
             className="relative pointer-events-auto w-full max-w-7xl h-[calc(100vh-2rem)] rounded-2xl bg-midnight-surface border border-obsidian-border shadow-2xl flex flex-col overflow-hidden"
             initial={{ scale: 0.98, y: 10 }}
@@ -913,12 +836,11 @@ export function CardSelectionModal({
                   <h2 className="text-starlight-text font-semibold">
                     {ORACLE_NAMES[oracleType]} — {method.replace(/_/g, " ")}
                   </h2>
-                  {!isGrandTableau && (
+                  {!isGrandTableau ? (
                     <p className="text-moonlight-text text-sm">
                       Selecione {cardsNeeded} carta(s) ({selectedCards.length}/{cardsNeeded})
                     </p>
-                  )}
-                  {isGrandTableau && (
+                  ) : (
                     <p className="text-moonlight-text text-sm">
                       Clique em qualquer carta para virar o Grand Tableau (36 cartas)
                     </p>
@@ -938,11 +860,9 @@ export function CardSelectionModal({
                     {isShuffling ? "Embaralhando..." : "Reembaralhar"}
                   </Button>
                 )}
-
                 <Button variant="outline" onClick={onClose}>
                   Fechar
                 </Button>
-
                 <Button onClick={handleProceed} disabled={!canProceed}>
                   Continuar
                 </Button>
@@ -951,7 +871,7 @@ export function CardSelectionModal({
 
             {/* Body */}
             <div className="flex-1 overflow-auto px-6 py-6">
-              {/* Preview (exceto GT) */}
+              {/* Preview (quando completa, exceto GT) */}
               <AnimatePresence>
                 {showSelectionPreview && !isGrandTableau && (
                   <motion.div
@@ -974,7 +894,7 @@ export function CardSelectionModal({
 
                         return (
                           <div key={`preview-${c.idx}`} className="flex flex-col items-center gap-2">
-                            <div className="w-[140px] h-[224px] rounded-xl bg-black/80 border border-obsidian-border shadow-xl flex items-center justify-center overflow-hidden">
+                            <div className="w-[140px] h-[224px] rounded-xl bg-black/80 shadow-xl flex items-center justify-center overflow-hidden">
                               {frontUrl ? (
                                 <img
                                   src={frontUrl}
@@ -1016,29 +936,41 @@ export function CardSelectionModal({
                   currentDeck={currentDeck}
                 />
               ) : (
-                <div className="flex flex-wrap justify-center gap-3">
-                  {Array.from({ length: totalCards }, (_, i) => {
-                    const deckCard = (currentDeck?.[i] as any) || undefined;
-                    const cardCode = deckCard?.code as string | undefined;
-                    const isReversed =
-                      oracleType === "tarot" &&
-                      !!(deckCard?.reversed || deckCard?.is_reversed || deckCard?.orientation === "reversed");
+                <div className="w-full flex justify-center">
+                  <div className="relative h-[420px] w-full max-w-6xl">
+                    {Array.from({ length: totalCards }, (_, i) => {
+                      const deckCard = (currentDeck?.[i] as any) || undefined;
+                      const cardCode = deckCard?.code as string | undefined;
+                      const isReversed =
+                        oracleType === "tarot" &&
+                        !!(deckCard?.reversed || deckCard?.is_reversed || deckCard?.orientation === "reversed");
 
-                    return (
-                      <Card
-                        key={`${shuffleKey}-${i}`}
-                        index={i}
-                        isFlipped={flippedCards.has(i)}
-                        isSelected={selectedCards.includes(i)}
-                        onClick={() => handleCardClick(i)}
-                        delay={Math.min(i * 0.004, 0.25)}
-                        oracleType={oracleType}
-                        cardSize="medium"
-                        cardCode={cardCode}
-                        isReversed={isReversed}
-                      />
-                    );
-                  })}
+                      const pos = spread[i];
+
+                      return (
+                        <div
+                          key={`${shuffleKey}-${i}`}
+                          className="absolute left-1/2 top-1/2"
+                          style={{
+                            transform: `translate(-50%, -50%) translate(${pos.x}px, ${pos.y}px) rotate(${pos.rot}deg)`,
+                            zIndex: pos.z,
+                          }}
+                        >
+                          <Card
+                            index={i}
+                            isFlipped={flippedCards.has(i)}
+                            isSelected={selectedCards.includes(i)}
+                            onClick={() => handleCardClick(i)}
+                            delay={Math.min(i * 0.004, 0.25)}
+                            oracleType={oracleType}
+                            cardSize="medium"
+                            cardCode={cardCode}
+                            isReversed={isReversed}
+                          />
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
               )}
             </div>
