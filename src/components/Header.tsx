@@ -23,57 +23,44 @@ export function Header({ isLoggedIn = false, onBuyCredits, onLoginClick }: Heade
   const [isAdmin, setIsAdmin] = useState(false);
   const [adminLoading, setAdminLoading] = useState(false);
 
-  const getUserIdFromSession = async (): Promise<string | null> => {
-    const { data, error } = await supabase.auth.getSession();
-
-    if (error) {
-      // Esse é o erro que costuma acontecer logo após login; não “crava” estado errado.
-      const msg = (error as any)?.message ?? "";
-      if (msg.includes("Auth session missing")) return null;
-
-      console.error("Erro ao checar sessão:", error);
-      return null;
-    }
-
-    return data.session?.user?.id ?? null;
-  };
-
-  const fetchCreditsForUser = async (userId: string) => {
-    const { data, error } = await supabase
-      .from("credit_balances")
-      .select("balance")
-      .eq("user_id", userId)
-      .maybeSingle();
-
-    if (error) {
-      console.error("Erro ao buscar créditos:", error);
-      setCredits(null);
-      return;
-    }
-
-    setCredits(data?.balance ?? 0);
-  };
-
-  const fetchIsAdminForUser = async (userId: string) => {
-    const { data, error } = await supabase.from("profiles").select("is_admin").eq("id", userId).maybeSingle();
-
-    if (error) {
-      console.error("Erro ao buscar is_admin:", error);
-      setIsAdmin(false);
-      return;
-    }
-
-    setIsAdmin(!!data?.is_admin);
-  };
-
   const fetchCredits = async () => {
     try {
       setCreditsLoading(true);
 
-      const userId = await getUserIdFromSession();
-      if (!userId) return;
+      const {
+        data: { user },
+        error: userError,
+      } = await supabase.auth.getUser();
 
-      await fetchCreditsForUser(userId);
+      if (userError) {
+        console.error("Erro ao buscar usuário logado:", userError);
+        setCredits(null);
+        return;
+      }
+
+      if (!user) {
+        setCredits(null);
+        return;
+      }
+
+      const { data, error } = await supabase
+        .from("credit_balances")
+        .select("balance")
+        .eq("user_id", user.id)
+        .maybeSingle();
+
+      if (error) {
+        console.error("Erro ao buscar créditos:", error);
+        setCredits(null);
+        return;
+      }
+
+      if (!data) {
+        setCredits(0);
+        return;
+      }
+
+      setCredits(data.balance ?? 0);
     } catch (err) {
       console.error("Erro inesperado ao buscar créditos:", err);
       setCredits(null);
@@ -86,10 +73,31 @@ export function Header({ isLoggedIn = false, onBuyCredits, onLoginClick }: Heade
     try {
       setAdminLoading(true);
 
-      const userId = await getUserIdFromSession();
-      if (!userId) return;
+      const {
+        data: { user },
+        error: userError,
+      } = await supabase.auth.getUser();
 
-      await fetchIsAdminForUser(userId);
+      if (userError) {
+        console.error("Erro ao buscar usuário logado (admin):", userError);
+        setIsAdmin(false);
+        return;
+      }
+
+      if (!user) {
+        setIsAdmin(false);
+        return;
+      }
+
+      const { data, error } = await supabase.from("profiles").select("is_admin").eq("id", user.id).maybeSingle();
+
+      if (error) {
+        console.error("Erro ao buscar is_admin:", error);
+        setIsAdmin(false);
+        return;
+      }
+
+      setIsAdmin(!!data?.is_admin);
     } catch (err) {
       console.error("Erro inesperado ao buscar is_admin:", err);
       setIsAdmin(false);
@@ -98,51 +106,14 @@ export function Header({ isLoggedIn = false, onBuyCredits, onLoginClick }: Heade
     }
   };
 
-  // 1) Recarrega por mudança de rota / isLoggedIn
   useEffect(() => {
     fetchCredits();
 
     if (isLoggedIn) fetchIsAdmin();
     else setIsAdmin(false);
+
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [location.pathname, isLoggedIn]);
-
-  // 2) ✅ O que realmente destrava: quando a sessão “aparece” após login, refaz fetch
-  useEffect(() => {
-    const { data } = supabase.auth.onAuthStateChange(async (_event, session) => {
-      const userId = session?.user?.id ?? null;
-
-      if (!userId) {
-        setCredits(null);
-        setIsAdmin(false);
-        return;
-      }
-
-      // Só faz sentido buscar admin se a UI está no modo logado
-      if (isLoggedIn) {
-        setCreditsLoading(true);
-        setAdminLoading(true);
-        try {
-          await Promise.all([fetchCreditsForUser(userId), fetchIsAdminForUser(userId)]);
-        } finally {
-          setCreditsLoading(false);
-          setAdminLoading(false);
-        }
-      } else {
-        // Se não está logado, pelo menos mantém credits coerente
-        setCreditsLoading(true);
-        try {
-          await fetchCreditsForUser(userId);
-        } finally {
-          setCreditsLoading(false);
-        }
-      }
-    });
-
-    return () => {
-      data.subscription.unsubscribe();
-    };
-  }, [isLoggedIn]);
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -154,7 +125,9 @@ export function Header({ isLoggedIn = false, onBuyCredits, onLoginClick }: Heade
 
     if (profileDropdownOpen) {
       document.addEventListener("mousedown", handleClickOutside);
-      return () => document.removeEventListener("mousedown", handleClickOutside);
+      return () => {
+        document.removeEventListener("mousedown", handleClickOutside);
+      };
     }
   }, [profileDropdownOpen]);
 
@@ -162,7 +135,8 @@ export function Header({ isLoggedIn = false, onBuyCredits, onLoginClick }: Heade
   const loggedInLinks: never[] = [];
   const links = isLoggedIn ? loggedInLinks : publicLinks;
 
-  const showAdminLink = isLoggedIn && isAdmin;
+  // ✅ AGORA: aparece em QUALQUER página logada, se for admin
+  const showAdminButton = isLoggedIn && isAdmin;
 
   const handleLogout = async () => {
     setProfileDropdownOpen(false);
@@ -220,16 +194,26 @@ export function Header({ isLoggedIn = false, onBuyCredits, onLoginClick }: Heade
                       Comprar créditos
                     </button>
 
-                    {showAdminLink && (
+                    {showAdminButton && (
                       <button
                         onClick={() => navigate("/admin")}
+                        className="text-moonlight-text hover:text-starlight-text transition-colors text-sm"
                         disabled={adminLoading}
-                        className="text-moonlight-text hover:text-starlight-text transition-colors text-sm disabled:opacity-60"
                         title={adminLoading ? "Carregando..." : "Admin"}
                       >
                         Admin
                       </button>
                     )}
+
+                    {links.map((link) => (
+                      <Link
+                        key={link.href}
+                        to={link.href}
+                        className="text-moonlight-text hover:text-starlight-text transition-colors text-sm"
+                      >
+                        {link.label}
+                      </Link>
+                    ))}
 
                     {/* Dropdown Meu Perfil */}
                     <div className="relative" ref={dropdownRef}>
@@ -262,7 +246,7 @@ export function Header({ isLoggedIn = false, onBuyCredits, onLoginClick }: Heade
                           <button
                             onClick={() => {
                               setProfileDropdownOpen(false);
-                              navigate("/history");
+                              navigate("/History");
                             }}
                             className="w-full text-left text-sm text-moonlight-text hover:bg-night-sky hover:text-starlight-text transition-colors rounded-lg"
                             style={{ padding: "10px 12px", marginBottom: "4px" }}
@@ -273,7 +257,7 @@ export function Header({ isLoggedIn = false, onBuyCredits, onLoginClick }: Heade
                           <button
                             onClick={() => {
                               setProfileDropdownOpen(false);
-                              navigate("/transaction-history");
+                              navigate("/TransactionHistory");
                             }}
                             className="w-full text-left text-sm text-moonlight-text hover:bg-night-sky hover:text-starlight-text transition-colors rounded-lg"
                             style={{ padding: "10px 12px", marginBottom: "12px" }}
@@ -380,7 +364,7 @@ export function Header({ isLoggedIn = false, onBuyCredits, onLoginClick }: Heade
                       Comprar créditos
                     </Button>
 
-                    {showAdminLink && (
+                    {showAdminButton && (
                       <Button
                         variant="outline"
                         className="w-full"
@@ -412,7 +396,7 @@ export function Header({ isLoggedIn = false, onBuyCredits, onLoginClick }: Heade
                       className="w-full"
                       onClick={() => {
                         setMobileMenuOpen(false);
-                        navigate("/history");
+                        navigate("/historico");
                       }}
                       style={{ height: "44px" }}
                     >
@@ -424,7 +408,7 @@ export function Header({ isLoggedIn = false, onBuyCredits, onLoginClick }: Heade
                       className="w-full"
                       onClick={() => {
                         setMobileMenuOpen(false);
-                        navigate("/transaction-history");
+                        navigate("/transacoes");
                       }}
                       style={{ height: "44px" }}
                     >
