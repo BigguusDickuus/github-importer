@@ -788,10 +788,7 @@ function AccountSection({ twoFactorEnabled }: { twoFactorEnabled: boolean }) {
 
   return (
     <div className="bg-midnight-surface border border-obsidian-border rounded-2xl p-6">
-      <h3 className="text-starlight-text text-xl font-semibold mb-6 flex items-center gap-2">
-        <User className="w-5 h-5 text-mystic-indigo" />
-        Conta
-      </h3>
+      <h2 className="text-lg font-semibold text-starlight-text mb-4">Conta</h2>
 
       {loading ? (
         <div className="text-moonlight-text">Carregando...</div>
@@ -872,8 +869,7 @@ function AccountSection({ twoFactorEnabled }: { twoFactorEnabled: boolean }) {
 
               <div className="pt-2 flex justify-end">
                 <Button
-                  type="submit"
-                  className="bg-mystic-indigo hover:bg-mystic-indigo-dark text-starlight-text"
+                  className="bg-aurora-accent hover:bg-aurora-accent/90 text-midnight-surface font-semibold"
                   style={{ paddingLeft: "32px", paddingRight: "32px" }}
                   onClick={handleSave}
                   disabled={!canSave || saving}
@@ -1538,34 +1534,34 @@ function SecuritySection({
     setDisableError(null);
 
     const code = disableCode.trim();
-    if (!code) {
+    if (!/^\d{6}$/.test(code)) {
       setDisableError("Informe o código de 6 dígitos do app autenticador.");
       return;
     }
 
     setDisableVerifying(true);
+    setTwoFactorSaving(true);
 
     try {
-      // 1) Sempre listar fatores aqui para pegar o factorId real (evita estado stale)
+      // 1) Buscar o factorId real (evita estado stale)
       const { data: factorsData, error: listError } = await supabase.auth.mfa.listFactors();
       if (listError) {
         console.error("Erro ao listar fatores MFA:", listError);
-        setDisableError(listError.message || "Erro ao localizar seu 2FA. Tente novamente.");
+        setDisableError(listError.message || "Erro ao listar fatores 2FA.");
         return;
       }
 
-      const anyFactors: any = factorsData as any;
-      const totpFactors = (anyFactors?.totp ?? []) as Array<{ id: string; status?: string }>;
-      const verified = totpFactors.find((f) => f.status === "verified") ?? totpFactors[0];
+      const totpFactors = (factorsData as any)?.totp ?? [];
+      const verified = totpFactors.find((f: any) => f?.status === "verified") ?? totpFactors[0];
 
       if (!verified?.id) {
         setDisableError("Nenhum fator 2FA (TOTP) encontrado para esta conta.");
         return;
       }
 
-      const factorId = verified.id;
+      const factorId = verified.id as string;
 
-      // 2) Elevar sessão para AAL2 (exigido para unenroll de fator verified)
+      // 2) Confirmar 2FA para elevar a sessão (AAL2)
       const { error: cavError } = await supabase.auth.mfa.challengeAndVerify({ factorId, code } as any);
       if (cavError) {
         console.error("Erro ao confirmar 2FA para desativação:", cavError);
@@ -1573,42 +1569,34 @@ function SecuritySection({
         return;
       }
 
-      // 3) Garantir AAL2 antes do unenroll
-      const { data: aalData, error: aalError } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
-      if (aalError) {
-        console.error("Erro ao checar AAL:", aalError);
-        setDisableError(aalError.message || "Erro ao validar segurança (AAL). Tente novamente.");
-        return;
-      }
-
-      const currentLevel = (aalData as any)?.currentLevel;
-      if (currentLevel !== "aal2") {
-        console.error("Sessão não elevou para AAL2 após challengeAndVerify:", aalData);
-        setDisableError(
-          "Seu 2FA foi confirmado, mas sua sessão não elevou para nível AAL2. Faça logout/login e tente desativar novamente.",
-        );
-        return;
-      }
-
-      // 4) Unenroll efetivo usando factorId
+      // 3) Unenroll (sem bloquear em AAL2 “lento” no client). Se falhar, força refresh e tenta 1x.
       const { error: unenrollError } = await supabase.auth.mfa.unenroll({ factorId } as any);
       if (unenrollError) {
         console.error("Erro no unenroll:", unenrollError);
-        setDisableError(unenrollError.message || "Falha ao desativar o 2FA. Tente novamente.");
-        return;
+
+        await supabase.auth.refreshSession();
+
+        const { error: unenrollRetryError } = await supabase.auth.mfa.unenroll({ factorId } as any);
+        if (unenrollRetryError) {
+          console.error("Erro no unenroll (retry):", unenrollRetryError);
+          setDisableError(
+            unenrollRetryError.message ||
+              "Falha ao desativar o 2FA. Se o erro for AAL2, faça logout/login e tente novamente.",
+          );
+          return;
+        }
       }
 
-      // 5) Forçar refresh para refletir downgrade e sessão atual
+      // 4) Refresh para refletir downgrade e sessão atual
       await supabase.auth.refreshSession();
 
-      // 6) Persistir flag na profiles (mesma tabela que você já usa)
+      // 5) Espelhar flag em profiles (mantém seu padrão atual de UI)
       const {
         data: { user },
         error: userErr,
       } = await supabase.auth.getUser();
 
       if (!userErr && user?.id) {
-        // IMPORTANTE: mantenha o mesmo nome de coluna que você já usa no fluxo de ativação
         await supabase
           .from("profiles")
           .update({ two_factor_enabled: false } as any)
@@ -1624,6 +1612,7 @@ function SecuritySection({
       setDisableError(err?.message || "Erro inesperado ao desativar o 2FA.");
     } finally {
       setDisableVerifying(false);
+      setTwoFactorSaving(false);
     }
   };
 
