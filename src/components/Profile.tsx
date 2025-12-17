@@ -109,11 +109,11 @@ export function Profile() {
 
         // Limite de uso (se existir)
         if (prefs.usage_limit_credits != null && prefs.usage_limit_period) {
-          setLimitEnabled(true);
+          setHasActiveLimit(true);
           setActiveLimitAmount(String(prefs.usage_limit_credits));
           setActiveLimitPeriod(prefs.usage_limit_period);
         } else {
-          setLimitEnabled(false);
+          setHasActiveLimit(false);
           setActiveLimitAmount("");
           setActiveLimitPeriod("dia");
         }
