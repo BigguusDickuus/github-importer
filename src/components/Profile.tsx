@@ -788,7 +788,7 @@ function AccountSection({ twoFactorEnabled }: { twoFactorEnabled: boolean }) {
 
   return (
     <div className="bg-midnight-surface border border-obsidian-border rounded-2xl p-6">
-      <h3 className="text-starlight-text mb-6">Conta</h3>
+      <h2 className="text-lg font-semibold text-starlight-text mb-4">Conta</h2>
 
       {loading ? (
         <div className="text-moonlight-text">Carregando...</div>
@@ -869,7 +869,7 @@ function AccountSection({ twoFactorEnabled }: { twoFactorEnabled: boolean }) {
 
               <div className="pt-2 flex justify-end">
                 <Button
-                  className="bg-mystic-indigo hover:bg-mystic-indigo-dark text-starlight-text font-semibold"
+                  className="bg-aurora-accent hover:bg-aurora-accent/90 text-midnight-surface font-semibold"
                   style={{ paddingLeft: "32px", paddingRight: "32px" }}
                   onClick={handleSave}
                   disabled={!canSave || saving}
@@ -1683,29 +1683,22 @@ function SecuritySection({
 
     if (!disableFactorId) {
       pushDisableLog(traceId, "validation:failed", { reason: "no_factor_id" });
-      setDisableError("Não foi possível localizar o fator de 2FA. Feche e tente novamente.");
+      setDisableError("Erro interno ao desativar 2FA. Recarregue a página e tente novamente.");
       return;
     }
 
     const code = disableCode.trim();
-    if (!code || code.length !== 6) {
-      pushDisableLog(traceId, "validation:failed", { reason: "invalid_code_len", codeLen: code.length });
-      setDisableError("Informe o código de 6 dígitos.");
+    if (!code) {
+      pushDisableLog(traceId, "validation:failed", { reason: "no_code" });
+      setDisableError("Informe o código de 6 dígitos do app autenticador.");
       return;
     }
 
     setDisableVerifying(true);
+    pushDisableLog(traceId, "disableVerifying:true");
 
     try {
-      // Snapshot leve antes (NÃO usa getSession)
-      pushDisableLog(traceId, "auth.getUser:start");
-      const userBefore = await supabase.auth.getUser();
-      pushDisableLog(traceId, "auth.getUser:done", {
-        error: serializeSupabaseError(userBefore.error),
-        user_id: userBefore.data.user?.id ?? null,
-      });
-
-      // 1) Verify (upgrade AAL2)
+      // 1) Verifica o TOTP (AAL2). IMPORTANTE: NÃO chamar getSession aqui (ele está pendurando no seu app)
       pushDisableLog(traceId, "mfa.challengeAndVerify:start", { factorId: disableFactorId });
       const { error: verifyError } = await supabase.auth.mfa.challengeAndVerify({
         factorId: disableFactorId,
@@ -1719,8 +1712,6 @@ function SecuritySection({
         return;
       }
 
-      // CHECKPOINT: aqui você via “parar” antes
-      // IMPORTANTE: NÃO chamar getSession aqui (isso é o que pendura e impede o unenroll)
       pushDisableLog(traceId, "checkpoint:after_verify_before_unenroll");
 
       // 2) Unenroll
@@ -1734,20 +1725,20 @@ function SecuritySection({
         return;
       }
 
-      // 3) Limpeza de fatores residuais (best-effort)
+      // 3) Limpeza de fatores residuais (best-effort) — igual espírito do Profile (3)
       try {
-        pushDisableLog(traceId, "mfa.listFactors:cleanup:start");
+        pushDisableLog(traceId, "cleanup.listFactors:start");
         const { data: factorsData, error: listError } = await supabase.auth.mfa.listFactors();
-        pushDisableLog(traceId, "mfa.listFactors:cleanup:done", { error: serializeSupabaseError(listError) });
+        pushDisableLog(traceId, "cleanup.listFactors:done", { error: serializeSupabaseError(listError) });
 
         if (!listError) {
           const anyFactors: any = factorsData;
           const totpFactors = (anyFactors?.totp ?? []) as Array<{ id: string }>;
           for (const factor of totpFactors) {
             if (factor.id !== disableFactorId) {
-              pushDisableLog(traceId, "mfa.unenroll:cleanup:start", { factorId: factor.id });
+              pushDisableLog(traceId, "cleanup.unenroll_residual:start", { factorId: factor.id });
               const { error: e2 } = await supabase.auth.mfa.unenroll({ factorId: factor.id } as any);
-              pushDisableLog(traceId, "mfa.unenroll:cleanup:done", {
+              pushDisableLog(traceId, "cleanup.unenroll_residual:done", {
                 factorId: factor.id,
                 error: serializeSupabaseError(e2),
               });
@@ -1755,37 +1746,47 @@ function SecuritySection({
           }
         }
       } catch (e) {
-        pushDisableLog(traceId, "cleanup:catch", { error: serializeUnknownError(e) });
+        console.warn("Erro ao limpar fatores residuais:", e);
+        pushDisableLog(traceId, "cleanup:catch", { err: serializeUnknownError(e) });
       }
 
-      // 4) Atualiza flag no profiles (mantém sua decisão de schema)
-      const uid = userBefore.data.user?.id;
-      if (uid) {
-        pushDisableLog(traceId, "profiles.update:two_factor_enabled:false:start", { user_id: uid });
-        const { error: updateError } = await supabase
+      // 4) Sync final (sem getSession)
+      pushDisableLog(traceId, "auth.refreshSession:start");
+      const refresh = await supabase.auth.refreshSession();
+      pushDisableLog(traceId, "auth.refreshSession:done", { error: serializeSupabaseError(refresh.error) });
+
+      pushDisableLog(traceId, "auth.getUser:final:start");
+      const {
+        data: { user },
+        error: userErrFinal,
+      } = await supabase.auth.getUser();
+      pushDisableLog(traceId, "auth.getUser:final:done", {
+        error: serializeSupabaseError(userErrFinal),
+        user_id: user?.id ?? null,
+      });
+
+      if (user?.id) {
+        pushDisableLog(traceId, "profiles.update:start", { user_id: user.id, two_factor_enabled: false });
+        const upd = await supabase
           .from("profiles")
           .update({ two_factor_enabled: false } as any)
-          .eq("id", uid);
-        pushDisableLog(traceId, "profiles.update:two_factor_enabled:false:done", {
-          error: serializeSupabaseError(updateError),
-        });
-      } else {
-        pushDisableLog(traceId, "profiles.update:skipped_no_user");
+          .eq("id", user.id);
+        pushDisableLog(traceId, "profiles.update:done", { error: serializeSupabaseError((upd as any)?.error) });
       }
 
       setTwoFactorEnabled(false);
-      setSuccessMessage("Autenticação de dois fatores desativada.");
+      setSuccessMessage("Autenticação de dois fatores desativada com sucesso.");
       setShowDisableModal(false);
       resetDisableState();
 
-      pushDisableLog(traceId, "handleConfirmDisableTwoFactor:success");
-    } catch (err) {
+      pushDisableLog(traceId, "handleConfirmDisableTwoFactor:success_end");
+    } catch (err: any) {
       console.error("Erro inesperado ao desativar 2FA:", err);
-      pushDisableLog(traceId, "handleConfirmDisableTwoFactor:catch", { error: serializeUnknownError(err) });
+      pushDisableLog(traceId, "handleConfirmDisableTwoFactor:catch", { err: serializeUnknownError(err) });
       setDisableError("Erro inesperado ao desativar o 2FA. Tente novamente.");
     } finally {
-      setDisableVerifying(false);
       pushDisableLog(traceId, "handleConfirmDisableTwoFactor:finally");
+      setDisableVerifying(false);
     }
   };
 
