@@ -5,7 +5,7 @@ import { Sparkles, User, DollarSign, Check, ChevronLeft, ChevronRight } from "lu
 import { CardsIcon } from "./icons/CardsIcon";
 import { Modal } from "./Modal";
 import { HelloBar } from "./HelloBar";
-import { Link, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client"; // caminho da sua pasta supabase
 import { toast } from "@/hooks/use-toast"; // caminho do hook de toast (pode ser diferente, veja abaixo)
 
@@ -64,6 +64,33 @@ export function HomeDeslogada() {
   const [birthDateError, setBirthDateError] = useState("");
   const [cpfError, setCpfError] = useState("");
   const [phoneError, setPhoneError] = useState("");
+
+  // Se o usuário já estiver logado e cair na Landing (/), redireciona para /dashboard
+  useEffect(() => {
+    let isMounted = true;
+
+    const checkSessionAndRedirect = async () => {
+      const { data, error } = await supabase.auth.getSession();
+      if (!isMounted) return;
+
+      if (!error && data?.session) {
+        navigate("/dashboard", { replace: true });
+      }
+    };
+
+    checkSessionAndRedirect();
+
+    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (session) {
+        navigate("/dashboard", { replace: true });
+      }
+    });
+
+    return () => {
+      isMounted = false;
+      listener?.subscription?.unsubscribe();
+    };
+  }, [navigate]);
 
   // Scroll to initial positions in carousels
   useEffect(() => {
@@ -162,18 +189,6 @@ export function HomeDeslogada() {
         (cards[index] as HTMLElement).scrollIntoView({ inline: "center", block: "nearest", behavior: "smooth" });
       }
     }
-  };
-
-  const simulateLoginError = (toastTitle?: string, toastDescription?: string) => {
-    setLoginError(true);
-    setShakeModal(true);
-    setTimeout(() => setShakeModal(false), 600);
-
-    toast({
-      title: toastTitle ?? "Não foi possível entrar",
-      description: toastDescription ?? "Verifique seus dados e tente novamente.",
-      variant: "destructive",
-    });
   };
 
   const handleLogin = async () => {
@@ -1064,29 +1079,6 @@ export function HomeDeslogada() {
                 Como funciona
               </Button>
             </div>
-
-            {/* DEV ONLY - Remover em produção */}
-            <Button
-              size="sm"
-              variant="outline"
-              className="border-oracle-ember text-oracle-ember hover:bg-oracle-ember/10"
-              asChild
-            >
-              <Link to="/dashboard">🔧 Ver Home Logada (DEV)</Link>
-            </Button>
-
-            {/* DEV ONLY - Testar erro de login */}
-            <Button
-              size="sm"
-              variant="outline"
-              className="border-solar-warning text-solar-warning hover:bg-solar-warning/10"
-              onClick={() => {
-                setShowLoginModal(true);
-                setTimeout(() => simulateLoginError(), 100);
-              }}
-            >
-              🧪 Testar Erro de Login (DEV)
-            </Button>
           </div>
         </div>
       </section>
@@ -1481,7 +1473,7 @@ export function HomeDeslogada() {
                           }`}
                           onClick={() => setShowLoginModal(true)}
                         >
-                          Selecionar plano
+                          Cadastre-se já!
                         </Button>
                       </div>
                     </div>
