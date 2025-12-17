@@ -21,23 +21,17 @@ export function ProtectedRoute({ children, requireAdmin = false }: ProtectedRout
   const inFlightStartedAtRef = useRef<number>(0);
 
   const getSessionWithTimeout = async (timeoutMs: number) => {
-    // supabase.auth.getSession() às vezes fica pendurado; isso coloca um timeout real
-    const timeout = new Promise<never>((_, reject) => {
-      const id = window.setTimeout(() => reject(new Error("GET_SESSION_TIMEOUT")), timeoutMs);
-      // @ts-expect-error - só pra referência interna
-      (timeout as any).__id = id;
+    let timerId: number | null = null;
+
+    const timeoutPromise = new Promise<never>((_, reject) => {
+      timerId = window.setTimeout(() => reject(new Error("GET_SESSION_TIMEOUT")), timeoutMs);
     });
 
     try {
-      const res = (await Promise.race([supabase.auth.getSession(), timeout])) as any;
+      const res = (await Promise.race([supabase.auth.getSession(), timeoutPromise])) as any;
       return res as { data: any; error: any };
     } finally {
-      // limpa timer se existir
-      try {
-        // @ts-expect-error - só pra referência interna
-        const id = (timeout as any).__id;
-        if (id) clearTimeout(id);
-      } catch {}
+      if (timerId !== null) window.clearTimeout(timerId);
     }
   };
 
