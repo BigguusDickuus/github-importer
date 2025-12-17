@@ -2,13 +2,17 @@
 import { createClient } from "@supabase/supabase-js";
 import type { Database } from "./types";
 
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
-const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string;
+
+// No seu projeto a key válida é VITE_SUPABASE_PUBLISHABLE_KEY.
+// Mantemos fallback para VITE_SUPABASE_ANON_KEY só pra não quebrar caso exista em algum env.
+const SUPABASE_KEY = (import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY ||
+  import.meta.env.VITE_SUPABASE_ANON_KEY) as string;
 
 // Import the supabase client like this:
 // import { supabase } from "@/integrations/supabase/client";
 
-export let supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
+export let supabase = createClient<Database>(SUPABASE_URL, SUPABASE_KEY, {
   auth: {
     storage: localStorage,
     persistSession: true,
@@ -17,21 +21,23 @@ export let supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_
 });
 
 export function resetSupabaseClient() {
-  // IMPORTANTE: reaproveite EXATAMENTE os mesmos parâmetros/opções que você usa no createClient acima.
-  // Exemplo:
-  // supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, { auth: {...} });
+  // Recria com os MESMOS parâmetros/opções do client inicial.
+  // Isso evita corromper auth (getSession travando) após reset.
+  if (!SUPABASE_URL || !SUPABASE_KEY) {
+    console.error("resetSupabaseClient: env inválido", {
+      hasUrl: !!SUPABASE_URL,
+      hasKey: !!SUPABASE_KEY,
+    });
+    return supabase;
+  }
 
-  supabase = createClient(
-    import.meta.env.VITE_SUPABASE_URL as string,
-    import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string,
-    {
-      auth: {
-        persistSession: true,
-        autoRefreshToken: true,
-        detectSessionInUrl: true,
-      },
+  supabase = createClient<Database>(SUPABASE_URL, SUPABASE_KEY, {
+    auth: {
+      storage: localStorage,
+      persistSession: true,
+      autoRefreshToken: true,
     },
-  );
+  });
 
   return supabase;
 }
