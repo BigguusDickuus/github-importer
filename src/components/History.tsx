@@ -6,7 +6,6 @@ import { ReadingResultModal } from "./ReadingResultModal";
 import { Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import type { OracleType } from "@/types/oracles";
-import { HelloBar } from "./HelloBar";
 
 type FilterKey = "all" | OracleType;
 
@@ -38,12 +37,6 @@ type ReadingRow = {
   is_deleted?: boolean | null;
 };
 
-type CreateCheckoutSessionResponse = {
-  ok: boolean;
-  checkout_url: string;
-  session_id: string;
-};
-
 const supabaseClient = supabase as any;
 
 export function History() {
@@ -58,36 +51,6 @@ export function History() {
   const [loading, setLoading] = useState<boolean>(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [deleteLoading, setDeleteLoading] = useState<boolean>(false);
-
-  // Controle de loading do botão de plano (Stripe)
-  const [checkoutLoadingSlug, setCheckoutLoadingSlug] = useState<string | null>(null);
-
-  // HelloBar (mensagem pós-Stripe)
-  const [helloBarMessage, setHelloBarMessage] = useState("");
-  const [helloBarType, setHelloBarType] = useState<"success" | "warning" | "error">("success");
-  const [helloBarShow, setHelloBarShow] = useState(false);
-
-  // Lê ?payment_status=success|error do retorno do Stripe e mostra HelloBar
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const status = params.get("payment_status");
-    if (!status) return;
-
-    if (status === "success") {
-      setHelloBarType("success");
-      setHelloBarMessage("Pacote adquirido com sucesso!");
-      setHelloBarShow(true);
-    } else if (status === "error") {
-      setHelloBarType("error");
-      setHelloBarMessage("Erro no pagamento, tente novamente.");
-      setHelloBarShow(true);
-    }
-
-    // Remove o parâmetro da URL
-    const url = new URL(window.location.href);
-    url.searchParams.delete("payment_status");
-    window.history.replaceState({}, "", url.toString());
-  }, []);
 
   useEffect(() => {
     const fetchReadings = async () => {
@@ -216,47 +179,6 @@ export function History() {
     setCurrentPage(1);
   };
 
-  const handlePlanCheckout = async (packageSlug: "credits_10" | "credits_25" | "credits_60") => {
-    try {
-      setCheckoutLoadingSlug(packageSlug);
-
-      const baseUrl = window.location.origin;
-      const currentPath = window.location.pathname;
-
-      const { data, error } = await supabase.functions.invoke<CreateCheckoutSessionResponse>(
-        "create-checkout-session",
-        {
-          body: {
-            package_slug: packageSlug,
-            success_url: `${baseUrl}${currentPath}?payment_status=success`,
-            cancel_url: `${baseUrl}${currentPath}?payment_status=error`,
-          },
-        },
-      );
-
-      if (error) {
-        console.error("Erro ao chamar create-checkout-session:", error);
-        alert("Não foi possível iniciar o pagamento. Tente novamente em alguns instantes.");
-        setCheckoutLoadingSlug(null);
-        return;
-      }
-
-      if (!data?.ok || !data.checkout_url) {
-        console.error("Resposta inesperada de create-checkout-session:", data);
-        alert("Ocorreu um problema ao iniciar o pagamento. Tente novamente.");
-        setCheckoutLoadingSlug(null);
-        return;
-      }
-
-      // Redireciona para o Checkout da Stripe
-      window.location.href = data.checkout_url;
-    } catch (err) {
-      console.error("Erro inesperado ao iniciar o checkout:", err);
-      alert("Ocorreu um erro inesperado ao iniciar o pagamento. Tente novamente.");
-      setCheckoutLoadingSlug(null);
-    }
-  };
-
   const handleDeleteConfirm = async () => {
     if (!deleteReading) return;
 
@@ -301,13 +223,6 @@ export function History() {
       </div>
 
       <Header isLoggedIn={true} onBuyCredits={() => setShowPaymentModal(true)} />
-
-      <HelloBar
-        message={helloBarMessage}
-        type={helloBarType}
-        show={helloBarShow}
-        onClose={() => setHelloBarShow(false)}
-      />
 
       {/* Main Content */}
       <main className="relative z-10" style={{ marginTop: "calc(80px + 48px)" }}>
@@ -842,16 +757,13 @@ export function History() {
         </div>
       </footer>
 
-      {/* Payment Modal - igual HomeLogada */}
+      {/* Payment Modal (placeholder) */}
       {showPaymentModal && (
         <>
-          {/* Backdrop com blur */}
           <div
             className="fixed inset-0 z-50 bg-night-sky/80 backdrop-blur-md"
             onClick={() => setShowPaymentModal(false)}
           />
-
-          {/* Modal */}
           <div
             className="fixed inset-0 z-50 flex items-center justify-center pointer-events-none"
             style={{ padding: "16px" }}
@@ -880,144 +792,15 @@ export function History() {
               </button>
 
               <div
-                className="bg-midnight-surface border border-obsidian-border rounded-3xl shadow-2xl w-full max-w-3xl max-h-[80vh] overflow-y-auto"
+                className="bg-midnight-surface border border-obsidian-border rounded-3xl shadow-2xl w-full max-w-2xl max-h-[80vh] overflow-y-auto"
                 style={{ padding: "32px" }}
                 onClick={(e) => e.stopPropagation()}
               >
-                <div className="mb-6">
-                  <h2 className="text-2xl md:text-3xl text-starlight-text text-center">Comprar Créditos</h2>
+                <div style={{ marginBottom: "24px" }}>
+                  <h2 className="text-starlight-text">Comprar Créditos</h2>
                 </div>
-
-                <p className="text-lg text-moonlight-text text-center" style={{ marginBottom: "32px" }}>
-                  Escolha o plano ideal para você:
-                </p>
-
-                {/* Plans Grid */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  {/* Plano Iniciante */}
-                  <div
-                    className="plan-card-mobile bg-night-sky/50 border border-obsidian-border rounded-2xl flex flex-col items-center text-center"
-                    style={{ padding: "24px" }}
-                  >
-                    <style>{`
-                      @media (max-width: 767px) {
-                        .plan-card-mobile {
-                          padding: 16px !important;
-                        }
-                        .plan-card-mobile .plan-title {
-                          font-size: 1.125rem !important;
-                          margin-bottom: 6px !important;
-                        }
-                        .plan-card-mobile .plan-credits-number {
-                          font-size: 2rem !important;
-                        }
-                        .plan-card-mobile .plan-credits-text {
-                          font-size: 0.875rem !important;
-                        }
-                        .plan-card-mobile .plan-credits-wrapper {
-                          margin-bottom: 6px !important;
-                        }
-                        .plan-card-mobile .plan-price {
-                          font-size: 1.5rem !important;
-                        }
-                        .plan-card-mobile .plan-price-per {
-                          font-size: 0.75rem !important;
-                          margin-top: 2px !important;
-                        }
-                        .plan-card-mobile .plan-price-wrapper {
-                          margin-bottom: 10px !important;
-                        }
-                        .plan-card-mobile .plan-button {
-                          height: 40px !important;
-                          font-size: 0.875rem !important;
-                        }
-                        .plan-card-mobile .plan-badge {
-                          font-size: 0.625rem !important;
-                          padding: 2px 10px !important;
-                        }
-                      }
-                    `}</style>
-                    <h3 className="plan-title text-xl text-starlight-text" style={{ marginBottom: "8px" }}>
-                      Iniciante
-                    </h3>
-                    <div className="plan-credits-wrapper" style={{ marginBottom: "8px" }}>
-                      <div className="plan-credits-number text-3xl text-starlight-text">10</div>
-                      <div className="plan-credits-text text-moonlight-text/70">créditos</div>
-                    </div>
-                    <div className="plan-price-wrapper" style={{ marginBottom: "12px" }}>
-                      <div className="plan-price text-2xl text-mystic-indigo">R$ 25,00</div>
-                      <div className="plan-price-per text-sm text-moonlight-text/70" style={{ marginTop: "2px" }}>
-                        R$ 2,50/cada
-                      </div>
-                    </div>
-                    <button
-                      className="plan-button w-full bg-mystic-indigo hover:bg-mystic-indigo-dark text-starlight-text mt-auto h-11 rounded-full text-sm font-medium transition-colors"
-                      onClick={() => handlePlanCheckout("credits_10")}
-                      disabled={checkoutLoadingSlug !== null}
-                    >
-                      {checkoutLoadingSlug === "credits_10" ? "Redirecionando..." : "Escolher"}
-                    </button>
-                  </div>
-
-                  {/* Plano Explorador */}
-                  <div
-                    className="plan-card-mobile bg-night-sky/50 border-2 border-mystic-indigo rounded-2xl flex flex-col items-center text-center relative"
-                    style={{ padding: "24px" }}
-                  >
-                    <div
-                      className="plan-badge absolute -top-3 left-1/2 -translate-x-1/2 bg-mystic-indigo text-starlight-text text-xs rounded-full"
-                      style={{ paddingLeft: "12px", paddingRight: "12px", paddingTop: "4px", paddingBottom: "4px" }}
-                    >
-                      POPULAR
-                    </div>
-                    <h3 className="plan-title text-xl text-starlight-text" style={{ marginBottom: "8px" }}>
-                      Explorador
-                    </h3>
-                    <div className="plan-credits-wrapper" style={{ marginBottom: "8px" }}>
-                      <div className="plan-credits-number text-3xl text-starlight-text">25</div>
-                      <div className="plan-credits-text text-moonlight-text/70">créditos</div>
-                    </div>
-                    <div className="plan-price-wrapper" style={{ marginBottom: "12px" }}>
-                      <div className="plan-price text-2xl text-mystic-indigo">R$ 50,00</div>
-                      <div className="plan-price-per text-sm text-moonlight-text/70" style={{ marginTop: "2px" }}>
-                        R$ 2,00/cada
-                      </div>
-                    </div>
-                    <button
-                      className="plan-button w-full bg-mystic-indigo hover:bg-mystic-indigo-dark text-starlight-text mt-auto h-11 rounded-full text-sm font-medium transition-colors"
-                      onClick={() => handlePlanCheckout("credits_25")}
-                      disabled={checkoutLoadingSlug !== null}
-                    >
-                      {checkoutLoadingSlug === "credits_25" ? "Redirecionando..." : "Escolher"}
-                    </button>
-                  </div>
-
-                  {/* Plano Místico */}
-                  <div
-                    className="plan-card-mobile bg-night-sky/50 border border-obsidian-border rounded-2xl flex flex-col items-center text-center"
-                    style={{ padding: "24px" }}
-                  >
-                    <h3 className="plan-title text-xl text-starlight-text" style={{ marginBottom: "8px" }}>
-                      Místico
-                    </h3>
-                    <div className="plan-credits-wrapper" style={{ marginBottom: "8px" }}>
-                      <div className="plan-credits-number text-3xl text-starlight-text">60</div>
-                      <div className="plan-credits-text text-moonlight-text/70">créditos</div>
-                    </div>
-                    <div className="plan-price-wrapper" style={{ marginBottom: "12px" }}>
-                      <div className="plan-price text-2xl text-mystic-indigo">R$ 100,00</div>
-                      <div className="plan-price-per text-sm text-moonlight-text/70" style={{ marginTop: "2px" }}>
-                        R$ 1,67/cada
-                      </div>
-                    </div>
-                    <button
-                      className="plan-button w-full bg-mystic-indigo hover:bg-mystic-indigo-dark text-starlight-text mt-auto h-11 rounded-full text-sm font-medium transition-colors"
-                      onClick={() => handlePlanCheckout("credits_60")}
-                      disabled={checkoutLoadingSlug !== null}
-                    >
-                      {checkoutLoadingSlug === "credits_60" ? "Redirecionando..." : "Escolher"}
-                    </button>
-                  </div>
+                <div className="flex items-center justify-center" style={{ padding: "64px 0" }}>
+                  <p className="text-lg text-moonlight-text">Gateway de pagamento será integrado aqui</p>
                 </div>
               </div>
             </div>

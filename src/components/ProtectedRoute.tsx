@@ -4,7 +4,6 @@ import { supabase } from "@/integrations/supabase/client";
 
 interface ProtectedRouteProps {
   children: ReactNode;
-  requireAdmin?: boolean;
 }
 
 /**
@@ -12,9 +11,8 @@ interface ProtectedRouteProps {
  * - Enquanto checa a sessão, mostra tela de "Carregando..."
  * - Se não tiver sessão, redireciona pra "/"
  * - Se tiver sessão, renderiza o children normalmente
- * - Se requireAdmin=true, exige profiles.is_admin=true (senão manda pra /dashboard)
  */
-export function ProtectedRoute({ children, requireAdmin = false }: ProtectedRouteProps) {
+export function ProtectedRoute({ children }: ProtectedRouteProps) {
   const [checking, setChecking] = useState(true);
   const [allowed, setAllowed] = useState(false);
 
@@ -34,7 +32,10 @@ export function ProtectedRoute({ children, requireAdmin = false }: ProtectedRout
           console.error("Erro ao checar sessão:", error);
           setAllowed(false);
           setChecking(false);
-          navigate("/", { replace: true, state: { from: location } });
+          navigate("/", {
+            replace: true,
+            state: { from: location },
+          });
           return;
         }
 
@@ -42,40 +43,14 @@ export function ProtectedRoute({ children, requireAdmin = false }: ProtectedRout
           // Não tem sessão → manda pra landing
           setAllowed(false);
           setChecking(false);
-          navigate("/", { replace: true, state: { from: location } });
+          navigate("/", {
+            replace: true,
+            state: { from: location },
+          });
           return;
         }
 
-        // Tem sessão. Se rota exigir admin, valida is_admin
-        if (requireAdmin) {
-          const userId = data.session.user.id;
-
-          const { data: profile, error: profileError } = await supabase
-            .from("profiles")
-            .select("is_admin")
-            .eq("id", userId)
-            .maybeSingle();
-
-          if (!isMounted) return;
-
-          if (profileError) {
-            console.error("Erro ao checar is_admin:", profileError);
-            setAllowed(false);
-            setChecking(false);
-            navigate("/dashboard", { replace: true, state: { from: location } });
-            return;
-          }
-
-          if (!profile?.is_admin) {
-            // Logado, mas não-admin → volta pro dashboard
-            setAllowed(false);
-            setChecking(false);
-            navigate("/dashboard", { replace: true, state: { from: location } });
-            return;
-          }
-        }
-
-        // Permite acesso
+        // Tem sessão → permite acesso
         setAllowed(true);
         setChecking(false);
       } catch (err) {
@@ -83,7 +58,10 @@ export function ProtectedRoute({ children, requireAdmin = false }: ProtectedRout
         if (!isMounted) return;
         setAllowed(false);
         setChecking(false);
-        navigate("/", { replace: true, state: { from: location } });
+        navigate("/", {
+          replace: true,
+          state: { from: location },
+        });
       }
     };
 
@@ -92,7 +70,7 @@ export function ProtectedRoute({ children, requireAdmin = false }: ProtectedRout
     return () => {
       isMounted = false;
     };
-  }, [navigate, location, requireAdmin]);
+  }, [navigate, location]);
 
   if (checking) {
     return (

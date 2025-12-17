@@ -7,31 +7,10 @@ import { Switch } from "./ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs";
 import { User, Shield, CreditCard, Check, Sparkles, Settings } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import { HelloBar } from "./HelloBar";
-
-type CreateCheckoutSessionResponse = {
-  ok: boolean;
-  checkout_url: string;
-  session_id: string;
-};
 
 export function Profile() {
   const [twoFactorEnabled, setTwoFactorEnabled] = useState(false);
-
-  // ===== Créditos (para forçar refresh do Header igual HomeLogada) =====
-  const [credits, setCredits] = useState<number | null>(null);
-
-  // ===== Modal de compra (mesmo padrão da HomeLogada) =====
-  const [showPaymentModal, setShowPaymentModal] = useState(false);
-  const [checkoutLoadingSlug, setCheckoutLoadingSlug] = useState<"credits_10" | "credits_25" | "credits_60" | null>(
-    null,
-  );
-
-  // ===== HelloBar (retorno do Stripe) =====
-  const [helloBarShow, setHelloBarShow] = useState(false);
-  const [helloBarType, setHelloBarType] = useState<"success" | "warning" | "error">("success");
-  const [helloBarMessage, setHelloBarMessage] = useState("");
-
+  const [showPurchaseModal, setShowPurchaseModal] = useState(false);
   const [keepContext, setKeepContext] = useState(true);
   const [limitAmount, setLimitAmount] = useState("");
   const [limitPeriod, setLimitPeriod] = useState("dia");
@@ -45,39 +24,7 @@ export function Profile() {
   const securityRef = useRef<HTMLDivElement>(null);
   const billingRef = useRef<HTMLDivElement>(null);
 
-  const fetchCredits = async () => {
-    try {
-      const {
-        data: { user },
-        error: userError,
-      } = await supabase.auth.getUser();
-
-      if (userError || !user) {
-        console.error("Erro ao buscar usuário logado:", userError);
-        setCredits(0);
-        return;
-      }
-
-      const { data: balanceData, error: balanceError } = await supabase
-        .from("credit_balances")
-        .select("balance")
-        .eq("user_id", user.id)
-        .maybeSingle();
-
-      if (balanceError) {
-        console.error("Erro ao buscar saldo de créditos:", balanceError);
-        setCredits(0);
-        return;
-      }
-
-      setCredits(balanceData?.balance ?? 0);
-    } catch (err) {
-      console.error("Erro inesperado ao buscar saldo de créditos:", err);
-      setCredits(0);
-    }
-  };
-
-  // Carrega preferências (manter contexto + limite de uso) + saldo ao abrir /profile
+  // Carrega preferências (manter contexto + limite de uso) ao abrir /profile
   useEffect(() => {
     const loadPreferences = async () => {
       try {
@@ -87,7 +34,10 @@ export function Profile() {
         } = await supabase.auth.getUser();
 
         if (userError || !user) {
-          console.error("Erro ao buscar usuário logado:", userError);
+          // Ignora o caso comum de sessão ainda não inicializada para não poluir o console
+          if (!(userError as any)?.message?.includes("Auth session missing")) {
+            console.error("Erro ao buscar usuário logado:", userError);
+          }
           return;
         }
 
@@ -104,8 +54,16 @@ export function Profile() {
         const prefs = data as any;
 
         // Manter contexto
+
         if (typeof prefs.keep_context === "boolean") {
           setKeepContext(prefs.keep_context);
+        }
+
+        // 2FA (flag em profiles.two_factor_enabled)
+        if (typeof prefs.two_factor_enabled === "boolean") {
+          setTwoFactorEnabled(prefs.two_factor_enabled);
+        } else {
+          setTwoFactorEnabled(false);
         }
 
         // Limite de uso
@@ -128,70 +86,7 @@ export function Profile() {
     };
 
     loadPreferences();
-    fetchCredits();
   }, []);
-
-  // Detecta retorno do Stripe (?payment_status=success|error) e mostra HelloBar + refresh créditos
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const status = params.get("payment_status");
-    if (!status) return;
-
-    if (status === "success") {
-      setHelloBarType("success");
-      setHelloBarMessage("Pacote adquirido com sucesso!");
-      setHelloBarShow(true);
-      fetchCredits();
-    } else if (status === "error") {
-      setHelloBarType("error");
-      setHelloBarMessage("Erro no pagamento, tente novamente.");
-      setHelloBarShow(true);
-    }
-
-    const url = new URL(window.location.href);
-    url.searchParams.delete("payment_status");
-    window.history.replaceState({}, "", url.toString());
-  }, []);
-
-  const handlePlanCheckout = async (packageSlug: "credits_10" | "credits_25" | "credits_60") => {
-    try {
-      setCheckoutLoadingSlug(packageSlug);
-
-      const baseUrl = window.location.origin;
-      const currentPath = window.location.pathname;
-
-      const { data, error } = await supabase.functions.invoke<CreateCheckoutSessionResponse>(
-        "create-checkout-session",
-        {
-          body: {
-            package_slug: packageSlug,
-            success_url: `${baseUrl}${currentPath}?payment_status=success`,
-            cancel_url: `${baseUrl}${currentPath}?payment_status=error`,
-          },
-        },
-      );
-
-      if (error) {
-        console.error("Erro ao chamar create-checkout-session:", error);
-        alert("Não foi possível iniciar o pagamento. Tente novamente em alguns instantes.");
-        setCheckoutLoadingSlug(null);
-        return;
-      }
-
-      if (!data?.ok || !data.checkout_url) {
-        console.error("Resposta inesperada de create-checkout-session:", data);
-        alert("Ocorreu um problema ao iniciar o pagamento. Tente novamente.");
-        setCheckoutLoadingSlug(null);
-        return;
-      }
-
-      window.location.href = data.checkout_url;
-    } catch (err) {
-      console.error("Erro inesperado ao iniciar o checkout:", err);
-      alert("Ocorreu um erro inesperado ao iniciar o pagamento. Tente novamente.");
-      setCheckoutLoadingSlug(null);
-    }
-  };
 
   // Atualiza o estado + Supabase quando o toggle "Manter contexto" muda
   const handleToggleKeepContext = (value: boolean) => {
@@ -211,9 +106,11 @@ export function Profile() {
 
         const { error } = await supabase
           .from("profiles")
-          .update({
-            keep_context: value,
-          } as any)
+          .update(
+            {
+              keep_context: value,
+            } as any, // <-- cast pra fugir do tipo que ainda não conhece a coluna
+          )
           .eq("id", user.id);
 
         if (error) {
@@ -228,7 +125,7 @@ export function Profile() {
   // Função para scroll suave
   const scrollToSection = (ref: React.RefObject<HTMLDivElement>) => {
     if (ref.current) {
-      const yOffset = -100;
+      const yOffset = -100; // Offset para compensar o header fixo
       const y = ref.current.getBoundingClientRect().top + window.pageYOffset + yOffset;
       window.scrollTo({ top: y, behavior: "smooth" });
     }
@@ -243,14 +140,7 @@ export function Profile() {
         <div className="absolute top-1/3 left-1/4 w-[400px] h-[400px] bg-mystic-indigo/10 rounded-full blur-[100px]" />
       </div>
 
-      <HelloBar
-        message={helloBarMessage}
-        type={helloBarType}
-        show={helloBarShow}
-        onClose={() => setHelloBarShow(false)}
-      />
-
-      <Header key={credits ?? "no-credits"} isLoggedIn={true} onBuyCredits={() => setShowPaymentModal(true)} />
+      <Header isLoggedIn={true} />
 
       <main
         className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8"
@@ -336,7 +226,7 @@ export function Profile() {
                 <SecuritySection twoFactorEnabled={twoFactorEnabled} setTwoFactorEnabled={setTwoFactorEnabled} />
               </TabsContent>
               <TabsContent value="billing">
-                <BillingSection onPurchaseClick={() => setShowPaymentModal(true)} />
+                <BillingSection onPurchaseClick={() => setShowPurchaseModal(true)} />
               </TabsContent>
             </div>
           </Tabs>
@@ -403,19 +293,19 @@ export function Profile() {
               <SecuritySection twoFactorEnabled={twoFactorEnabled} setTwoFactorEnabled={setTwoFactorEnabled} />
             </div>
             <div ref={billingRef}>
-              <BillingSection onPurchaseClick={() => setShowPaymentModal(true)} />
+              <BillingSection onPurchaseClick={() => setShowPurchaseModal(true)} />
             </div>
           </div>
         </div>
       </main>
 
-      {/* Payment Modal - Backdrop com Blur */}
-      {showPaymentModal && (
+      {/* Payment Modal */}
+      {showPurchaseModal && (
         <>
           {/* Backdrop com blur */}
           <div
             className="fixed inset-0 z-50 bg-night-sky/80 backdrop-blur-md"
-            onClick={() => setShowPaymentModal(false)}
+            onClick={() => setShowPurchaseModal(false)}
           />
 
           {/* Modal */}
@@ -426,7 +316,7 @@ export function Profile() {
             <div className="relative pointer-events-auto">
               {/* Botão X - Fora do modal, canto superior direito */}
               <button
-                onClick={() => setShowPaymentModal(false)}
+                onClick={() => setShowPurchaseModal(false)}
                 className="absolute -top-4 -right-4 w-10 h-10 rounded-full bg-midnight-surface border border-obsidian-border text-moonlight-text hover:text-starlight-text hover:border-mystic-indigo transition-colors flex items-center justify-center z-10"
                 aria-label="Fechar"
               >
@@ -467,43 +357,43 @@ export function Profile() {
                     style={{ padding: "24px" }}
                   >
                     <style>{`
-                @media (max-width: 767px) {
-                  .plan-card-mobile {
-                    padding: 16px !important;
-                  }
-                  .plan-card-mobile .plan-title {
-                    font-size: 1.125rem !important;
-                    margin-bottom: 6px !important;
-                  }
-                  .plan-card-mobile .plan-credits-number {
-                    font-size: 2rem !important;
-                  }
-                  .plan-card-mobile .plan-credits-text {
-                    font-size: 0.875rem !important;
-                  }
-                  .plan-card-mobile .plan-credits-wrapper {
-                    margin-bottom: 6px !important;
-                  }
-                  .plan-card-mobile .plan-price {
-                    font-size: 1.5rem !important;
-                  }
-                  .plan-card-mobile .plan-price-per {
-                    font-size: 0.75rem !important;
-                    margin-top: 2px !important;
-                  }
-                  .plan-card-mobile .plan-price-wrapper {
-                    margin-bottom: 10px !important;
-                  }
-                  .plan-card-mobile .plan-button {
-                    height: 40px !important;
-                    font-size: 0.875rem !important;
-                  }
-                  .plan-card-mobile .plan-badge {
-                    font-size: 0.625rem !important;
-                    padding: 2px 10px !important;
-                  }
-                }
-              `}</style>
+                      @media (max-width: 767px) {
+                        .plan-card-mobile {
+                          padding: 16px !important;
+                        }
+                        .plan-card-mobile .plan-title {
+                          font-size: 1.125rem !important;
+                          margin-bottom: 6px !important;
+                        }
+                        .plan-card-mobile .plan-credits-number {
+                          font-size: 2rem !important;
+                        }
+                        .plan-card-mobile .plan-credits-text {
+                          font-size: 0.875rem !important;
+                        }
+                        .plan-card-mobile .plan-credits-wrapper {
+                          margin-bottom: 6px !important;
+                        }
+                        .plan-card-mobile .plan-price {
+                          font-size: 1.5rem !important;
+                        }
+                        .plan-card-mobile .plan-price-per {
+                          font-size: 0.75rem !important;
+                          margin-top: 2px !important;
+                        }
+                        .plan-card-mobile .plan-price-wrapper {
+                          margin-bottom: 10px !important;
+                        }
+                        .plan-card-mobile .plan-button {
+                          height: 40px !important;
+                          font-size: 0.875rem !important;
+                        }
+                        .plan-card-mobile .plan-badge {
+                          font-size: 0.625rem !important;
+                          padding: 2px 10px !important;
+                        }
+                      }
+                    `}</style>
                     <h3 className="plan-title text-xl text-starlight-text" style={{ marginBottom: "8px" }}>
                       Iniciante
                     </h3>
@@ -519,10 +409,11 @@ export function Profile() {
                     </div>
                     <Button
                       className="plan-button w-full bg-mystic-indigo hover:bg-mystic-indigo-dark text-starlight-text mt-auto"
-                      onClick={() => handlePlanCheckout("credits_10")}
-                      disabled={checkoutLoadingSlug !== null}
+                      onClick={() => {
+                        /* TODO: Abrir gateway de pagamento */
+                      }}
                     >
-                      {checkoutLoadingSlug === "credits_10" ? "Redirecionando..." : "Escolher"}
+                      Escolher
                     </Button>
                   </div>
 
@@ -552,10 +443,11 @@ export function Profile() {
                     </div>
                     <Button
                       className="plan-button w-full bg-mystic-indigo hover:bg-mystic-indigo-dark text-starlight-text mt-auto"
-                      onClick={() => handlePlanCheckout("credits_25")}
-                      disabled={checkoutLoadingSlug !== null}
+                      onClick={() => {
+                        /* TODO: Abrir gateway de pagamento */
+                      }}
                     >
-                      {checkoutLoadingSlug === "credits_25" ? "Redirecionando..." : "Escolher"}
+                      Escolher
                     </Button>
                   </div>
 
@@ -579,10 +471,11 @@ export function Profile() {
                     </div>
                     <Button
                       className="plan-button w-full bg-mystic-indigo hover:bg-mystic-indigo-dark text-starlight-text mt-auto"
-                      onClick={() => handlePlanCheckout("credits_60")}
-                      disabled={checkoutLoadingSlug !== null}
+                      onClick={() => {
+                        /* TODO: Abrir gateway de pagamento */
+                      }}
                     >
-                      {checkoutLoadingSlug === "credits_60" ? "Redirecionando..." : "Escolher"}
+                      Escolher
                     </Button>
                   </div>
                 </div>
