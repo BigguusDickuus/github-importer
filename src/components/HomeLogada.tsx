@@ -6,6 +6,7 @@ import { Sparkles } from "lucide-react";
 import { OracleSelectionModal } from "./OracleSelectionModal";
 import { CardSelectionModal } from "./CardSelectionModal";
 import { ReadingResultModal } from "./ReadingResultModal";
+import { HelloBar } from "./HelloBar";
 import { supabase } from "@/integrations/supabase/client";
 
 type FrontOracleType = "tarot" | "lenormand" | "cartomancia";
@@ -34,6 +35,12 @@ type InitRandomizationResponse = {
   current_balance: number;
   required_credits: number;
   oracles: InitRandomizationOracleResponse[];
+};
+
+type CreateCheckoutSessionResponse = {
+  ok: boolean;
+  checkout_url: string;
+  session_id: string;
 };
 
 const frontToBackendOracleType = (type: FrontOracleType): BackendOracleType =>
@@ -198,9 +205,17 @@ export function HomeLogada() {
   const [showOracleSelectionModal, setShowOracleSelectionModal] = useState(false);
   const [showCardSelectionModal, setShowCardSelectionModal] = useState(false);
 
+  // Plano selecionado em processo de criação de Checkout
+  const [checkoutLoadingSlug, setCheckoutLoadingSlug] = useState<string | null>(null);
+
   // Saldo real de créditos do usuário
   const [credits, setCredits] = useState<number | null>(null);
   const [creditsLoading, setCreditsLoading] = useState(false);
+
+  // HelloBar (mensagens de retorno do pagamento)
+  const [helloBarMessage, setHelloBarMessage] = useState("");
+  const [helloBarType, setHelloBarType] = useState<"success" | "warning" | "error">("success");
+  const [helloBarShow, setHelloBarShow] = useState(false);
 
   // Preferência de contexto do usuário (profiles.keep_context)
   const [keepContext, setKeepContext] = useState<boolean>(false);
@@ -212,57 +227,83 @@ export function HomeLogada() {
   const [readingSpreadLabel, setReadingSpreadLabel] = useState<string>("Consulta personalizada");
   const [readingSelectedCards, setReadingSelectedCards] = useState<number[]>([]);
 
-  useEffect(() => {
-    const fetchCreditsAndPreferences = async () => {
-      try {
-        setCreditsLoading(true);
+  // Função reutilizável: busca saldo de créditos e preferência de contexto
+  const fetchCreditsAndPreferences = async () => {
+    try {
+      setCreditsLoading(true);
 
-        const {
-          data: { user },
-          error: userError,
-        } = await supabase.auth.getUser();
+      const {
+        data: { user },
+        error: userError,
+      } = await supabase.auth.getUser();
 
-        if (userError || !user) {
-          console.error("Erro ao obter usuário logado:", userError);
-          setCredits(0);
-          return;
-        }
-
-        // Saldo de créditos
-        const { data: balanceData, error: balanceError } = await supabase
-          .from("credit_balances")
-          .select("balance")
-          .eq("user_id", user.id)
-          .maybeSingle();
-
-        if (balanceError) {
-          console.error("Erro ao buscar saldo de créditos:", balanceError);
-          setCredits(0);
-        } else {
-          setCredits(balanceData?.balance ?? 0);
-        }
-
-        // Preferência de contexto (keep_context) no profiles
-        const { data: profileData, error: profileError } = await supabase
-          .from("profiles")
-          .select("keep_context")
-          .eq("id", user.id)
-          .maybeSingle();
-
-        if (profileError) {
-          console.error("Erro ao buscar preferências de perfil:", profileError);
-        } else if (profileData) {
-          setKeepContext(!!profileData.keep_context);
-        }
-      } catch (err) {
-        console.error("Erro inesperado ao buscar saldo de créditos e preferências:", err);
+      if (userError || !user) {
+        console.error("Erro ao obter usuário logado:", userError);
         setCredits(0);
-      } finally {
-        setCreditsLoading(false);
+        return;
       }
-    };
 
+      // Saldo de créditos
+      const { data: balanceData, error: balanceError } = await supabase
+        .from("credit_balances")
+        .select("balance")
+        .eq("user_id", user.id)
+        .maybeSingle();
+
+      if (balanceError) {
+        console.error("Erro ao buscar saldo de créditos:", balanceError);
+        setCredits(0);
+      } else {
+        setCredits(balanceData?.balance ?? 0);
+      }
+
+      // Preferência de contexto (keep_context) no profiles
+      const { data: profileData, error: profileError } = await supabase
+        .from("profiles")
+        .select("keep_context")
+        .eq("id", user.id)
+        .maybeSingle();
+
+      if (profileError) {
+        console.error("Erro ao buscar preferências de perfil:", profileError);
+      } else if (profileData) {
+        setKeepContext(!!profileData.keep_context);
+      }
+    } catch (err) {
+      console.error("Erro inesperado ao buscar saldo de créditos e preferências:", err);
+      setCredits(0);
+    } finally {
+      setCreditsLoading(false);
+    }
+  };
+
+  // Busca inicial ao montar a Home
+  useEffect(() => {
     fetchCreditsAndPreferences();
+  }, []);
+
+  // Detecta retorno do Stripe (?payment_status=success|error) e mostra HelloBar
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const status = params.get("payment_status");
+    if (!status) return;
+
+    if (status === "success") {
+      setHelloBarType("success");
+      setHelloBarMessage("Pacote adquirido com sucesso!");
+      setHelloBarShow(true);
+      // Recarrega saldo de créditos após confirmação de pagamento
+      fetchCreditsAndPreferences();
+    } else if (status === "error") {
+      setHelloBarType("error");
+      setHelloBarMessage("Erro no pagamento, tente novamente.");
+      setHelloBarShow(true);
+    }
+
+    // Remove o parâmetro da URL para não repetir a mensagem em futuros refreshes
+    const url = new URL(window.location.href);
+    url.searchParams.delete("payment_status");
+    window.history.replaceState({}, "", url.toString());
   }, []);
 
   // Plans carousel ref and state
@@ -595,6 +636,10 @@ export function HomeLogada() {
           ? responseText
           : "Não foi possível carregar a interpretação desta leitura. Tente novamente em alguns instantes.",
       );
+
+      // Atualiza saldo de créditos e preferências após leitura concluída
+      await fetchCreditsAndPreferences();
+
       setReadingIsLoading(false);
     } catch (err) {
       console.error("Erro inesperado ao confirmar leitura:", err);
@@ -712,13 +757,65 @@ export function HomeLogada() {
     }
   };
 
-  const plans = [
+  const handlePlanCheckout = async (packageSlug: "credits_10" | "credits_25" | "credits_60") => {
+    try {
+      setCheckoutLoadingSlug(packageSlug);
+
+      const baseUrl = window.location.origin;
+      const currentPath = window.location.pathname;
+
+      const { data, error } = await supabase.functions.invoke<CreateCheckoutSessionResponse>(
+        "create-checkout-session",
+        {
+          body: {
+            package_slug: packageSlug,
+            success_url: `${baseUrl}${currentPath}?payment_status=success`,
+            cancel_url: `${baseUrl}${currentPath}?payment_status=error`,
+          },
+        },
+      );
+
+      if (error) {
+        console.error("Erro ao chamar create-checkout-session:", error);
+        alert("Não foi possível iniciar o pagamento. Tente novamente em alguns instantes.");
+        setCheckoutLoadingSlug(null);
+        return;
+      }
+
+      if (!data?.ok || !data.checkout_url) {
+        console.error("Resposta inesperada de create-checkout-session:", data);
+        alert("Ocorreu um problema ao iniciar o pagamento. Tente novamente.");
+        setCheckoutLoadingSlug(null);
+        return;
+      }
+
+      // Redireciona para o Checkout da Stripe
+      window.location.href = data.checkout_url;
+    } catch (err) {
+      console.error("Erro inesperado ao iniciar o checkout:", err);
+      alert("Ocorreu um erro inesperado ao iniciar o pagamento. Tente novamente.");
+      setCheckoutLoadingSlug(null);
+    }
+  };
+
+  const plans: {
+    name: string;
+    credits: number;
+    price: string;
+    pricePerCredit: string;
+    description: string;
+    highlight?: boolean;
+    badge?: string;
+    savings?: string;
+    slug: "credits_10" | "credits_25" | "credits_60";
+  }[] = [
     {
       name: "Iniciante",
       credits: 10,
       price: "R$ 25",
       pricePerCredit: "R$ 2,50 por consulta",
       description: "Perfeito para experimentar",
+      slug: "credits_10",
     },
     {
       name: "Explorador",
@@ -729,6 +826,7 @@ export function HomeLogada() {
       highlight: true,
       badge: "Mais Popular",
       savings: "Economize até 20%",
+      slug: "credits_25",
     },
     {
       name: "Místico",
@@ -737,11 +835,19 @@ export function HomeLogada() {
       pricePerCredit: "R$ 1,66 por consulta",
       description: "Para uso frequente",
       savings: "Economize até 33%",
+      slug: "credits_60",
     },
   ];
 
   return (
     <div className="min-h-screen bg-night-sky text-moonlight-text relative">
+      <HelloBar
+        message={helloBarMessage}
+        type={helloBarType}
+        show={helloBarShow}
+        onClose={() => setHelloBarShow(false)}
+      />
+
       {/* Background Gradients - Fixed */}
       <div className="fixed inset-0 overflow-hidden pointer-events-none">
         <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[800px] bg-mystic-indigo/20 rounded-full blur-[150px]" />
@@ -749,7 +855,7 @@ export function HomeLogada() {
         <div className="absolute top-1/3 left-1/4 w-[400px] h-[400px] bg-mystic-indigo/10 rounded-full blur-[100px]" />
       </div>
 
-      <Header isLoggedIn={true} onBuyCredits={() => setShowPaymentModal(true)} />
+      <Header key={credits ?? "no-credits"} isLoggedIn={true} onBuyCredits={() => setShowPaymentModal(true)} />
 
       {/* Hero Section */}
       <section
@@ -867,7 +973,7 @@ export function HomeLogada() {
                 className="w-full sm:flex-1 border-obsidian-border text-moonlight-text hover:bg-midnight-surface hover:text-starlight-text h-14 md:h-16 text-base md:text-lg px-8"
                 asChild
               >
-                <Link to="/historico">📖 Histórico de leituras</Link>
+                <Link to="/history">📖 Histórico de leituras</Link>
               </Button>
             </div>
           </div>
@@ -1010,9 +1116,10 @@ export function HomeLogada() {
                               ? "bg-mystic-indigo hover:bg-mystic-indigo-dark text-starlight-text"
                               : "bg-midnight-surface border border-obsidian-border text-moonlight-text hover:bg-mystic-indigo/10 hover:border-mystic-indigo/50"
                           }`}
-                          onClick={() => setShowPaymentModal(true)}
+                          onClick={() => handlePlanCheckout(plan.slug)}
+                          disabled={checkoutLoadingSlug !== null}
                         >
-                          Comprar créditos
+                          {checkoutLoadingSlug === plan.slug ? "Redirecionando..." : "Comprar créditos"}
                         </Button>
                       </div>
                     </div>
@@ -1276,11 +1383,10 @@ export function HomeLogada() {
                     </div>
                     <Button
                       className="plan-button w-full bg-mystic-indigo hover:bg-mystic-indigo-dark text-starlight-text mt-auto"
-                      onClick={() => {
-                        /* TODO: Abrir gateway de pagamento */
-                      }}
+                      onClick={() => handlePlanCheckout("credits_10")}
+                      disabled={checkoutLoadingSlug !== null}
                     >
-                      Escolher
+                      {checkoutLoadingSlug === "credits_10" ? "Redirecionando..." : "Escolher"}
                     </Button>
                   </div>
 
@@ -1310,11 +1416,10 @@ export function HomeLogada() {
                     </div>
                     <Button
                       className="plan-button w-full bg-mystic-indigo hover:bg-mystic-indigo-dark text-starlight-text mt-auto"
-                      onClick={() => {
-                        /* TODO: Abrir gateway de pagamento */
-                      }}
+                      onClick={() => handlePlanCheckout("credits_25")}
+                      disabled={checkoutLoadingSlug !== null}
                     >
-                      Escolher
+                      {checkoutLoadingSlug === "credits_25" ? "Redirecionando..." : "Escolher"}
                     </Button>
                   </div>
 
@@ -1338,11 +1443,10 @@ export function HomeLogada() {
                     </div>
                     <Button
                       className="plan-button w-full bg-mystic-indigo hover:bg-mystic-indigo-dark text-starlight-text mt-auto"
-                      onClick={() => {
-                        /* TODO: Abrir gateway de pagamento */
-                      }}
+                      onClick={() => handlePlanCheckout("credits_60")}
+                      disabled={checkoutLoadingSlug !== null}
                     >
-                      Escolher
+                      {checkoutLoadingSlug === "credits_60" ? "Redirecionando..." : "Escolher"}
                     </Button>
                   </div>
                 </div>
@@ -1462,9 +1566,10 @@ export function HomeLogada() {
                     </div>
                     <Button
                       className="plan-button w-full bg-mystic-indigo hover:bg-mystic-indigo-dark text-starlight-text mt-auto"
-                      onClick={handleBuyFromNoCredits}
+                      onClick={() => handlePlanCheckout("credits_10")}
+                      disabled={checkoutLoadingSlug !== null}
                     >
-                      Escolher
+                      {checkoutLoadingSlug === "credits_10" ? "Redirecionando..." : "Escolher"}
                     </Button>
                   </div>
 
@@ -1494,9 +1599,10 @@ export function HomeLogada() {
                     </div>
                     <Button
                       className="plan-button w-full bg-mystic-indigo hover:bg-mystic-indigo-dark text-starlight-text mt-auto"
-                      onClick={handleBuyFromNoCredits}
+                      onClick={() => handlePlanCheckout("credits_25")}
+                      disabled={checkoutLoadingSlug !== null}
                     >
-                      Escolher
+                      {checkoutLoadingSlug === "credits_25" ? "Redirecionando..." : "Escolher"}
                     </Button>
                   </div>
 
@@ -1520,9 +1626,10 @@ export function HomeLogada() {
                     </div>
                     <Button
                       className="plan-button w-full bg-mystic-indigo hover:bg-mystic-indigo-dark text-starlight-text mt-auto"
-                      onClick={handleBuyFromNoCredits}
+                      onClick={() => handlePlanCheckout("credits_60")}
+                      disabled={checkoutLoadingSlug !== null}
                     >
-                      Escolher
+                      {checkoutLoadingSlug === "credits_60" ? "Redirecionando..." : "Escolher"}
                     </Button>
                   </div>
                 </div>
@@ -1563,6 +1670,8 @@ export function HomeLogada() {
         selectedCards={readingSelectedCards}
         response={readingResponse}
         isLoading={readingIsLoading}
+        currentCredits={credits} // <-- state que você já tem na HomeLogada
+        onOpenPurchaseCredits={() => setShowPaymentModal(true)} // <-- já existe no carrossel de planos
       />
 
       {/* Footer */}
@@ -1640,7 +1749,7 @@ export function HomeLogada() {
                   </li>
                   <li>
                     <Link
-                      to="/historico"
+                      to="/history"
                       className="text-sm text-moonlight-text/70 hover:text-mystic-indigo transition-colors"
                     >
                       Histórico de leituras
