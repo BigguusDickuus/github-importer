@@ -1530,7 +1530,7 @@ function SecuritySection({
     setShowDisableModal(false);
   };
 
-  const handleConfirmDisable = async () => {
+  const handleConfirmDisableTwoFactor = async () => {
     setDisableError(null);
     if (!disableFactorId || !disableCode.trim()) {
       setDisableError("Informe o código de 6 dígitos.");
@@ -1539,7 +1539,7 @@ function SecuritySection({
 
     setDisableVerifying(true);
     try {
-      // 1) Valida o código (Upgrade automático para AAL2)
+      // 1) Valida o código (Upgrade de sessão para AAL2)
       const { error: verifyError } = await supabase.auth.mfa.challengeAndVerify({
         factorId: disableFactorId,
         code: disableCode.trim(),
@@ -1551,18 +1551,18 @@ function SecuritySection({
         return;
       }
 
-      // 2) Unenroll - AGORA USANDO A VARIÁVEL CORRETA: disableFactorId
+      // 2) Desativa o fator principal (Agora autorizado pela sessão AAL2)
       const { error: unenrollError } = await supabase.auth.mfa.unenroll({
-        factorId: disableFactorId, // Corrigido de 'factorId' para 'disableFactorId'
+        factorId: disableFactorId,
       } as any);
 
       if (unenrollError) {
         console.error("Erro ao desativar fator TOTP:", unenrollError);
-        setDisableError("Não foi possível desativar o 2FA. Tente novamente.");
+        setDisableError(unenrollError.message || "Não foi possível desativar o 2FA. Tente novamente.");
         return;
       }
 
-      // 3) Limpeza de fatores residuais (Restaurado da versão 3)
+      // 3) Limpa fatores TOTP residuais (Lógica restaurada da versão 3)
       try {
         const { data: factorsData, error: listError } = await supabase.auth.mfa.listFactors();
         if (!listError) {
@@ -1570,7 +1570,11 @@ function SecuritySection({
           const totpFactors = (anyFactors?.totp ?? []) as Array<{ id: string }>;
           for (const factor of totpFactors) {
             if (factor.id !== disableFactorId) {
-              await supabase.auth.mfa.unenroll({ factorId: factor.id } as any);
+              try {
+                await supabase.auth.mfa.unenroll({ factorId: factor.id } as any);
+              } catch (e) {
+                // Falhas individuais aqui não travam o processo principal
+              }
             }
           }
         }
@@ -1578,8 +1582,9 @@ function SecuritySection({
         console.warn("Erro ao limpar fatores residuais:", e);
       }
 
-      // 4) Sincronização final
+      // 4) Atualização de estado e banco de dados
       await supabase.auth.refreshSession();
+
       const {
         data: { user },
       } = await supabase.auth.getUser();
@@ -1596,7 +1601,7 @@ function SecuritySection({
       resetDisableState();
     } catch (err: any) {
       console.error("Erro inesperado ao desativar 2FA:", err);
-      setDisableError("Erro inesperado ao desativar o 2FA. Tente novamente.");
+      setDisableError(err?.message || "Erro inesperado ao desativar o 2FA.");
     } finally {
       setDisableVerifying(false);
     }
