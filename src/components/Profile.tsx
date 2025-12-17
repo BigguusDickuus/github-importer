@@ -1120,6 +1120,7 @@ function SecuritySection({
   const [passwordTotpVerifying, setPasswordTotpVerifying] = useState(false);
 
   // --------- HELPERS GERAIS ---------
+  // --------- HELPERS GERAIS ---------
   const resetTotpSetupState = () => {
     setTotpQrCode(null);
     setTotpSecret(null);
@@ -1142,6 +1143,122 @@ function SecuritySection({
     setPasswordTotpError(null);
     setPasswordTotpVerifying(false);
   };
+
+  // --------- INSTRUMENTAÇÃO: DISABLE 2FA (TRACE PERSISTENTE) ---------
+  const MFA_DISABLE_LOG_KEY = "to_mfa_disable_2fa_logs_v1";
+  const disableTraceRef = useRef<string | null>(null);
+
+  const newDisableTraceId = () => {
+    const rand = Math.random().toString(16).slice(2);
+    return `${Date.now()}_${rand}`;
+  };
+
+  const serializeSupabaseError = (err: any) => {
+    if (!err) return null;
+    return {
+      name: err?.name ?? null,
+      message: err?.message ?? String(err),
+      status: err?.status ?? null,
+      code: err?.code ?? null,
+    };
+  };
+
+  const serializeUnknownError = (err: any) => {
+    if (!err) return null;
+    if (err instanceof Error) {
+      return { name: err.name, message: err.message, stack: err.stack };
+    }
+    try {
+      return JSON.parse(JSON.stringify(err));
+    } catch {
+      return String(err);
+    }
+  };
+
+  const pushDisableLog = (traceId: string, step: string, payload?: any) => {
+    try {
+      const entry = {
+        ts: new Date().toISOString(),
+        traceId,
+        step,
+        href: typeof window !== "undefined" ? window.location.href : null,
+        payload:
+          payload === undefined
+            ? undefined
+            : (() => {
+                try {
+                  return JSON.parse(JSON.stringify(payload));
+                } catch {
+                  return String(payload);
+                }
+              })(),
+      };
+
+      const raw = localStorage.getItem(MFA_DISABLE_LOG_KEY);
+      const arr = (() => {
+        try {
+          const parsed = raw ? JSON.parse(raw) : [];
+          return Array.isArray(parsed) ? parsed : [];
+        } catch {
+          return [];
+        }
+      })();
+
+      arr.push(entry);
+      const capped = arr.length > 800 ? arr.slice(arr.length - 800) : arr;
+      localStorage.setItem(MFA_DISABLE_LOG_KEY, JSON.stringify(capped));
+
+      console.log(`[MFA-DISABLE][${traceId}] ${step}`, entry.payload);
+    } catch (e) {
+      console.warn("Falha ao persistir log de disable 2FA:", e);
+    }
+  };
+
+  useEffect(() => {
+    const onBeforeUnload = () => {
+      const traceId = disableTraceRef.current;
+      if (traceId) pushDisableLog(traceId, "window.beforeunload");
+    };
+
+    const onPageHide = (e: any) => {
+      const traceId = disableTraceRef.current;
+      if (traceId) pushDisableLog(traceId, "window.pagehide", { persisted: !!e?.persisted });
+    };
+
+    const onVisibilityChange = () => {
+      const traceId = disableTraceRef.current;
+      if (traceId) pushDisableLog(traceId, "document.visibilitychange", { visibilityState: document.visibilityState });
+    };
+
+    window.addEventListener("beforeunload", onBeforeUnload);
+    window.addEventListener("pagehide", onPageHide);
+    document.addEventListener("visibilitychange", onVisibilityChange);
+
+    return () => {
+      window.removeEventListener("beforeunload", onBeforeUnload);
+      window.removeEventListener("pagehide", onPageHide);
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+    };
+  }, []);
+
+  useEffect(() => {
+    const { data } = supabase.auth.onAuthStateChange((event, session) => {
+      const traceId = disableTraceRef.current;
+      if (!traceId) return;
+
+      pushDisableLog(traceId, "auth.onAuthStateChange", {
+        event,
+        hasSession: !!session,
+        aal: (session as any)?.aal ?? null,
+        user_id: session?.user?.id ?? null,
+        expires_at: (session as any)?.expires_at ?? null,
+      });
+    });
+
+    return () => {
+      data.subscription.unsubscribe();
+    };
+  }, []);
 
   // Limpa fatores TOTP não verificados (mfa_factors.status = 'unverified')
   const removeUnverifiedTotpFactors = async () => {
