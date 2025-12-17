@@ -1493,6 +1493,11 @@ function SecuritySection({
 
   // --------- FLUXO: DESATIVAR 2FA (REQUIRE CÓDIGO) ---------
   const openDisableTwoFactorModal = async () => {
+    const traceId = newDisableTraceId();
+    disableTraceRef.current = traceId;
+
+    pushDisableLog(traceId, "openDisableTwoFactorModal:enter", { twoFactorEnabled });
+
     setDisableError(null);
     setDisableCode("");
     resetDisableState();
@@ -1500,7 +1505,12 @@ function SecuritySection({
     setTwoFactorSaving(true);
 
     try {
+      pushDisableLog(traceId, "mfa.listFactors:start");
       const { data, error } = await supabase.auth.mfa.listFactors();
+      pushDisableLog(traceId, "mfa.listFactors:done", {
+        error: serializeSupabaseError(error),
+        data_keys: data ? Object.keys(data as any) : null,
+      });
 
       if (error) {
         console.error("Erro ao listar fatores MFA:", error);
@@ -1509,41 +1519,88 @@ function SecuritySection({
       }
 
       const anyData: any = data;
-      const totpFactors = (anyData?.totp ?? []) as Array<{ id: string }>;
+      const totpFactors = (anyData?.totp ?? []) as Array<{ id: string; status?: string }>;
+
+      pushDisableLog(traceId, "mfa.listFactors:totpFactors", {
+        count: totpFactors.length,
+        factors: totpFactors.map((f) => ({ id: f.id, status: (f as any).status })),
+      });
 
       if (!totpFactors.length) {
         setDisableError("Nenhum fator TOTP encontrado para desativar.");
         return;
       }
 
-      setDisableFactorId(totpFactors[0].id);
+      const chosen = totpFactors[0].id;
+      setDisableFactorId(chosen);
+      pushDisableLog(traceId, "disableFactorId:set", { disableFactorId: chosen });
     } catch (err) {
       console.error("Erro inesperado ao preparar desativação de 2FA:", err);
+      pushDisableLog(traceId, "openDisableTwoFactorModal:catch", { err: serializeUnknownError(err) });
       setDisableError("Erro inesperado ao preparar a desativação do 2FA.");
     } finally {
+      pushDisableLog(traceId, "openDisableTwoFactorModal:finally");
       setTwoFactorSaving(false);
     }
   };
 
   const handleCancelDisable = () => {
+    const traceId = disableTraceRef.current ?? newDisableTraceId();
+    disableTraceRef.current = traceId;
+
+    pushDisableLog(traceId, "handleCancelDisable");
     resetDisableState();
     setShowDisableModal(false);
   };
 
   const handleConfirmDisableTwoFactor = async () => {
+    const traceId = disableTraceRef.current ?? newDisableTraceId();
+    disableTraceRef.current = traceId;
+
+    pushDisableLog(traceId, "handleConfirmDisableTwoFactor:enter", {
+      disableFactorId,
+      codeLen: disableCode.trim().length,
+    });
+
     setDisableError(null);
     if (!disableFactorId || !disableCode.trim()) {
+      pushDisableLog(traceId, "validation:failed", {
+        hasFactorId: !!disableFactorId,
+        codeLen: disableCode.trim().length,
+      });
       setDisableError("Informe o código de 6 dígitos.");
       return;
     }
 
     setDisableVerifying(true);
+    pushDisableLog(traceId, "disableVerifying:true");
+
     try {
+      // (A) Session/User snapshot antes do verify
+      pushDisableLog(traceId, "auth.getSession:start");
+      const sessBefore = await supabase.auth.getSession();
+      pushDisableLog(traceId, "auth.getSession:done", {
+        error: serializeSupabaseError(sessBefore.error),
+        hasSession: !!sessBefore.data.session,
+        aal: (sessBefore.data.session as any)?.aal ?? null,
+        user_id: sessBefore.data.session?.user?.id ?? null,
+        expires_at: (sessBefore.data.session as any)?.expires_at ?? null,
+      });
+
+      pushDisableLog(traceId, "auth.getUser:start");
+      const userBefore = await supabase.auth.getUser();
+      pushDisableLog(traceId, "auth.getUser:done", {
+        error: serializeSupabaseError(userBefore.error),
+        user_id: userBefore.data.user?.id ?? null,
+      });
+
       // 1) Valida o código (Upgrade automático para AAL2)
+      pushDisableLog(traceId, "mfa.challengeAndVerify:start", { factorId: disableFactorId });
       const { error: verifyError } = await supabase.auth.mfa.challengeAndVerify({
         factorId: disableFactorId,
         code: disableCode.trim(),
       } as any);
+      pushDisableLog(traceId, "mfa.challengeAndVerify:done", { error: serializeSupabaseError(verifyError) });
 
       if (verifyError) {
         console.error("Erro ao verificar TOTP para desativar:", verifyError);
@@ -1551,10 +1608,26 @@ function SecuritySection({
         return;
       }
 
-      // 2) Unenroll - AGORA USANDO A VARIÁVEL CORRETA: disableFactorId
+      // CHECKPOINT EXPLÍCITO: aqui é onde você disse que “para” na prática
+      pushDisableLog(traceId, "checkpoint:after_verify_before_unenroll");
+
+      // (B) Session snapshot imediatamente após verify (para ver AAL / evento)
+      pushDisableLog(traceId, "auth.getSession:after_verify:start");
+      const sessAfter = await supabase.auth.getSession();
+      pushDisableLog(traceId, "auth.getSession:after_verify:done", {
+        error: serializeSupabaseError(sessAfter.error),
+        hasSession: !!sessAfter.data.session,
+        aal: (sessAfter.data.session as any)?.aal ?? null,
+        user_id: sessAfter.data.session?.user?.id ?? null,
+        expires_at: (sessAfter.data.session as any)?.expires_at ?? null,
+      });
+
+      // 2) Unenroll
+      pushDisableLog(traceId, "mfa.unenroll:start", { factorId: disableFactorId });
       const { error: unenrollError } = await supabase.auth.mfa.unenroll({
-        factorId: disableFactorId, // Corrigido de 'factorId' para 'disableFactorId'
+        factorId: disableFactorId,
       } as any);
+      pushDisableLog(traceId, "mfa.unenroll:done", { error: serializeSupabaseError(unenrollError) });
 
       if (unenrollError) {
         console.error("Erro ao desativar fator TOTP:", unenrollError);
@@ -1562,42 +1635,73 @@ function SecuritySection({
         return;
       }
 
-      // 3) Limpeza de fatores residuais (Restaurado da versão 3)
+      // 3) Limpeza de fatores residuais
       try {
+        pushDisableLog(traceId, "cleanup.listFactors:start");
         const { data: factorsData, error: listError } = await supabase.auth.mfa.listFactors();
+        pushDisableLog(traceId, "cleanup.listFactors:done", {
+          error: serializeSupabaseError(listError),
+          data_keys: factorsData ? Object.keys(factorsData as any) : null,
+        });
+
         if (!listError) {
           const anyFactors: any = factorsData;
-          const totpFactors = (anyFactors?.totp ?? []) as Array<{ id: string }>;
+          const totpFactors = (anyFactors?.totp ?? []) as Array<{ id: string; status?: string }>;
+
+          pushDisableLog(traceId, "cleanup.totpFactors", {
+            count: totpFactors.length,
+            factors: totpFactors.map((f) => ({ id: f.id, status: (f as any).status })),
+          });
+
           for (const factor of totpFactors) {
             if (factor.id !== disableFactorId) {
+              pushDisableLog(traceId, "cleanup.unenroll_residual:start", { factorId: factor.id });
               await supabase.auth.mfa.unenroll({ factorId: factor.id } as any);
+              pushDisableLog(traceId, "cleanup.unenroll_residual:done", { factorId: factor.id });
             }
           }
         }
       } catch (e) {
         console.warn("Erro ao limpar fatores residuais:", e);
+        pushDisableLog(traceId, "cleanup:catch", { err: serializeUnknownError(e) });
       }
 
       // 4) Sincronização final
-      await supabase.auth.refreshSession();
+      pushDisableLog(traceId, "auth.refreshSession:start");
+      const refresh = await supabase.auth.refreshSession();
+      pushDisableLog(traceId, "auth.refreshSession:done", { error: serializeSupabaseError(refresh.error) });
+
+      pushDisableLog(traceId, "auth.getUser:final:start");
       const {
         data: { user },
+        error: userErrFinal,
       } = await supabase.auth.getUser();
+      pushDisableLog(traceId, "auth.getUser:final:done", {
+        error: serializeSupabaseError(userErrFinal),
+        user_id: user?.id ?? null,
+      });
+
       if (user?.id) {
-        await supabase
+        pushDisableLog(traceId, "profiles.update:start", { user_id: user.id, two_factor_enabled: false });
+        const upd = await supabase
           .from("profiles")
           .update({ two_factor_enabled: false } as any)
           .eq("id", user.id);
+        pushDisableLog(traceId, "profiles.update:done", { error: serializeSupabaseError((upd as any)?.error) });
       }
 
       setTwoFactorEnabled(false);
       setSuccessMessage("Autenticação de dois fatores desativada com sucesso.");
       setShowDisableModal(false);
       resetDisableState();
+
+      pushDisableLog(traceId, "handleConfirmDisableTwoFactor:success_end");
     } catch (err: any) {
       console.error("Erro inesperado ao desativar 2FA:", err);
+      pushDisableLog(traceId, "handleConfirmDisableTwoFactor:catch", { err: serializeUnknownError(err) });
       setDisableError("Erro inesperado ao desativar o 2FA. Tente novamente.");
     } finally {
+      pushDisableLog(traceId, "handleConfirmDisableTwoFactor:finally");
       setDisableVerifying(false);
     }
   };
