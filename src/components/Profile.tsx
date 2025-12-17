@@ -8,8 +8,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs";
 import { User, Shield, CreditCard, Check, Sparkles, Settings } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { HelloBar } from "./HelloBar";
-import { Modal } from "./Modal";
-import { Link } from "react-router-dom";
 
 type CreateCheckoutSessionResponse = {
   ok: boolean;
@@ -100,47 +98,25 @@ export function Profile() {
           return;
         }
 
-        const prefs = (data ?? {}) as any;
+        if (!data) return;
+
+        // Cast para fugir das limitações de tipo do Supabase (colunas novas)
+        const prefs = data as any;
 
         // Manter contexto
         if (typeof prefs.keep_context === "boolean") {
-          setKeepContext(!!prefs.keep_context);
+          setKeepContext(prefs.keep_context);
         }
 
-        // Limite de uso (se existir)
+        // Limite de uso
         if (prefs.usage_limit_credits != null && prefs.usage_limit_period) {
           setHasActiveLimit(true);
           setActiveLimitAmount(String(prefs.usage_limit_credits));
-          setActiveLimitPeriod(prefs.usage_limit_period);
+          setActiveLimitPeriod(prefs.usage_limit_period); // "dia" | "semana" | "mês"
         } else {
           setHasActiveLimit(false);
           setActiveLimitAmount("");
           setActiveLimitPeriod("dia");
-        }
-
-        // 2FA (toggle inicial)
-        if (typeof prefs.two_factor_enabled === "boolean") {
-          setTwoFactorEnabled(!!prefs.two_factor_enabled);
-        }
-
-        // Também checa no Auth (fatores) para evitar desync entre profiles e Supabase MFA
-        try {
-          const { data: factorsData } = await supabase.auth.mfa.listFactors();
-          const totpFactors = (factorsData as any)?.totp ?? [];
-          const hasVerifiedTotp = totpFactors.some((f: any) => f.status === "verified");
-          const desired = hasVerifiedTotp || !!prefs.two_factor_enabled;
-
-          setTwoFactorEnabled(desired);
-
-          // Se estiver desincronizado, corrige o flag no profiles
-          if (typeof prefs.two_factor_enabled === "boolean" && prefs.two_factor_enabled !== hasVerifiedTotp) {
-            await supabase
-              .from("profiles")
-              .update({ two_factor_enabled: hasVerifiedTotp } as any)
-              .eq("id", user.id);
-          }
-        } catch (e) {
-          console.warn("Não foi possível checar fatores de 2FA (listFactors):", e);
         }
 
         // Inputs do formulário começam limpos / default
@@ -338,7 +314,7 @@ export function Profile() {
 
             <div className="mt-6">
               <TabsContent value="account">
-                <AccountSection twoFactorEnabled={twoFactorEnabled} />
+                <AccountSection />
               </TabsContent>
               <TabsContent value="preferences">
                 <PreferencesSection
@@ -405,7 +381,7 @@ export function Profile() {
           {/* Content */}
           <div className="col-span-3 space-y-8">
             <div ref={accountRef}>
-              <AccountSection twoFactorEnabled={twoFactorEnabled} />
+              <AccountSection />
             </div>
             <div ref={preferencesRef}>
               <PreferencesSection
@@ -617,29 +593,167 @@ export function Profile() {
       )}
 
       {/* Footer */}
-      <TarotOnlineFooter />
+      <footer className="relative z-10 border-t border-obsidian-border bg-midnight-surface/50 backdrop-blur-sm">
+        <style>{`
+          @media (max-width: 767px) {
+            .footer-container {
+              padding-left: 5% !important;
+              padding-right: 5% !important;
+            }
+          }
+          @media (min-width: 768px) and (max-width: 922px) {
+            .footer-container {
+              padding-left: 5% !important;
+              padding-right: 5% !important;
+            }
+          }
+          @media (min-width: 923px) {
+            .footer-container {
+              padding-left: 64px !important;
+              padding-right: 64px !important;
+            }
+          }
+        `}</style>
+        <div className="footer-container w-full" style={{ paddingTop: "48px", paddingBottom: "48px" }}>
+          <div className="max-w-[1400px] mx-auto">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-12" style={{ marginBottom: "80px" }}>
+              {/* Logo e descrição */}
+              <div>
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-mystic-indigo to-oracle-ember flex items-center justify-center">
+                    <Sparkles className="w-5 h-5 text-starlight-text" />
+                  </div>
+                  <span className="text-xl text-starlight-text">Tarot Online</span>
+                </div>
+                <small className="block text-moonlight-text/70 leading-relaxed">
+                  Consultas de Tarot, Tarot Cigano e Cartomancia Clássica disponíveis 24/7 com interpretações profundas
+                  e personalizadas.
+                </small>
+              </div>
+
+              {/* Links - Serviços */}
+              <div>
+                <h3 className="text-base text-starlight-text mb-4">Serviços</h3>
+                <ul className="space-y-3">
+                  <li>
+                    <button
+                      onClick={() => {
+                        /* TODO: implementar navegação */
+                      }}
+                      className="text-sm text-moonlight-text/70 hover:text-mystic-indigo transition-colors"
+                    >
+                      Tarot
+                    </button>
+                  </li>
+                  <li>
+                    <button
+                      onClick={() => {
+                        /* TODO: implementar navegação */
+                      }}
+                      className="text-sm text-moonlight-text/70 hover:text-mystic-indigo transition-colors"
+                    >
+                      Tarot Cigano
+                    </button>
+                  </li>
+                  <li>
+                    <button
+                      onClick={() => {
+                        /* TODO: implementar navegação */
+                      }}
+                      className="text-sm text-moonlight-text/70 hover:text-mystic-indigo transition-colors"
+                    >
+                      Cartomancia Clássica
+                    </button>
+                  </li>
+                  <li>
+                    <button
+                      onClick={() => {
+                        /* TODO: implementar modal */
+                      }}
+                      className="text-sm text-moonlight-text/70 hover:text-mystic-indigo transition-colors"
+                    >
+                      Como funciona
+                    </button>
+                  </li>
+                </ul>
+              </div>
+
+              {/* Links - Informações */}
+              <div>
+                <h3 className="text-base text-starlight-text mb-4">Informações</h3>
+                <ul className="space-y-3">
+                  <li>
+                    <button
+                      onClick={() => {
+                        /* TODO: implementar página */
+                      }}
+                      className="text-sm text-moonlight-text/70 hover:text-mystic-indigo transition-colors"
+                    >
+                      Sobre nós
+                    </button>
+                  </li>
+                  <li>
+                    <button
+                      onClick={() => {
+                        /* TODO: implementar página */
+                      }}
+                      className="text-sm text-moonlight-text/70 hover:text-mystic-indigo transition-colors"
+                    >
+                      Termos de uso
+                    </button>
+                  </li>
+                  <li>
+                    <button
+                      onClick={() => {
+                        /* TODO: implementar página */
+                      }}
+                      className="text-sm text-moonlight-text/70 hover:text-mystic-indigo transition-colors"
+                    >
+                      Política de privacidade
+                    </button>
+                  </li>
+                  <li>
+                    <button
+                      onClick={() => {
+                        /* TODO: implementar página */
+                      }}
+                      className="text-sm text-moonlight-text/70 hover:text-mystic-indigo transition-colors"
+                    >
+                      Contato
+                    </button>
+                  </li>
+                </ul>
+              </div>
+            </div>
+
+            {/* Copyright */}
+            <div className="pt-8">
+              <small className="block text-center text-moonlight-text/70">
+                © 2024 Tarot Online. Todos os direitos reservados.
+              </small>
+            </div>
+          </div>
+        </div>
+      </footer>
     </div>
   );
 }
 
-function AccountSection({ twoFactorEnabled }: { twoFactorEnabled: boolean }) {
+function AccountSection() {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-
-  const [hasChanges, setHasChanges] = useState(false);
-  const [confirmPassword, setConfirmPassword] = useState("");
-  const [totpCode, setTotpCode] = useState("");
-  const [totpError, setTotpError] = useState<string | null>(null);
-
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
+  const [hasChanges, setHasChanges] = useState(false);
+  const [confirmPassword, setConfirmPassword] = useState("");
+
   useEffect(() => {
-    const loadUserData = async () => {
+    const fetchProfile = async () => {
       try {
         setLoading(true);
         setErrorMessage(null);
@@ -655,53 +769,44 @@ function AccountSection({ twoFactorEnabled }: { twoFactorEnabled: boolean }) {
           return;
         }
 
-        const { data: profile, error: profileError } = await supabase
+        const { data, error } = await supabase
           .from("profiles")
           .select("full_name, email, phone")
           .eq("id", user.id)
           .maybeSingle();
 
-        if (profileError) {
-          console.error("Erro ao buscar dados do perfil:", profileError);
-          setErrorMessage("Não foi possível carregar seus dados.");
+        if (error) {
+          console.error("Erro ao buscar perfil:", error);
+          setErrorMessage("Erro ao carregar seus dados.");
           return;
         }
 
-        setName(profile?.full_name ?? "");
-        setEmail(profile?.email ?? user.email ?? "");
-        setPhone(profile?.phone ?? "");
+        const fullName = data?.full_name ?? "";
+        const emailValue = data?.email ?? user.email ?? "";
+        const phoneValue = data?.phone ?? "";
+
+        setName(fullName);
+        setEmail(emailValue);
+        setPhone(phoneValue);
+        setHasChanges(false);
+        setConfirmPassword("");
       } catch (err) {
-        console.error("Erro inesperado ao carregar dados do usuário:", err);
+        console.error("Erro inesperado ao buscar perfil:", err);
         setErrorMessage("Erro inesperado ao carregar seus dados.");
       } finally {
         setLoading(false);
       }
     };
 
-    loadUserData();
+    fetchProfile();
   }, []);
 
-  useEffect(() => {
-    if (!loading) setHasChanges(true);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [name, phone]);
-
-  const canSave = hasChanges && !!confirmPassword && (!twoFactorEnabled || totpCode.trim().length >= 6) && !loading;
-
   const handleSave = async () => {
+    setSaving(true);
     setErrorMessage(null);
     setSuccessMessage(null);
-    setTotpError(null);
-
-    if (!confirmPassword) {
-      setErrorMessage("Informe sua senha atual para confirmar.");
-      return;
-    }
 
     try {
-      setSaving(true);
-
-      // 1) Buscar usuário
       const {
         data: { user },
         error: userError,
@@ -713,50 +818,21 @@ function AccountSection({ twoFactorEnabled }: { twoFactorEnabled: boolean }) {
         return;
       }
 
-      // 1.1) Reautenticar (senha atual)
+      if (!confirmPassword) {
+        setErrorMessage("Informe sua senha para confirmar as alterações.");
+        return;
+      }
+
+      // 1) Revalidar senha atual
       const { error: reauthError } = await supabase.auth.signInWithPassword({
-        email: user.email ?? email,
+        email: user.email!,
         password: confirmPassword,
       });
 
       if (reauthError) {
-        setErrorMessage("Senha atual incorreta. Tente novamente.");
+        console.error("Erro ao revalidar senha:", reauthError);
+        setErrorMessage("Senha incorreta. Verifique e tente novamente.");
         return;
-      }
-
-      // 1.5) Se o usuário tem 2FA ativo, elevar sessão para AAL2 via TOTP antes de salvar
-      if (twoFactorEnabled) {
-        const { data: factorsData, error: factorsError } = await supabase.auth.mfa.listFactors();
-        if (factorsError) {
-          console.error("Erro ao listar fatores de 2FA (perfil):", factorsError);
-          setTotpError("Não foi possível validar o 2FA. Tente novamente.");
-          return;
-        }
-
-        const totpFactors = (factorsData as any)?.totp ?? [];
-        const verifiedTotp = totpFactors.find((f: any) => f.status === "verified") ?? totpFactors[0];
-
-        if (!verifiedTotp?.id) {
-          setTotpError("2FA está ativo, mas não encontrei um fator TOTP válido para este usuário.");
-          return;
-        }
-
-        const code = totpCode.trim();
-        if (!code || code.length < 6) {
-          setTotpError("Informe o código de 6 dígitos do seu autenticador (2FA).");
-          return;
-        }
-
-        const { error: verifyError } = await supabase.auth.mfa.challengeAndVerify({
-          factorId: verifiedTotp.id,
-          code,
-        } as any);
-
-        if (verifyError) {
-          console.error("Erro ao validar 2FA (perfil):", verifyError);
-          setTotpError("Código 2FA inválido. Verifique e tente novamente.");
-          return;
-        }
       }
 
       // 2) Atualizar dados no profiles
@@ -764,74 +840,94 @@ function AccountSection({ twoFactorEnabled }: { twoFactorEnabled: boolean }) {
         .from("profiles")
         .update({
           full_name: name,
-          phone,
-        } as any)
+          phone: phone,
+        })
         .eq("id", user.id);
 
       if (updateError) {
-        console.error("Erro ao atualizar perfil:", updateError);
-        setErrorMessage("Não foi possível salvar suas alterações.");
+        console.error("Erro ao salvar perfil:", updateError);
+        setErrorMessage("Erro ao salvar seus dados. Tente novamente.");
         return;
       }
 
-      setSuccessMessage("Alterações salvas com sucesso.");
+      setSuccessMessage("Perfil atualizado com sucesso!");
       setHasChanges(false);
       setConfirmPassword("");
-      setTotpCode("");
     } catch (err) {
       console.error("Erro inesperado ao salvar perfil:", err);
-      setErrorMessage("Erro inesperado ao salvar. Tente novamente.");
+      setErrorMessage("Erro inesperado ao salvar seus dados.");
     } finally {
       setSaving(false);
     }
   };
 
+  const onNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setName(e.target.value);
+    setHasChanges(true);
+  };
+
+  const onPhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setPhone(e.target.value);
+    setHasChanges(true);
+  };
+
+  const canSave = hasChanges && !!confirmPassword && !loading;
+
   return (
-    <div className="bg-midnight-surface border border-obsidian-border rounded-2xl p-6">
-      <h2 className="text-lg font-semibold text-starlight-text mb-4">Conta</h2>
+    <div className="bg-midnight-surface border border-obsidian-border rounded-2xl p-6 md:p-8">
+      <h3 className="text-starlight-text mb-6">Dados da Conta</h3>
 
-      {loading ? (
-        <div className="text-moonlight-text">Carregando...</div>
-      ) : (
-        <div className="space-y-4">
-          <div>
-            <Label className="text-moonlight-text">Nome</Label>
-            <Input
-              className="bg-night-sky border-obsidian-border text-starlight-text mt-1"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="Seu nome"
-            />
-          </div>
+      <div className="space-y-6">
+        {loading && <p className="text-sm text-moonlight-text">Carregando seus dados...</p>}
 
-          <div>
-            <Label className="text-moonlight-text">Email</Label>
-            <Input
-              className="bg-night-sky border-obsidian-border text-starlight-text mt-1 opacity-70"
-              value={email}
-              disabled
-            />
-            <p className="text-xs text-moonlight-text mt-1">E-mail é gerenciado pelo login (Auth).</p>
-          </div>
+        {!loading && (
+          <>
+            <div>
+              <Label htmlFor="name" className="text-moonlight-text mb-2 block">
+                Nome completo
+              </Label>
+              <Input
+                id="name"
+                className="bg-night-sky border-obsidian-border text-starlight-text"
+                value={name}
+                onChange={onNameChange}
+                placeholder="Seu nome"
+              />
+            </div>
 
-          <div>
-            <Label className="text-moonlight-text">Telefone</Label>
-            <Input
-              className="bg-night-sky border-obsidian-border text-starlight-text mt-1"
-              value={phone}
-              onChange={(e) => setPhone(e.target.value)}
-              placeholder="(11) 99999-9999"
-            />
-          </div>
+            <div>
+              <Label htmlFor="email" className="text-moonlight-text mb-2 block">
+                E-mail
+              </Label>
+              <Input
+                id="email"
+                type="email"
+                className="bg-night-sky border-obsidian-border text-starlight-text opacity-70 cursor-not-allowed"
+                value={email}
+                disabled
+              />
+            </div>
 
-          {hasChanges && (
-            <>
-              <div className="pt-2">
-                <Label htmlFor="confirmPassword-profile" className="text-moonlight-text mb-2 block">
-                  Confirmar senha atual
+            <div>
+              <Label htmlFor="phone" className="text-moonlight-text mb-2 block">
+                Telefone
+              </Label>
+              <Input
+                id="phone"
+                className="bg-night-sky border-obsidian-border text-starlight-text"
+                value={phone}
+                onChange={onPhoneChange}
+                placeholder="+55 11 99999-9999"
+              />
+            </div>
+
+            {hasChanges && (
+              <div>
+                <Label htmlFor="confirm-password-profile" className="text-moonlight-text mb-2 block">
+                  Senha para confirmar as alterações
                 </Label>
                 <Input
-                  id="confirmPassword-profile"
+                  id="confirm-password-profile"
                   type="password"
                   className="bg-night-sky border-obsidian-border text-starlight-text"
                   value={confirmPassword}
@@ -841,46 +937,25 @@ function AccountSection({ twoFactorEnabled }: { twoFactorEnabled: boolean }) {
                 <p className="text-xs text-moonlight-text mt-1">
                   Por segurança, é necessário confirmar sua senha ao alterar dados da conta.
                 </p>
-
-                {twoFactorEnabled && (
-                  <div className="mt-4">
-                    <Label htmlFor="profile-2fa-code" className="text-moonlight-text mb-2 block">
-                      Código 2FA (Autenticador)
-                    </Label>
-                    <Input
-                      id="profile-2fa-code"
-                      inputMode="numeric"
-                      autoComplete="one-time-code"
-                      className="bg-night-sky border-obsidian-border text-starlight-text"
-                      value={totpCode}
-                      onChange={(e) => setTotpCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
-                      placeholder="6 dígitos"
-                    />
-                    <p className="text-xs text-moonlight-text mt-1">
-                      Você tem 2FA ativo. Confirme o código para salvar alterações.
-                    </p>
-                    {totpError && <p className="text-xs text-blood-moon-error mt-2">{totpError}</p>}
-                  </div>
-                )}
               </div>
+            )}
 
-              {errorMessage && <p className="text-sm text-blood-moon-error">{errorMessage}</p>}
-              {successMessage && <p className="text-sm text-emerald-400">{successMessage}</p>}
+            {errorMessage && <p className="text-sm text-blood-moon-error">{errorMessage}</p>}
+            {successMessage && <p className="text-sm text-verdant-success">{successMessage}</p>}
 
-              <div className="pt-2 flex justify-end">
-                <Button
-                  className="bg-aurora-accent hover:bg-aurora-accent/90 text-midnight-surface font-semibold"
-                  style={{ paddingLeft: "32px", paddingRight: "32px" }}
-                  onClick={handleSave}
-                  disabled={!canSave || saving}
-                >
-                  {saving ? "Salvando..." : "Salvar alterações"}
-                </Button>
-              </div>
-            </>
-          )}
-        </div>
-      )}
+            <div className="pt-4">
+              <Button
+                className="w-full md:w-auto bg-mystic-indigo hover:bg-mystic-indigo-dark text-starlight-text"
+                style={{ paddingLeft: "32px", paddingRight: "32px" }}
+                onClick={handleSave}
+                disabled={!canSave || saving}
+              >
+                {saving ? "Salvando..." : "Salvar alterações"}
+              </Button>
+            </div>
+          </>
+        )}
+      </div>
     </div>
   );
 }
@@ -1120,7 +1195,6 @@ function SecuritySection({
   const [passwordTotpVerifying, setPasswordTotpVerifying] = useState(false);
 
   // --------- HELPERS GERAIS ---------
-  // --------- HELPERS GERAIS ---------
   const resetTotpSetupState = () => {
     setTotpQrCode(null);
     setTotpSecret(null);
@@ -1143,122 +1217,6 @@ function SecuritySection({
     setPasswordTotpError(null);
     setPasswordTotpVerifying(false);
   };
-
-  // --------- INSTRUMENTAÇÃO: DISABLE 2FA (TRACE PERSISTENTE) ---------
-  const MFA_DISABLE_LOG_KEY = "to_mfa_disable_2fa_logs_v1";
-  const disableTraceRef = useRef<string | null>(null);
-
-  const newDisableTraceId = () => {
-    const rand = Math.random().toString(16).slice(2);
-    return `${Date.now()}_${rand}`;
-  };
-
-  const serializeSupabaseError = (err: any) => {
-    if (!err) return null;
-    return {
-      name: err?.name ?? null,
-      message: err?.message ?? String(err),
-      status: err?.status ?? null,
-      code: err?.code ?? null,
-    };
-  };
-
-  const serializeUnknownError = (err: any) => {
-    if (!err) return null;
-    if (err instanceof Error) {
-      return { name: err.name, message: err.message, stack: err.stack };
-    }
-    try {
-      return JSON.parse(JSON.stringify(err));
-    } catch {
-      return String(err);
-    }
-  };
-
-  const pushDisableLog = (traceId: string, step: string, payload?: any) => {
-    try {
-      const entry = {
-        ts: new Date().toISOString(),
-        traceId,
-        step,
-        href: typeof window !== "undefined" ? window.location.href : null,
-        payload:
-          payload === undefined
-            ? undefined
-            : (() => {
-                try {
-                  return JSON.parse(JSON.stringify(payload));
-                } catch {
-                  return String(payload);
-                }
-              })(),
-      };
-
-      const raw = localStorage.getItem(MFA_DISABLE_LOG_KEY);
-      const arr = (() => {
-        try {
-          const parsed = raw ? JSON.parse(raw) : [];
-          return Array.isArray(parsed) ? parsed : [];
-        } catch {
-          return [];
-        }
-      })();
-
-      arr.push(entry);
-      const capped = arr.length > 800 ? arr.slice(arr.length - 800) : arr;
-      localStorage.setItem(MFA_DISABLE_LOG_KEY, JSON.stringify(capped));
-
-      console.log(`[MFA-DISABLE][${traceId}] ${step}`, entry.payload);
-    } catch (e) {
-      console.warn("Falha ao persistir log de disable 2FA:", e);
-    }
-  };
-
-  useEffect(() => {
-    const onBeforeUnload = () => {
-      const traceId = disableTraceRef.current;
-      if (traceId) pushDisableLog(traceId, "window.beforeunload");
-    };
-
-    const onPageHide = (e: any) => {
-      const traceId = disableTraceRef.current;
-      if (traceId) pushDisableLog(traceId, "window.pagehide", { persisted: !!e?.persisted });
-    };
-
-    const onVisibilityChange = () => {
-      const traceId = disableTraceRef.current;
-      if (traceId) pushDisableLog(traceId, "document.visibilitychange", { visibilityState: document.visibilityState });
-    };
-
-    window.addEventListener("beforeunload", onBeforeUnload);
-    window.addEventListener("pagehide", onPageHide);
-    document.addEventListener("visibilitychange", onVisibilityChange);
-
-    return () => {
-      window.removeEventListener("beforeunload", onBeforeUnload);
-      window.removeEventListener("pagehide", onPageHide);
-      document.removeEventListener("visibilitychange", onVisibilityChange);
-    };
-  }, []);
-
-  useEffect(() => {
-    const { data } = supabase.auth.onAuthStateChange((event, session) => {
-      const traceId = disableTraceRef.current;
-      if (!traceId) return;
-
-      pushDisableLog(traceId, "auth.onAuthStateChange", {
-        event,
-        hasSession: !!session,
-        aal: (session as any)?.aal ?? null,
-        user_id: session?.user?.id ?? null,
-        expires_at: (session as any)?.expires_at ?? null,
-      });
-    });
-
-    return () => {
-      data.subscription.unsubscribe();
-    };
-  }, []);
 
   // Limpa fatores TOTP não verificados (mfa_factors.status = 'unverified')
   const removeUnverifiedTotpFactors = async () => {
@@ -1610,11 +1568,6 @@ function SecuritySection({
 
   // --------- FLUXO: DESATIVAR 2FA (REQUIRE CÓDIGO) ---------
   const openDisableTwoFactorModal = async () => {
-    const traceId = newDisableTraceId();
-    disableTraceRef.current = traceId;
-
-    pushDisableLog(traceId, "openDisableTwoFactorModal:enter", { twoFactorEnabled });
-
     setDisableError(null);
     setDisableCode("");
     resetDisableState();
@@ -1622,12 +1575,7 @@ function SecuritySection({
     setTwoFactorSaving(true);
 
     try {
-      pushDisableLog(traceId, "mfa.listFactors:start");
       const { data, error } = await supabase.auth.mfa.listFactors();
-      pushDisableLog(traceId, "mfa.listFactors:done", {
-        error: serializeSupabaseError(error),
-        data_keys: data ? Object.keys(data as any) : null,
-      });
 
       if (error) {
         console.error("Erro ao listar fatores MFA:", error);
@@ -1636,75 +1584,48 @@ function SecuritySection({
       }
 
       const anyData: any = data;
-      const totpFactors = (anyData?.totp ?? []) as Array<{ id: string; status?: string }>;
-
-      pushDisableLog(traceId, "mfa.listFactors:totpFactors", {
-        count: totpFactors.length,
-        factors: totpFactors.map((f) => ({ id: f.id, status: (f as any).status })),
-      });
+      const totpFactors = (anyData?.totp ?? []) as Array<{ id: string }>;
 
       if (!totpFactors.length) {
         setDisableError("Nenhum fator TOTP encontrado para desativar.");
         return;
       }
 
-      const chosen = totpFactors[0].id;
-      setDisableFactorId(chosen);
-      pushDisableLog(traceId, "disableFactorId:set", { disableFactorId: chosen });
+      setDisableFactorId(totpFactors[0].id);
     } catch (err) {
       console.error("Erro inesperado ao preparar desativação de 2FA:", err);
-      pushDisableLog(traceId, "openDisableTwoFactorModal:catch", { err: serializeUnknownError(err) });
       setDisableError("Erro inesperado ao preparar a desativação do 2FA.");
     } finally {
-      pushDisableLog(traceId, "openDisableTwoFactorModal:finally");
       setTwoFactorSaving(false);
     }
   };
 
   const handleCancelDisable = () => {
-    const traceId = disableTraceRef.current ?? newDisableTraceId();
-    disableTraceRef.current = traceId;
-
-    pushDisableLog(traceId, "handleCancelDisable");
     resetDisableState();
     setShowDisableModal(false);
   };
 
   const handleConfirmDisableTwoFactor = async () => {
-    const traceId = disableTraceRef.current ?? newDisableTraceId();
-    disableTraceRef.current = traceId;
-
-    pushDisableLog(traceId, "handleConfirmDisableTwoFactor:enter", {
-      disableFactorId,
-      codeLen: disableCode.trim().length,
-    });
-
     setDisableError(null);
 
     if (!disableFactorId) {
-      pushDisableLog(traceId, "validation:failed", { reason: "no_factor_id" });
       setDisableError("Erro interno ao desativar 2FA. Recarregue a página e tente novamente.");
       return;
     }
 
-    const code = disableCode.trim();
-    if (!code) {
-      pushDisableLog(traceId, "validation:failed", { reason: "no_code" });
+    if (!disableCode.trim()) {
       setDisableError("Informe o código de 6 dígitos do app autenticador.");
       return;
     }
 
     setDisableVerifying(true);
-    pushDisableLog(traceId, "disableVerifying:true");
 
     try {
-      // 1) Verifica o TOTP (AAL2). IMPORTANTE: NÃO chamar getSession aqui (ele está pendurando no seu app)
-      pushDisableLog(traceId, "mfa.challengeAndVerify:start", { factorId: disableFactorId });
+      // 1) Verifica o código TOTP para obter sessão AAL2
       const { error: verifyError } = await supabase.auth.mfa.challengeAndVerify({
         factorId: disableFactorId,
-        code,
+        code: disableCode.trim(),
       } as any);
-      pushDisableLog(traceId, "mfa.challengeAndVerify:done", { error: serializeSupabaseError(verifyError) });
 
       if (verifyError) {
         console.error("Erro ao verificar TOTP para desativar:", verifyError);
@@ -1712,12 +1633,10 @@ function SecuritySection({
         return;
       }
 
-      pushDisableLog(traceId, "checkpoint:after_verify_before_unenroll");
-
-      // 2) Unenroll
-      pushDisableLog(traceId, "mfa.unenroll:start", { factorId: disableFactorId });
-      const { error: unenrollError } = await supabase.auth.mfa.unenroll({ factorId: disableFactorId } as any);
-      pushDisableLog(traceId, "mfa.unenroll:done", { error: serializeSupabaseError(unenrollError) });
+      // 2) Agora pode desativar (unenroll exige aal2)
+      const { error: unenrollError } = await supabase.auth.mfa.unenroll({
+        factorId: disableFactorId,
+      } as any);
 
       if (unenrollError) {
         console.error("Erro ao desativar fator TOTP:", unenrollError);
@@ -1725,67 +1644,56 @@ function SecuritySection({
         return;
       }
 
-      // 3) Limpeza de fatores residuais (best-effort) — igual espírito do Profile (3)
+      // Limpa fatores TOTP residuais
       try {
-        pushDisableLog(traceId, "cleanup.listFactors:start");
         const { data: factorsData, error: listError } = await supabase.auth.mfa.listFactors();
-        pushDisableLog(traceId, "cleanup.listFactors:done", { error: serializeSupabaseError(listError) });
-
         if (!listError) {
           const anyFactors: any = factorsData;
           const totpFactors = (anyFactors?.totp ?? []) as Array<{ id: string }>;
           for (const factor of totpFactors) {
             if (factor.id !== disableFactorId) {
-              pushDisableLog(traceId, "cleanup.unenroll_residual:start", { factorId: factor.id });
-              const { error: e2 } = await supabase.auth.mfa.unenroll({ factorId: factor.id } as any);
-              pushDisableLog(traceId, "cleanup.unenroll_residual:done", {
-                factorId: factor.id,
-                error: serializeSupabaseError(e2),
-              });
+              try {
+                await supabase.auth.mfa.unenroll({ factorId: factor.id } as any);
+              } catch (cleanupErr) {
+                console.error("Erro ao limpar fator TOTP residual:", cleanupErr);
+              }
             }
           }
         }
-      } catch (e) {
-        console.warn("Erro ao limpar fatores residuais:", e);
-        pushDisableLog(traceId, "cleanup:catch", { err: serializeUnknownError(e) });
+      } catch (cleanupErrOuter) {
+        console.error("Erro ao listar fatores para cleanup de TOTP:", cleanupErrOuter);
       }
 
-      // 4) Sync final (sem getSession)
-      pushDisableLog(traceId, "auth.refreshSession:start");
-      const refresh = await supabase.auth.refreshSession();
-      pushDisableLog(traceId, "auth.refreshSession:done", { error: serializeSupabaseError(refresh.error) });
-
-      pushDisableLog(traceId, "auth.getUser:final:start");
       const {
         data: { user },
-        error: userErrFinal,
+        error: userError,
       } = await supabase.auth.getUser();
-      pushDisableLog(traceId, "auth.getUser:final:done", {
-        error: serializeSupabaseError(userErrFinal),
-        user_id: user?.id ?? null,
-      });
 
-      if (user?.id) {
-        pushDisableLog(traceId, "profiles.update:start", { user_id: user.id, two_factor_enabled: false });
-        const upd = await supabase
-          .from("profiles")
-          .update({ two_factor_enabled: false } as any)
-          .eq("id", user.id);
-        pushDisableLog(traceId, "profiles.update:done", { error: serializeSupabaseError((upd as any)?.error) });
+      if (userError || !user) {
+        console.error("Erro ao buscar usuário para desativar 2FA:", userError);
+        setDisableError("Sessão expirada. Faça login novamente.");
+        return;
+      }
+
+      const { error: updateError } = await supabase
+        .from("profiles")
+        .update({ two_factor_enabled: false } as any)
+        .eq("id", user.id);
+
+      if (updateError) {
+        console.error("Erro ao atualizar two_factor_enabled (desativar):", updateError);
+        setDisableError("2FA foi desativado, mas houve erro ao atualizar suas preferências.");
+        return;
       }
 
       setTwoFactorEnabled(false);
-      setSuccessMessage("Autenticação de dois fatores desativada com sucesso.");
+      setSuccessMessage("Autenticação de dois fatores desativada.");
       setShowDisableModal(false);
       resetDisableState();
-
-      pushDisableLog(traceId, "handleConfirmDisableTwoFactor:success_end");
-    } catch (err: any) {
+    } catch (err) {
       console.error("Erro inesperado ao desativar 2FA:", err);
-      pushDisableLog(traceId, "handleConfirmDisableTwoFactor:catch", { err: serializeUnknownError(err) });
       setDisableError("Erro inesperado ao desativar o 2FA. Tente novamente.");
     } finally {
-      pushDisableLog(traceId, "handleConfirmDisableTwoFactor:finally");
       setDisableVerifying(false);
     }
   };
@@ -2252,530 +2160,5 @@ function BillingSection({ onPurchaseClick }: { onPurchaseClick: () => void }) {
         </div>
       </div>
     </div>
-  );
-}
-
-function TarotOnlineFooter() {
-  type FooterModalId = "tarot" | "lenormand" | "cartomancia" | "about" | "terms" | "privacy" | "contact";
-
-  const [activeModal, setActiveModal] = useState<FooterModalId | null>(null);
-
-  // Contato (mailto sem destinatário por enquanto)
-  const [contactName, setContactName] = useState("");
-  const [contactEmail, setContactEmail] = useState("");
-  const [contactSubject, setContactSubject] = useState("");
-  const [contactMessage, setContactMessage] = useState("");
-
-  const closeModal = () => setActiveModal(null);
-
-  const modalTitle = (() => {
-    switch (activeModal) {
-      case "tarot":
-        return "Tarot";
-      case "lenormand":
-        return "Lenormand (Baralho Cigano)";
-      case "cartomancia":
-        return "Cartomancia Clássica";
-      case "about":
-        return "Sobre nós";
-      case "terms":
-        return "Termos de uso";
-      case "privacy":
-        return "Política de Privacidade";
-      case "contact":
-        return "Contato";
-      default:
-        return "";
-    }
-  })();
-
-  const openMailto = () => {
-    const subject = (contactSubject || "Contato pelo Tarot Online").trim();
-    const body = [
-      "Mensagem enviada pelo site Tarot Online",
-      "",
-      `Nome: ${contactName || "-"}`,
-      `Email: ${contactEmail || "-"}`,
-      "",
-      "Mensagem:",
-      contactMessage || "-",
-      "",
-    ].join("\n");
-
-    // mailto sem destinatário (em branco) por enquanto
-    window.location.href = `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
-  };
-
-  const renderModalBody = () => {
-    if (!activeModal) return null;
-
-    if (activeModal === "tarot") {
-      return (
-        <div className="space-y-4 text-sm text-moonlight-text/80 leading-relaxed">
-          <p>
-            O Tarot é um oráculo simbólico tradicional, composto por Arcanos Maiores e Menores. Ele é usado para mapear
-            contextos, tendências, forças internas e externas, e orientar decisões com base em padrões e arquétipos.
-          </p>
-
-          <div className="space-y-2">
-            <h4 className="text-starlight-text text-base">Como usamos aqui no Tarot Online</h4>
-            <p>
-              Você escolhe um método (tiragem), embaralha e seleciona as cartas. A leitura entrega uma interpretação
-              detalhada, conectando os símbolos ao seu tema e ao momento da pergunta.
-            </p>
-          </div>
-
-          <div className="space-y-2">
-            <h4 className="text-starlight-text text-base">Métodos disponíveis</h4>
-            <ul className="list-disc pl-5 space-y-1">
-              <li>Carta do Dia — check-in rápido, energia do dia</li>
-              <li>3 Cartas: Passado/Presente/Futuro — evolução de situação</li>
-              <li>3 Cartas: Situação/Conselho/Tendência — ação prática</li>
-              <li>Cruz Celta — leitura profunda de situações complexas</li>
-              <li>Jogo de Decisão: Dois Caminhos — escolha entre opções</li>
-              <li>Jogo de Relacionamento — dinâmica entre pessoas</li>
-              <li>Linha do Tempo: 6 Meses — visão de médio prazo</li>
-              <li>Mandala Geral — panorama completo da vida</li>
-            </ul>
-          </div>
-
-          <p className="text-xs text-moonlight-text/60">
-            Dica: para perguntas amplas, prefira Cruz Celta ou Mandala. Para decisões, Dois Caminhos. Para recados
-            rápidos, Carta do Dia ou 3 Cartas.
-          </p>
-        </div>
-      );
-    }
-
-    if (activeModal === "lenormand") {
-      return (
-        <div className="space-y-4 text-sm text-moonlight-text/80 leading-relaxed">
-          <p>
-            O Lenormand (conhecido popularmente como Baralho Cigano) é um oráculo de 36 cartas com símbolos diretos e
-            objetivos. Ele é ótimo para clareza, desdobramentos e leitura prática de cenários.
-          </p>
-
-          <div className="space-y-2">
-            <h4 className="text-starlight-text text-base">Como usamos aqui no Tarot Online</h4>
-            <p>
-              Você escolhe o método, embaralha e seleciona as cartas. A leitura interpreta combinações e conexões entre
-              os símbolos, trazendo um mapa claro do tema consultado.
-            </p>
-          </div>
-
-          <div className="space-y-2">
-            <h4 className="text-starlight-text text-base">Métodos disponíveis</h4>
-            <ul className="list-disc pl-5 space-y-1">
-              <li>Carta do Dia — recado rápido e direto</li>
-              <li>Linha de 3 Cartas — perguntas objetivas, eventos próximos</li>
-              <li>Linha de 5 Cartas — contexto + desenvolvimento + resultado</li>
-              <li>Retrato 3x3 — visão panorâmica com nuances</li>
-              <li>Tiragem de Relacionamento — dinâmica de casal/parceria</li>
-              <li>Mesa Real / Grand Tableau — mapa completo da vida</li>
-            </ul>
-          </div>
-
-          <p className="text-xs text-moonlight-text/60">
-            Dica: se você quer objetividade e desdobramento, Linha 5 e Retrato 3x3 tendem a funcionar muito bem.
-          </p>
-        </div>
-      );
-    }
-
-    if (activeModal === "cartomancia") {
-      return (
-        <div className="space-y-4 text-sm text-moonlight-text/80 leading-relaxed">
-          <p>
-            A Cartomancia Clássica usa o baralho tradicional de 52 cartas. É uma leitura muito prática para tendências,
-            comportamentos, movimento de situações e leitura cotidiana.
-          </p>
-
-          <div className="space-y-2">
-            <h4 className="text-starlight-text text-base">Como usamos aqui no Tarot Online</h4>
-            <p>
-              Você escolhe o método, embaralha e seleciona as cartas. A leitura interpreta naipes, números e
-              combinações, trazendo direção e clareza para o tema consultado.
-            </p>
-          </div>
-
-          <div className="space-y-2">
-            <h4 className="text-starlight-text text-base">Métodos disponíveis</h4>
-            <ul className="list-disc pl-5 space-y-1">
-              <li>Carta do Dia — insight rápido, clima do dia</li>
-              <li>3 Cartas: Situação/Obstáculo/Conselho — perguntas objetivas</li>
-              <li>Cruz Simples — mapa rápido da situação</li>
-              <li>Ferradura — situações em movimento, caminhos</li>
-              <li>Relacionamento — energia entre pessoas</li>
-              <li>Leitura Geral: 9 Cartas — panorama completo</li>
-            </ul>
-          </div>
-
-          <p className="text-xs text-moonlight-text/60">
-            Dica: para movimento e próximos passos, Ferradura. Para visão geral, 9 Cartas.
-          </p>
-        </div>
-      );
-    }
-
-    if (activeModal === "about") {
-      return (
-        <div className="space-y-4 text-sm text-moonlight-text/80 leading-relaxed">
-          <p>
-            Somos uma equipe de tarólogos e cartomantes que se uniu para criar uma plataforma digital de consultas — com
-            a mesma profundidade e cuidado de uma leitura presencial.
-          </p>
-          <p>
-            Aqui, a consulta começa pela sua intenção: a pergunta, o momento e o foco definem o caminho do jogo. O
-            método escolhido e as cartas reveladas constroem um mapa simbólico que orienta com clareza, sensibilidade e
-            respeito.
-          </p>
-          <p>
-            Nosso objetivo é tirar o ruído, reduzir ansiedade e trazer direção — com leituras consistentes, práticas e
-            cheias de significado.
-          </p>
-        </div>
-      );
-    }
-
-    if (activeModal === "terms") {
-      return (
-        <div className="space-y-4 text-sm text-moonlight-text/80 leading-relaxed">
-          <p className="text-moonlight-text/70">
-            Última atualização: 2025. Ao usar o Tarot Online, você concorda com estes Termos.
-          </p>
-
-          <div className="space-y-2">
-            <h4 className="text-starlight-text text-base">1. Conta e acesso</h4>
-            <ul className="list-disc pl-5 space-y-1">
-              <li>Você é responsável pelas informações fornecidas e pela segurança do seu acesso.</li>
-              <li>Podemos suspender ou encerrar contas em caso de violação destes Termos.</li>
-            </ul>
-          </div>
-
-          <div className="space-y-2">
-            <h4 className="text-starlight-text text-base">2. Créditos e uso do serviço</h4>
-            <ul className="list-disc pl-5 space-y-1">
-              <li>O acesso às leituras é feito por meio de créditos.</li>
-              <li>Cada oráculo utilizado em uma consulta consome 1 crédito (regra atual do produto).</li>
-              <li>Créditos são vinculados à sua conta e não são transferíveis.</li>
-            </ul>
-          </div>
-
-          <div className="space-y-2">
-            <h4 className="text-starlight-text text-base">3. Conduta e abuso do sistema</h4>
-            <p>
-              Para manter a plataforma justa e sustentável, é proibido tentar explorar promoções, bônus, descontos ou
-              falhas do sistema.
-            </p>
-            <ul className="list-disc pl-5 space-y-1">
-              <li>
-                Criação de contas duplicadas para um mesmo usuário para obter bônus, vantagens ou condições indevidas;
-              </li>
-              <li>
-                Uso de automações, scripts, scraping, engenharia reversa ou tentativa de burlar limites e proteções;
-              </li>
-              <li>Qualquer ação destinada a fraudar compras, estornos, créditos ou resultados.</li>
-            </ul>
-            <p className="text-moonlight-text/70">
-              Em caso de abuso, nos reservamos o direito de <b>cancelar ou suspender a conta</b>, remover benefícios e{" "}
-              <b>bloquear o acesso</b>, podendo haver <b>perda de créditos</b> e/ou <b>pagamentos</b>, sem reembolso,
-              ressalvados direitos previstos em lei.
-            </p>
-          </div>
-
-          <div className="space-y-2">
-            <h4 className="text-starlight-text text-base">4. Limitações e responsabilidade</h4>
-            <ul className="list-disc pl-5 space-y-1">
-              <li>As leituras têm natureza interpretativa e simbólica, voltadas a autoconhecimento e orientação.</li>
-              <li>Não substituem aconselhamento médico, psicológico, jurídico ou financeiro.</li>
-              <li>Você é responsável por suas decisões e ações.</li>
-            </ul>
-          </div>
-
-          <div className="space-y-2">
-            <h4 className="text-starlight-text text-base">5. Pagamentos</h4>
-            <ul className="list-disc pl-5 space-y-1">
-              <li>Compras de créditos podem ser processadas por provedores de pagamento.</li>
-              <li>Em casos de falha técnica comprovada, podemos oferecer ajuste de créditos equivalente.</li>
-            </ul>
-          </div>
-
-          <div className="space-y-2">
-            <h4 className="text-starlight-text text-base">6. Alterações</h4>
-            <p>
-              Podemos atualizar estes Termos para refletir melhorias do serviço ou requisitos legais. Quando houver
-              mudanças relevantes, apresentaremos a versão atualizada aqui.
-            </p>
-          </div>
-        </div>
-      );
-    }
-
-    if (activeModal === "privacy") {
-      return (
-        <div className="space-y-4 text-sm text-moonlight-text/80 leading-relaxed">
-          <p className="text-moonlight-text/70">
-            Última atualização: 2025. Esta Política descreve como tratamos seus dados em conformidade com a LGPD.
-          </p>
-
-          <div className="space-y-2">
-            <h4 className="text-starlight-text text-base">1. Dados que coletamos</h4>
-            <ul className="list-disc pl-5 space-y-1">
-              <li>Cadastro e conta: nome, email, data de nascimento, CPF e telefone (quando informados).</li>
-              <li>Preferências: configurações do perfil (ex.: manter contexto, limites de uso).</li>
-              <li>Uso do serviço: perguntas enviadas, oráculos selecionados, logs e resultados das leituras.</li>
-              <li>Créditos: saldo e histórico de transações (compras, bônus, consumo e ajustes).</li>
-            </ul>
-          </div>
-
-          <div className="space-y-2">
-            <h4 className="text-starlight-text text-base">2. Como usamos</h4>
-            <ul className="list-disc pl-5 space-y-1">
-              <li>Entregar suas leituras e manter seu histórico.</li>
-              <li>Gerenciar créditos, compras e segurança contra fraude/abuso.</li>
-              <li>Melhorar a experiência do produto e a estabilidade do sistema.</li>
-            </ul>
-          </div>
-
-          <div className="space-y-2">
-            <h4 className="text-starlight-text text-base">3. Proteção e segurança</h4>
-            <ul className="list-disc pl-5 space-y-1">
-              <li>Dados trafegam por conexão segura (TLS/HTTPS).</li>
-              <li>Armazenamento e acesso seguem controles de segurança e permissões.</li>
-              <li>Não vendemos seus dados e não os cedemos para marketing de terceiros.</li>
-            </ul>
-            <p className="text-moonlight-text/70">
-              Podemos utilizar provedores essenciais (ex.: processamento de pagamento e infraestrutura) estritamente
-              para operar o serviço, sempre com medidas de segurança e mínimo necessário.
-            </p>
-          </div>
-
-          <div className="space-y-2">
-            <h4 className="text-starlight-text text-base">4. Retenção</h4>
-            <p>
-              Mantemos dados e registros pelo tempo necessário para fornecer o serviço, cumprir obrigações legais e
-              garantir segurança/antiabuso. Você pode solicitar exclusão quando aplicável, respeitando retenções
-              obrigatórias.
-            </p>
-          </div>
-
-          <div className="space-y-2">
-            <h4 className="text-starlight-text text-base">5. Seus direitos</h4>
-            <ul className="list-disc pl-5 space-y-1">
-              <li>Confirmar tratamento e acessar seus dados.</li>
-              <li>Corrigir dados incompletos, inexatos ou desatualizados.</li>
-              <li>Solicitar anonimização, bloqueio ou eliminação quando aplicável.</li>
-            </ul>
-          </div>
-
-          <p className="text-xs text-moonlight-text/60">
-            Para solicitações relacionadas à privacidade, use o canal de Contato (em breve com email oficial dentro da
-            plataforma).
-          </p>
-        </div>
-      );
-    }
-
-    // contact
-    return (
-      <div className="space-y-4">
-        <p className="text-sm text-moonlight-text/80 leading-relaxed">
-          Preencha abaixo para montar uma mensagem. Por enquanto, ao enviar, abriremos o seu app de email com a mensagem
-          pronta (sem destinatário preenchido).
-        </p>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <Label className="text-moonlight-text mb-2 block">Seu nome</Label>
-            <Input
-              value={contactName}
-              onChange={(e) => setContactName(e.target.value)}
-              placeholder="Ex.: Maria Silva"
-              className="bg-night-sky border-obsidian-border text-starlight-text"
-            />
-          </div>
-          <div>
-            <Label className="text-moonlight-text mb-2 block">Seu email</Label>
-            <Input
-              value={contactEmail}
-              onChange={(e) => setContactEmail(e.target.value)}
-              placeholder="Ex.: maria@email.com"
-              className="bg-night-sky border-obsidian-border text-starlight-text"
-            />
-          </div>
-        </div>
-
-        <div>
-          <Label className="text-moonlight-text mb-2 block">Assunto</Label>
-          <Input
-            value={contactSubject}
-            onChange={(e) => setContactSubject(e.target.value)}
-            placeholder="Ex.: Dúvida sobre créditos / leitura / conta"
-            className="bg-night-sky border-obsidian-border text-starlight-text"
-          />
-        </div>
-
-        <div>
-          <Label className="text-moonlight-text mb-2 block">Mensagem</Label>
-          <textarea
-            rows={5}
-            value={contactMessage}
-            onChange={(e) => setContactMessage(e.target.value)}
-            placeholder="Escreva sua mensagem..."
-            className="w-full bg-night-sky border border-obsidian-border rounded-xl px-4 py-3 text-starlight-text placeholder:text-moonlight-text focus:outline-none focus:border-mystic-indigo transition-colors resize-none"
-          />
-        </div>
-
-        <div className="flex gap-3 justify-end">
-          <Button variant="outline" onClick={closeModal} type="button">
-            Cancelar
-          </Button>
-          <Button
-            onClick={() => openMailto()}
-            type="button"
-            className="bg-mystic-indigo hover:bg-mystic-indigo-dark text-starlight-text"
-          >
-            Abrir no email
-          </Button>
-        </div>
-      </div>
-    );
-  };
-
-  return (
-    <>
-      {/* Modais do Footer */}
-      <Modal isOpen={activeModal !== null} onClose={closeModal} title={modalTitle}>
-        <div className="max-h-[70vh] overflow-y-auto pr-1">{renderModalBody()}</div>
-      </Modal>
-
-      {/* Footer */}
-      <footer className="relative z-10 border-t border-obsidian-border bg-midnight-surface/50 backdrop-blur-sm mt-auto">
-        <style>{`
-          @media (max-width: 767px) {
-            .footer-container { padding-left: 5% !important; padding-right: 5% !important; }
-          }
-          @media (min-width: 768px) and (max-width: 922px) {
-            .footer-container { padding-left: 5% !important; padding-right: 5% !important; }
-          }
-          @media (min-width: 923px) {
-            .footer-container { padding-left: 64px !important; padding-right: 64px !important; }
-          }
-        `}</style>
-
-        <div className="footer-container w-full" style={{ paddingTop: "48px", paddingBottom: "48px" }}>
-          <div className="max-w-[1400px] mx-auto">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-12" style={{ marginBottom: "80px" }}>
-              {/* Logo e descrição */}
-              <div>
-                <div className="flex items-center gap-3 mb-4">
-                  <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-mystic-indigo to-oracle-ember flex items-center justify-center">
-                    <Sparkles className="w-5 h-5 text-starlight-text" />
-                  </div>
-                  <span className="text-xl text-starlight-text">Tarot Online</span>
-                </div>
-                <small className="block text-moonlight-text/70 leading-relaxed">
-                  Consultas de Tarot, Lenormand (Baralho Cigano) e Cartomancia Clássica disponíveis 24/7 com
-                  interpretações profundas e personalizadas.
-                </small>
-              </div>
-
-              {/* Links - Serviços */}
-              <div>
-                <h3 className="text-base text-starlight-text mb-4">Serviços</h3>
-                <ul className="space-y-3">
-                  <li>
-                    <button
-                      onClick={() => setActiveModal("tarot")}
-                      className="text-sm text-moonlight-text/70 hover:text-mystic-indigo transition-colors"
-                      type="button"
-                    >
-                      Tarot
-                    </button>
-                  </li>
-                  <li>
-                    <button
-                      onClick={() => setActiveModal("lenormand")}
-                      className="text-sm text-moonlight-text/70 hover:text-mystic-indigo transition-colors"
-                      type="button"
-                    >
-                      Lenormand (Baralho Cigano)
-                    </button>
-                  </li>
-                  <li>
-                    <button
-                      onClick={() => setActiveModal("cartomancia")}
-                      className="text-sm text-moonlight-text/70 hover:text-mystic-indigo transition-colors"
-                      type="button"
-                    >
-                      Cartomancia Clássica
-                    </button>
-                  </li>
-                  <li>
-                    <Link
-                      to="/history"
-                      className="text-sm text-moonlight-text/70 hover:text-mystic-indigo transition-colors"
-                    >
-                      Histórico de leituras
-                    </Link>
-                  </li>
-                </ul>
-              </div>
-
-              {/* Links - Informações */}
-              <div>
-                <h3 className="text-base text-starlight-text mb-4">Informações</h3>
-                <ul className="space-y-3">
-                  <li>
-                    <button
-                      onClick={() => setActiveModal("about")}
-                      className="text-sm text-moonlight-text/70 hover:text-mystic-indigo transition-colors"
-                      type="button"
-                    >
-                      Sobre nós
-                    </button>
-                  </li>
-                  <li>
-                    <button
-                      onClick={() => setActiveModal("terms")}
-                      className="text-sm text-moonlight-text/70 hover:text-mystic-indigo transition-colors"
-                      type="button"
-                    >
-                      Termos de uso
-                    </button>
-                  </li>
-                  <li>
-                    <button
-                      onClick={() => setActiveModal("privacy")}
-                      className="text-sm text-moonlight-text/70 hover:text-mystic-indigo transition-colors"
-                      type="button"
-                    >
-                      Política de Privacidade
-                    </button>
-                  </li>
-                  <li>
-                    <button
-                      onClick={() => setActiveModal("contact")}
-                      className="text-sm text-moonlight-text/70 hover:text-mystic-indigo transition-colors"
-                      type="button"
-                    >
-                      Contato
-                    </button>
-                  </li>
-                </ul>
-              </div>
-            </div>
-
-            {/* Bottom bar */}
-            <div className="pt-8 border-t border-obsidian-border flex flex-col md:flex-row items-center justify-between gap-4">
-              <p className="text-sm text-moonlight-text/60">© 2025 Tarot Online. Todos os direitos reservados.</p>
-              <div className="flex items-center gap-6 text-sm text-moonlight-text/60">
-                <span>Feito com 🔮 para você</span>
-              </div>
-            </div>
-          </div>
-        </div>
-      </footer>
-    </>
   );
 }
