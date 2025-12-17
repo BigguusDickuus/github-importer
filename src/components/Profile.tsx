@@ -1548,7 +1548,7 @@ function SecuritySection({
     try {
       const code = disableCode.replace(/\D/g, "").slice(0, 6);
 
-      // 1) Eleva a sessão via challenge+verify
+      // 1) Verifica o código TOTP para obter sessão AAL2
       const { error: verifyError } = await supabase.auth.mfa.challengeAndVerify({
         factorId: disableFactorId,
         code,
