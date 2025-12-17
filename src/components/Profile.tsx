@@ -1530,7 +1530,7 @@ function SecuritySection({
     setShowDisableModal(false);
   };
 
-  const handleConfirmDisableTwoFactor = async () => {
+  const handleConfirmDisable = async () => {
     setDisableError(null);
     if (!disableFactorId || !disableCode.trim()) {
       setDisableError("Informe o código de 6 dígitos.");
