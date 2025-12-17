@@ -15,49 +15,88 @@ export function ProtectedRoute({ children, requireAdmin = false }: ProtectedRout
   const location = useLocation();
 
   const mountedRef = useRef(true);
-  const inFlightRef = useRef(false);
 
-  const canReloadNow = () => {
-    const key = "to_wakeup_reload_ts";
-    const last = Number(sessionStorage.getItem(key) || "0");
-    const now = Date.now();
-    if (now - last < 5000) return false;
-    sessionStorage.setItem(key, String(now));
-    return true;
+  // evita concorrência / duplicação
+  const inFlightRef = useRef(false);
+  const inFlightStartedAtRef = useRef<number>(0);
+
+  const getSessionWithTimeout = async (timeoutMs: number) => {
+    // supabase.auth.getSession() às vezes fica pendurado; isso coloca um timeout real
+    const timeout = new Promise<never>((_, reject) => {
+      const id = window.setTimeout(() => reject(new Error("GET_SESSION_TIMEOUT")), timeoutMs);
+      // @ts-expect-error - só pra referência interna
+      (timeout as any).__id = id;
+    });
+
+    try {
+      const res = (await Promise.race([supabase.auth.getSession(), timeout])) as any;
+      return res as { data: any; error: any };
+    } finally {
+      // limpa timer se existir
+      try {
+        // @ts-expect-error - só pra referência interna
+        const id = (timeout as any).__id;
+        if (id) clearTimeout(id);
+      } catch {}
+    }
   };
 
   const runCheck = async (opts?: { bootstrap?: boolean }) => {
     const bootstrap = opts?.bootstrap ?? false;
     if (inFlightRef.current) return;
+
     inFlightRef.current = true;
+    inFlightStartedAtRef.current = Date.now();
 
     if (bootstrap) setChecking(true);
 
-    const watchdog = window.setTimeout(() => {
-      if (document.visibilityState === "visible") {
-        console.warn("ProtectedRoute: auth travou; recarregando página para destravar.");
-        window.location.reload();
-      }
-    }, 12000);
-
     try {
-      const { data, error } = await supabase.auth.getSession();
+      // 1) tentativa normal (rápida)
+      let sessionRes: { data: any; error: any } | null = null;
+      try {
+        sessionRes = await getSessionWithTimeout(3000);
+      } catch (e: any) {
+        if (e?.message === "GET_SESSION_TIMEOUT") {
+          console.warn("ProtectedRoute: getSession timeout (1). Tentando resetSupabaseClient + retry.");
+        } else {
+          console.warn("ProtectedRoute: getSession erro (1). Tentando resetSupabaseClient + retry.", e);
+        }
+      }
+
+      // 2) retry com reset (controlado)
+      if (!sessionRes) {
+        try {
+          resetSupabaseClient();
+        } catch {}
+        try {
+          sessionRes = await getSessionWithTimeout(3000);
+        } catch (e: any) {
+          console.warn("ProtectedRoute: getSession falhou também após reset.", e);
+          sessionRes = null;
+        }
+      }
+
       if (!mountedRef.current) return;
 
-      if (error || !data.session) {
+      // 3) se ainda não conseguiu sessão, falha com segurança (sem reload)
+      if (!sessionRes || sessionRes.error || !sessionRes.data?.session) {
         setAllowed(false);
         setChecking(false);
+
+        // segurança: manda pro login
         navigate("/", { replace: true, state: { from: location } });
         return;
       }
 
+      // 4) sem admin requerido
       if (!requireAdmin) {
         setAllowed(true);
         setChecking(false);
         return;
       }
 
-      const userId = data.session.user.id;
+      // 5) valida admin
+      const userId = sessionRes.data.session.user.id;
 
       const { data: profile, error: profileError } = await supabase
         .from("profiles")
@@ -77,8 +116,8 @@ export function ProtectedRoute({ children, requireAdmin = false }: ProtectedRout
       setAllowed(true);
       setChecking(false);
     } finally {
-      clearTimeout(watchdog);
       inFlightRef.current = false;
+      inFlightStartedAtRef.current = 0;
       if (mountedRef.current && bootstrap) setChecking(false);
     }
   };
@@ -89,22 +128,26 @@ export function ProtectedRoute({ children, requireAdmin = false }: ProtectedRout
     // Bootstrap inicial (pode mostrar carregando)
     runCheck({ bootstrap: true });
 
-    // Ao voltar pra aba: revalida em background (sem tela azul)
+    // Ao voltar pra aba: revalida em background.
+    // Importante: NÃO resetar client aqui (isso pode interferir em fluxos MFA quando o usuário troca de app)
     const wake = () => {
       if (document.visibilityState !== "visible") return;
 
-      // Se ficou travado em inFlight, runCheck nunca roda -> reload imediato
+      // Se ficou travado, tenta destravar sem reload
       if (inFlightRef.current) {
-        if (canReloadNow()) {
-          console.warn("ProtectedRoute: voltou pra aba com inFlight travado. Reload imediato.");
-          window.location.reload();
+        const startedAt = inFlightStartedAtRef.current || 0;
+        const age = startedAt ? Date.now() - startedAt : 0;
+
+        // se passou tempo demais, libera e tenta de novo
+        if (age > 6000) {
+          console.warn("ProtectedRoute: inFlight travado há >6s. Liberando e revalidando sem reload.");
+          inFlightRef.current = false;
+          inFlightStartedAtRef.current = 0;
+          runCheck({ bootstrap: false });
         }
         return;
       }
 
-      try {
-        resetSupabaseClient();
-      } catch {}
       runCheck({ bootstrap: false });
     };
 
