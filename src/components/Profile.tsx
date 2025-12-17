@@ -100,47 +100,25 @@ export function Profile() {
           return;
         }
 
-        const prefs = (data ?? {}) as any;
+        if (!data) return;
+
+        // Cast para fugir das limitações de tipo do Supabase (colunas novas)
+        const prefs = data as any;
 
         // Manter contexto
         if (typeof prefs.keep_context === "boolean") {
-          setKeepContext(!!prefs.keep_context);
+          setKeepContext(prefs.keep_context);
         }
 
-        // Limite de uso (se existir)
+        // Limite de uso
         if (prefs.usage_limit_credits != null && prefs.usage_limit_period) {
           setHasActiveLimit(true);
           setActiveLimitAmount(String(prefs.usage_limit_credits));
-          setActiveLimitPeriod(prefs.usage_limit_period);
+          setActiveLimitPeriod(prefs.usage_limit_period); // "dia" | "semana" | "mês"
         } else {
           setHasActiveLimit(false);
           setActiveLimitAmount("");
           setActiveLimitPeriod("dia");
-        }
-
-        // 2FA (toggle inicial)
-        if (typeof prefs.two_factor_enabled === "boolean") {
-          setTwoFactorEnabled(!!prefs.two_factor_enabled);
-        }
-
-        // Também checa no Auth (fatores) para evitar desync entre profiles e Supabase MFA
-        try {
-          const { data: factorsData } = await supabase.auth.mfa.listFactors();
-          const totpFactors = (factorsData as any)?.totp ?? [];
-          const hasVerifiedTotp = totpFactors.some((f: any) => f.status === "verified");
-          const desired = hasVerifiedTotp || !!prefs.two_factor_enabled;
-
-          setTwoFactorEnabled(desired);
-
-          // Se estiver desincronizado, corrige o flag no profiles
-          if (typeof prefs.two_factor_enabled === "boolean" && prefs.two_factor_enabled !== hasVerifiedTotp) {
-            await supabase
-              .from("profiles")
-              .update({ two_factor_enabled: hasVerifiedTotp } as any)
-              .eq("id", user.id);
-          }
-        } catch (e) {
-          console.warn("Não foi possível checar fatores de 2FA (listFactors):", e);
         }
 
         // Inputs do formulário começam limpos / default
@@ -338,7 +316,7 @@ export function Profile() {
 
             <div className="mt-6">
               <TabsContent value="account">
-                <AccountSection twoFactorEnabled={twoFactorEnabled} />
+                <AccountSection />
               </TabsContent>
               <TabsContent value="preferences">
                 <PreferencesSection
@@ -405,7 +383,7 @@ export function Profile() {
           {/* Content */}
           <div className="col-span-3 space-y-8">
             <div ref={accountRef}>
-              <AccountSection twoFactorEnabled={twoFactorEnabled} />
+              <AccountSection />
             </div>
             <div ref={preferencesRef}>
               <PreferencesSection
@@ -622,24 +600,21 @@ export function Profile() {
   );
 }
 
-function AccountSection({ twoFactorEnabled }: { twoFactorEnabled: boolean }) {
+function AccountSection() {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-
-  const [hasChanges, setHasChanges] = useState(false);
-  const [confirmPassword, setConfirmPassword] = useState("");
-  const [totpCode, setTotpCode] = useState("");
-  const [totpError, setTotpError] = useState<string | null>(null);
-
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
+  const [hasChanges, setHasChanges] = useState(false);
+  const [confirmPassword, setConfirmPassword] = useState("");
+
   useEffect(() => {
-    const loadUserData = async () => {
+    const fetchProfile = async () => {
       try {
         setLoading(true);
         setErrorMessage(null);
@@ -655,53 +630,44 @@ function AccountSection({ twoFactorEnabled }: { twoFactorEnabled: boolean }) {
           return;
         }
 
-        const { data: profile, error: profileError } = await supabase
+        const { data, error } = await supabase
           .from("profiles")
           .select("full_name, email, phone")
           .eq("id", user.id)
           .maybeSingle();
 
-        if (profileError) {
-          console.error("Erro ao buscar dados do perfil:", profileError);
-          setErrorMessage("Não foi possível carregar seus dados.");
+        if (error) {
+          console.error("Erro ao buscar perfil:", error);
+          setErrorMessage("Erro ao carregar seus dados.");
           return;
         }
 
-        setName(profile?.full_name ?? "");
-        setEmail(profile?.email ?? user.email ?? "");
-        setPhone(profile?.phone ?? "");
+        const fullName = data?.full_name ?? "";
+        const emailValue = data?.email ?? user.email ?? "";
+        const phoneValue = data?.phone ?? "";
+
+        setName(fullName);
+        setEmail(emailValue);
+        setPhone(phoneValue);
+        setHasChanges(false);
+        setConfirmPassword("");
       } catch (err) {
-        console.error("Erro inesperado ao carregar dados do usuário:", err);
+        console.error("Erro inesperado ao buscar perfil:", err);
         setErrorMessage("Erro inesperado ao carregar seus dados.");
       } finally {
         setLoading(false);
       }
     };
 
-    loadUserData();
+    fetchProfile();
   }, []);
 
-  useEffect(() => {
-    if (!loading) setHasChanges(true);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [name, phone]);
-
-  const canSave = hasChanges && !!confirmPassword && (!twoFactorEnabled || totpCode.trim().length >= 6) && !loading;
-
   const handleSave = async () => {
+    setSaving(true);
     setErrorMessage(null);
     setSuccessMessage(null);
-    setTotpError(null);
-
-    if (!confirmPassword) {
-      setErrorMessage("Informe sua senha atual para confirmar.");
-      return;
-    }
 
     try {
-      setSaving(true);
-
-      // 1) Buscar usuário
       const {
         data: { user },
         error: userError,
@@ -713,50 +679,21 @@ function AccountSection({ twoFactorEnabled }: { twoFactorEnabled: boolean }) {
         return;
       }
 
-      // 1.1) Reautenticar (senha atual)
+      if (!confirmPassword) {
+        setErrorMessage("Informe sua senha para confirmar as alterações.");
+        return;
+      }
+
+      // 1) Revalidar senha atual
       const { error: reauthError } = await supabase.auth.signInWithPassword({
-        email: user.email ?? email,
+        email: user.email!,
         password: confirmPassword,
       });
 
       if (reauthError) {
-        setErrorMessage("Senha atual incorreta. Tente novamente.");
+        console.error("Erro ao revalidar senha:", reauthError);
+        setErrorMessage("Senha incorreta. Verifique e tente novamente.");
         return;
-      }
-
-      // 1.5) Se o usuário tem 2FA ativo, elevar sessão para AAL2 via TOTP antes de salvar
-      if (twoFactorEnabled) {
-        const { data: factorsData, error: factorsError } = await supabase.auth.mfa.listFactors();
-        if (factorsError) {
-          console.error("Erro ao listar fatores de 2FA (perfil):", factorsError);
-          setTotpError("Não foi possível validar o 2FA. Tente novamente.");
-          return;
-        }
-
-        const totpFactors = (factorsData as any)?.totp ?? [];
-        const verifiedTotp = totpFactors.find((f: any) => f.status === "verified") ?? totpFactors[0];
-
-        if (!verifiedTotp?.id) {
-          setTotpError("2FA está ativo, mas não encontrei um fator TOTP válido para este usuário.");
-          return;
-        }
-
-        const code = totpCode.trim();
-        if (!code || code.length < 6) {
-          setTotpError("Informe o código de 6 dígitos do seu autenticador (2FA).");
-          return;
-        }
-
-        const { error: verifyError } = await supabase.auth.mfa.challengeAndVerify({
-          factorId: verifiedTotp.id,
-          code,
-        } as any);
-
-        if (verifyError) {
-          console.error("Erro ao validar 2FA (perfil):", verifyError);
-          setTotpError("Código 2FA inválido. Verifique e tente novamente.");
-          return;
-        }
       }
 
       // 2) Atualizar dados no profiles
@@ -764,74 +701,94 @@ function AccountSection({ twoFactorEnabled }: { twoFactorEnabled: boolean }) {
         .from("profiles")
         .update({
           full_name: name,
-          phone,
-        } as any)
+          phone: phone,
+        })
         .eq("id", user.id);
 
       if (updateError) {
-        console.error("Erro ao atualizar perfil:", updateError);
-        setErrorMessage("Não foi possível salvar suas alterações.");
+        console.error("Erro ao salvar perfil:", updateError);
+        setErrorMessage("Erro ao salvar seus dados. Tente novamente.");
         return;
       }
 
-      setSuccessMessage("Alterações salvas com sucesso.");
+      setSuccessMessage("Perfil atualizado com sucesso!");
       setHasChanges(false);
       setConfirmPassword("");
-      setTotpCode("");
     } catch (err) {
       console.error("Erro inesperado ao salvar perfil:", err);
-      setErrorMessage("Erro inesperado ao salvar. Tente novamente.");
+      setErrorMessage("Erro inesperado ao salvar seus dados.");
     } finally {
       setSaving(false);
     }
   };
 
+  const onNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setName(e.target.value);
+    setHasChanges(true);
+  };
+
+  const onPhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setPhone(e.target.value);
+    setHasChanges(true);
+  };
+
+  const canSave = hasChanges && !!confirmPassword && !loading;
+
   return (
-    <div className="bg-midnight-surface border border-obsidian-border rounded-2xl p-6">
-      <h3 className="text-starlight-text mb-6">Conta</h3>
+    <div className="bg-midnight-surface border border-obsidian-border rounded-2xl p-6 md:p-8">
+      <h3 className="text-starlight-text mb-6">Dados da Conta</h3>
 
-      {loading ? (
-        <div className="text-moonlight-text">Carregando...</div>
-      ) : (
-        <div className="space-y-4">
-          <div>
-            <Label className="text-moonlight-text">Nome</Label>
-            <Input
-              className="bg-night-sky border-obsidian-border text-starlight-text mt-1"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="Seu nome"
-            />
-          </div>
+      <div className="space-y-6">
+        {loading && <p className="text-sm text-moonlight-text">Carregando seus dados...</p>}
 
-          <div>
-            <Label className="text-moonlight-text">Email</Label>
-            <Input
-              className="bg-night-sky border-obsidian-border text-starlight-text mt-1 opacity-70"
-              value={email}
-              disabled
-            />
-            <p className="text-xs text-moonlight-text mt-1">E-mail é gerenciado pelo login (Auth).</p>
-          </div>
+        {!loading && (
+          <>
+            <div>
+              <Label htmlFor="name" className="text-moonlight-text mb-2 block">
+                Nome completo
+              </Label>
+              <Input
+                id="name"
+                className="bg-night-sky border-obsidian-border text-starlight-text"
+                value={name}
+                onChange={onNameChange}
+                placeholder="Seu nome"
+              />
+            </div>
 
-          <div>
-            <Label className="text-moonlight-text">Telefone</Label>
-            <Input
-              className="bg-night-sky border-obsidian-border text-starlight-text mt-1"
-              value={phone}
-              onChange={(e) => setPhone(e.target.value)}
-              placeholder="(11) 99999-9999"
-            />
-          </div>
+            <div>
+              <Label htmlFor="email" className="text-moonlight-text mb-2 block">
+                E-mail
+              </Label>
+              <Input
+                id="email"
+                type="email"
+                className="bg-night-sky border-obsidian-border text-starlight-text opacity-70 cursor-not-allowed"
+                value={email}
+                disabled
+              />
+            </div>
 
-          {hasChanges && (
-            <>
-              <div className="pt-2">
-                <Label htmlFor="confirmPassword-profile" className="text-moonlight-text mb-2 block">
-                  Confirmar senha atual
+            <div>
+              <Label htmlFor="phone" className="text-moonlight-text mb-2 block">
+                Telefone
+              </Label>
+              <Input
+                id="phone"
+                className="bg-night-sky border-obsidian-border text-starlight-text"
+                value={phone}
+                onChange={onPhoneChange}
+                placeholder="+55 11 99999-9999"
+              />
+            </div>
+
+            {hasChanges && (
+              <div>
+                <Label htmlFor="confirm-password-profile" className="text-moonlight-text mb-2 block">
+                  Senha para confirmar as alterações
                 </Label>
                 <Input
-                  id="confirmPassword-profile"
+                  id="confirm-password-profile"
                   type="password"
                   className="bg-night-sky border-obsidian-border text-starlight-text"
                   value={confirmPassword}
@@ -841,46 +798,25 @@ function AccountSection({ twoFactorEnabled }: { twoFactorEnabled: boolean }) {
                 <p className="text-xs text-moonlight-text mt-1">
                   Por segurança, é necessário confirmar sua senha ao alterar dados da conta.
                 </p>
-
-                {twoFactorEnabled && (
-                  <div className="mt-4">
-                    <Label htmlFor="profile-2fa-code" className="text-moonlight-text mb-2 block">
-                      Código 2FA (Autenticador)
-                    </Label>
-                    <Input
-                      id="profile-2fa-code"
-                      inputMode="numeric"
-                      autoComplete="one-time-code"
-                      className="bg-night-sky border-obsidian-border text-starlight-text"
-                      value={totpCode}
-                      onChange={(e) => setTotpCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
-                      placeholder="6 dígitos"
-                    />
-                    <p className="text-xs text-moonlight-text mt-1">
-                      Você tem 2FA ativo. Confirme o código para salvar alterações.
-                    </p>
-                    {totpError && <p className="text-xs text-blood-moon-error mt-2">{totpError}</p>}
-                  </div>
-                )}
               </div>
+            )}
 
-              {errorMessage && <p className="text-sm text-blood-moon-error">{errorMessage}</p>}
-              {successMessage && <p className="text-sm text-emerald-400">{successMessage}</p>}
+            {errorMessage && <p className="text-sm text-blood-moon-error">{errorMessage}</p>}
+            {successMessage && <p className="text-sm text-verdant-success">{successMessage}</p>}
 
-              <div className="pt-2 flex justify-end">
-                <Button
-                  className="bg-aurora-accent hover:bg-aurora-accent/90 text-midnight-surface font-semibold"
-                  style={{ paddingLeft: "32px", paddingRight: "32px" }}
-                  onClick={handleSave}
-                  disabled={!canSave || saving}
-                >
-                  {saving ? "Salvando..." : "Salvar alterações"}
-                </Button>
-              </div>
-            </>
-          )}
-        </div>
-      )}
+            <div className="pt-4">
+              <Button
+                className="w-full md:w-auto bg-mystic-indigo hover:bg-mystic-indigo-dark text-starlight-text"
+                style={{ paddingLeft: "32px", paddingRight: "32px" }}
+                onClick={handleSave}
+                disabled={!canSave || saving}
+              >
+                {saving ? "Salvando..." : "Salvar alterações"}
+              </Button>
+            </div>
+          </>
+        )}
+      </div>
     </div>
   );
 }
@@ -1508,15 +1444,15 @@ function SecuritySection({
         return;
       }
 
-      const totpFactors = ((data as any)?.totp ?? []) as Array<{ id: string; status?: string }>;
-      const verified = totpFactors.find((f) => f.status === "verified") ?? totpFactors[0];
+      const anyData: any = data;
+      const totpFactors = (anyData?.totp ?? []) as Array<{ id: string }>;
 
-      if (!verified?.id) {
+      if (!totpFactors.length) {
         setDisableError("Nenhum fator TOTP encontrado para desativar.");
         return;
       }
 
-      setDisableFactorId(verified.id);
+      setDisableFactorId(totpFactors[0].id);
     } catch (err) {
       console.error("Erro inesperado ao preparar desativação de 2FA:", err);
       setDisableError("Erro inesperado ao preparar a desativação do 2FA.");
@@ -1533,9 +1469,12 @@ function SecuritySection({
   const handleConfirmDisableTwoFactor = async () => {
     setDisableError(null);
 
-    const code = disableCode.trim();
+    if (!disableFactorId) {
+      setDisableError("Erro interno ao desativar 2FA. Recarregue a página e tente novamente.");
+      return;
+    }
 
-    if (code.length !== 6) {
+    if (!disableCode.trim()) {
       setDisableError("Informe o código de 6 dígitos do app autenticador.");
       return;
     }
@@ -1543,54 +1482,22 @@ function SecuritySection({
     setDisableVerifying(true);
 
     try {
-      // Sempre relista o fator verified na hora do confirm (evita id stale)
-      const { data: factorsData, error: listError } = await supabase.auth.mfa.listFactors();
-      if (listError) {
-        console.error("Erro ao listar fatores MFA (confirm disable):", listError);
-        setDisableError("Não foi possível localizar o fator de 2FA. Tente novamente.");
-        return;
-      }
-
-      const totpFactors = ((factorsData as any)?.totp ?? []) as Array<{ id: string; status?: string }>;
-      const verified = totpFactors.find((f) => f.status === "verified") ?? totpFactors[0];
-
-      if (!verified?.id) {
-        setDisableError("Nenhum fator TOTP encontrado para desativar.");
-        return;
-      }
-
-      const factorId = verified.id;
-
-      // 1) Eleva para AAL2 (server-side)
-      const { data: cavData, error: cavError } = await supabase.auth.mfa.challengeAndVerify({
-        factorId,
-        code,
+      // 1) Verifica o código TOTP para obter sessão AAL2
+      const { error: verifyError } = await supabase.auth.mfa.challengeAndVerify({
+        factorId: disableFactorId,
+        code: disableCode.trim(),
       } as any);
 
-      if (cavError) {
-        console.error("Erro ao verificar TOTP para desativar:", cavError);
+      if (verifyError) {
+        console.error("Erro ao verificar TOTP para desativar:", verifyError);
         setDisableError("Código inválido. Confira no app autenticador e tente novamente.");
         return;
       }
 
-      // 2) Força o client a “assentar” a sessão AAL2 antes do unenroll (evita travar/abort sem request)
-      const sessionLike = (cavData as any)?.session;
-      if (sessionLike?.access_token && sessionLike?.refresh_token) {
-        const { error: setSessionError } = await supabase.auth.setSession({
-          access_token: sessionLike.access_token,
-          refresh_token: sessionLike.refresh_token,
-        } as any);
-
-        if (setSessionError) {
-          console.warn("Aviso: setSession pós challengeAndVerify falhou (seguindo mesmo assim):", setSessionError);
-        }
-      }
-
-      await supabase.auth.refreshSession();
-      await new Promise((r) => setTimeout(r, 200));
-
-      // 3) Unenroll (agora sim)
-      const { error: unenrollError } = await supabase.auth.mfa.unenroll({ factorId } as any);
+      // 2) Agora pode desativar (unenroll exige aal2)
+      const { error: unenrollError } = await supabase.auth.mfa.unenroll({
+        factorId: disableFactorId,
+      } as any);
 
       if (unenrollError) {
         console.error("Erro ao desativar fator TOTP:", unenrollError);
@@ -1598,7 +1505,26 @@ function SecuritySection({
         return;
       }
 
-      // 4) Atualiza flag em profiles
+      // Limpa fatores TOTP residuais
+      try {
+        const { data: factorsData, error: listError } = await supabase.auth.mfa.listFactors();
+        if (!listError) {
+          const anyFactors: any = factorsData;
+          const totpFactors = (anyFactors?.totp ?? []) as Array<{ id: string }>;
+          for (const factor of totpFactors) {
+            if (factor.id !== disableFactorId) {
+              try {
+                await supabase.auth.mfa.unenroll({ factorId: factor.id } as any);
+              } catch (cleanupErr) {
+                console.error("Erro ao limpar fator TOTP residual:", cleanupErr);
+              }
+            }
+          }
+        }
+      } catch (cleanupErrOuter) {
+        console.error("Erro ao listar fatores para cleanup de TOTP:", cleanupErrOuter);
+      }
+
       const {
         data: { user },
         error: userError,
@@ -1617,28 +1543,14 @@ function SecuritySection({
 
       if (updateError) {
         console.error("Erro ao atualizar two_factor_enabled (desativar):", updateError);
-        // não bloqueia a UX: o 2FA já foi removido no Auth
+        setDisableError("2FA foi desativado, mas houve erro ao atualizar suas preferências.");
+        return;
       }
 
       setTwoFactorEnabled(false);
       setSuccessMessage("Autenticação de dois fatores desativada.");
       setShowDisableModal(false);
       resetDisableState();
-
-      // 5) Cleanup opcional (não bloqueia UI)
-      void (async () => {
-        try {
-          const { data, error } = await supabase.auth.mfa.listFactors();
-          if (error) return;
-
-          const totp = ((data as any)?.totp ?? []) as Array<{ id: string }>;
-          await Promise.allSettled(
-            totp.filter((f) => f.id !== factorId).map((f) => supabase.auth.mfa.unenroll({ factorId: f.id } as any)),
-          );
-        } catch (e) {
-          console.warn("Cleanup de fatores TOTP falhou (ok ignorar):", e);
-        }
-      })();
     } catch (err) {
       console.error("Erro inesperado ao desativar 2FA:", err);
       setDisableError("Erro inesperado ao desativar o 2FA. Tente novamente.");
@@ -1891,7 +1803,7 @@ function SecuritySection({
               <Button
                 className="bg-blood-moon-error/90 hover:bg-blood-moon-error text-starlight-text px-4 py-2"
                 onClick={handleConfirmDisableTwoFactor}
-                disabled={disableVerifying || twoFactorSaving || disableCode.trim().length !== 6}
+                disabled={disableVerifying || twoFactorSaving || !disableFactorId}
               >
                 {disableVerifying ? "Desativando..." : "Desativar 2FA"}
               </Button>
