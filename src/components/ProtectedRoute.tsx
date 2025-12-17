@@ -2,6 +2,8 @@ import { ReactNode, useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { supabase, resetSupabaseClient } from "@/integrations/supabase/client";
 
+// PATCH_MARK: PROTECTED_ROUTE_TIMEOUT_V1
+
 interface ProtectedRouteProps {
   children: ReactNode;
   requireAdmin?: boolean;
