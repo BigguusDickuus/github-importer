@@ -1,295 +1,97 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Header } from "./Header";
 import { Button } from "./ui/button";
 import { Sparkles, Eye, Trash2, ChevronLeft, ChevronRight } from "lucide-react";
 import { ReadingResultModal } from "./ReadingResultModal";
 import { Link } from "react-router-dom";
-import { supabase } from "@/integrations/supabase/client";
-import type { OracleType } from "@/types/oracles";
-import { HelloBar } from "./HelloBar";
-
-type FilterKey = "all" | OracleType;
 
 interface Reading {
   id: string;
-  // ISO usado internamente para new Date(...)
   date: string;
   time: string;
-  // label exibido no chip (ex: "Tarot", "Tarot Cigano", "Tarot + Lenormand")
-  oracleLabel: string;
-  // nome do spread (ex: "Cruz Celta", "Linha de 5", etc)
-  spreadLabel: string;
+  oracle: string;
+  spread: string;
   question: string;
   preview: string;
   fullReading: string;
-  // para o filtro por tipo
-  oracleTypes: OracleType[];
+  cards: number[];
 }
 
-type ReadingRow = {
-  id: string;
-  question: string | null;
-  response: string | null;
-  oracle_types: string[] | null;
-  oracles: any;
-  created_at: string;
-  completed_at: string | null;
-  status: string;
-  is_deleted?: boolean | null;
-};
-
-type CreateCheckoutSessionResponse = {
-  ok: boolean;
-  checkout_url: string;
-  session_id: string;
-};
-
-const supabaseClient = supabase as any;
-
 export function History() {
-  const [readings, setReadings] = useState<Reading[]>([]);
   const [selectedReading, setSelectedReading] = useState<Reading | null>(null);
   const [deleteReading, setDeleteReading] = useState<Reading | null>(null);
-  const [filterOracle, setFilterOracle] = useState<FilterKey>("all");
+  const [filterOracle, setFilterOracle] = useState<string>("all");
   const [itemsPerPage, setItemsPerPage] = useState<number>(20);
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
 
-  const [loading, setLoading] = useState<boolean>(false);
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [deleteLoading, setDeleteLoading] = useState<boolean>(false);
+  const readings: Reading[] = [
+    {
+      id: "1",
+      date: "2025-11-18",
+      time: "14:30",
+      oracle: "Tarot",
+      spread: "tarot-cruz-celta",
+      question: "Como está minha vida profissional neste momento?",
+      preview: "As cartas indicam um período de transformação e crescimento...",
+      fullReading: "Cruz Celta completa: As cartas revelam um momento de profunda transformação profissional. O Louco sugere novos começos, enquanto o Mago indica que você possui todas as ferramentas necessárias para o sucesso...",
+      cards: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9],
+    },
+    {
+      id: "2",
+      date: "2025-11-17",
+      time: "10:45",
+      oracle: "Tarot",
+      spread: "tarot-tres-cartas",
+      question: "O que devo esperar do meu relacionamento atual?",
+      preview: "A leitura mostra harmonia e compreensão mútua...",
+      fullReading: "Passado-Presente-Futuro: A leitura revela uma base sólida no passado, harmonia no presente e crescimento conjunto no futuro. As cartas indicam compreensão mútua e desenvolvimento emocional...",
+      cards: [5, 12, 18],
+    },
+    {
+      id: "3",
+      date: "2025-11-15",
+      time: "16:15",
+      oracle: "Tarot Cigano",
+      spread: "lenormand",
+      question: "Como posso melhorar minhas finanças?",
+      preview: "As cartas apontam para disciplina e planejamento...",
+      fullReading: "Combinação Lenormand: As cartas sugerem que disciplina financeira e planejamento cuidadoso são essenciais. O Peixe indica prosperidade futura, enquanto o Livro sugere aprendizado...",
+      cards: [23, 14, 26],
+    },
+    {
+      id: "4",
+      date: "2025-11-14",
+      time: "09:00",
+      oracle: "Cartomancia Clássica",
+      spread: "cartomancia",
+      question: "Qual o melhor caminho para meu crescimento espiritual?",
+      preview: "As cartas apontam para introspecção e autoconhecimento...",
+      fullReading: "Leitura de Cartomancia: O caminho espiritual está iluminado. O Ás de Copas sugere abertura emocional, enquanto os Ouros indicam manifestação prática de sua jornada espiritual...",
+      cards: [8, 16, 24],
+    },
+  ];
 
-  // Controle de loading do botão de plano (Stripe)
-  const [checkoutLoadingSlug, setCheckoutLoadingSlug] = useState<string | null>(null);
+  const filteredReadings = filterOracle === "all"
+    ? readings
+    : readings.filter((r) => r.oracle === filterOracle);
 
-  // HelloBar (mensagem pós-Stripe)
-  const [helloBarMessage, setHelloBarMessage] = useState("");
-  const [helloBarType, setHelloBarType] = useState<"success" | "warning" | "error">("success");
-  const [helloBarShow, setHelloBarShow] = useState(false);
-
-  // Lê ?payment_status=success|error do retorno do Stripe e mostra HelloBar
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const status = params.get("payment_status");
-    if (!status) return;
-
-    if (status === "success") {
-      setHelloBarType("success");
-      setHelloBarMessage("Pacote adquirido com sucesso!");
-      setHelloBarShow(true);
-    } else if (status === "error") {
-      setHelloBarType("error");
-      setHelloBarMessage("Erro no pagamento, tente novamente.");
-      setHelloBarShow(true);
-    }
-
-    // Remove o parâmetro da URL
-    const url = new URL(window.location.href);
-    url.searchParams.delete("payment_status");
-    window.history.replaceState({}, "", url.toString());
-  }, []);
-
-  useEffect(() => {
-    const fetchReadings = async () => {
-      try {
-        setLoading(true);
-        setErrorMessage(null);
-
-        // 1) Usuário logado
-        const {
-          data: { user },
-          error: userError,
-        } = await supabaseClient.auth.getUser();
-
-        if (userError) {
-          console.error("Erro ao buscar usuário logado:", userError);
-          setErrorMessage("Erro ao identificar usuário logado.");
-          setReadings([]);
-          return;
-        }
-
-        if (!user) {
-          setErrorMessage("Sessão expirada. Faça login novamente.");
-          setReadings([]);
-          return;
-        }
-
-        // 2) Busca leituras concluídas e não apagadas (soft delete)
-        const { data, error } = await supabaseClient
-          .from("readings")
-          .select("id, question, response, oracle_types, oracles, created_at, completed_at, status, is_deleted")
-          .eq("user_id", user.id)
-          .eq("status", "completed")
-          .eq("is_deleted", false)
-          .order("completed_at", { ascending: false, nullsFirst: false })
-          .order("created_at", { ascending: false });
-
-        if (error) {
-          console.error("Erro ao buscar leituras:", error);
-          setErrorMessage("Erro ao carregar histórico de leituras.");
-          setReadings([]);
-          return;
-        }
-
-        const rows = (data || []) as ReadingRow[];
-
-        const mapped: Reading[] = rows.map((row) => {
-          const baseDate = row.completed_at || row.created_at;
-          const dateObj = new Date(baseDate);
-
-          const dateIso = dateObj.toISOString(); // ISO completo
-          const time = dateObj.toLocaleTimeString("pt-BR", {
-            hour: "2-digit",
-            minute: "2-digit",
-          });
-
-          const oracleTypes = ((row.oracle_types || []) as string[]).filter(Boolean) as OracleType[];
-
-          // label bonitinho do oráculo
-          const oracleLabels = oracleTypes.map((t) => {
-            if (t === "tarot") return "Tarot";
-            if (t === "lenormand") return "Tarot Cigano";
-            if (t === "cartomancy") return "Cartomancia Clássica";
-            return t;
-          });
-
-          const oracleLabel = oracleLabels.length === 0 ? "Oráculo" : oracleLabels.join(" + ");
-
-          // spread a partir do JSON de oracles
-          let spreadLabel = "Leitura";
-          try {
-            const oracles = row.oracles;
-            let spreads: any[] | null = null;
-
-            if (Array.isArray(oracles)) {
-              spreads = oracles;
-            } else if (oracles && Array.isArray(oracles.spreads)) {
-              spreads = oracles.spreads;
-            }
-
-            if (spreads && spreads.length > 0) {
-              const first = spreads[0];
-              if (first?.spread_name) {
-                spreadLabel = String(first.spread_name);
-              } else if (first?.spread_code) {
-                spreadLabel = String(first.spread_code);
-              }
-            }
-          } catch (e) {
-            console.warn("Não foi possível interpretar spreads da leitura:", e);
-          }
-
-          const question = row.question || "Pergunta não registrada";
-          const fullReading = row.response || "";
-          const basePreview = fullReading || "Não há resposta registrada para esta leitura.";
-
-          const preview = basePreview.length > 140 ? basePreview.slice(0, 140).trimEnd() + "..." : basePreview;
-
-          return {
-            id: row.id,
-            date: dateIso,
-            time,
-            oracleLabel,
-            spreadLabel,
-            question,
-            preview,
-            fullReading,
-            oracleTypes,
-          };
-        });
-
-        setReadings(mapped);
-      } catch (err) {
-        console.error("Erro inesperado ao buscar leituras:", err);
-        setErrorMessage("Erro inesperado ao carregar histórico de leituras.");
-        setReadings([]);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchReadings();
-  }, []);
+  // Pagination logic
+  const totalPages = itemsPerPage === -1 ? 1 : Math.ceil(filteredReadings.length / itemsPerPage);
+  const startIndex = itemsPerPage === -1 ? 0 : (currentPage - 1) * itemsPerPage;
+  const endIndex = itemsPerPage === -1 ? filteredReadings.length : startIndex + itemsPerPage;
+  const paginatedReadings = filteredReadings.slice(startIndex, endIndex);
 
   const handleItemsPerPageChange = (value: number) => {
     setItemsPerPage(value);
     setCurrentPage(1);
   };
 
-  const handlePlanCheckout = async (packageSlug: "credits_10" | "credits_25" | "credits_60") => {
-    try {
-      setCheckoutLoadingSlug(packageSlug);
-
-      const baseUrl = window.location.origin;
-      const currentPath = window.location.pathname;
-
-      const { data, error } = await supabase.functions.invoke<CreateCheckoutSessionResponse>(
-        "create-checkout-session",
-        {
-          body: {
-            package_slug: packageSlug,
-            success_url: `${baseUrl}${currentPath}?payment_status=success`,
-            cancel_url: `${baseUrl}${currentPath}?payment_status=error`,
-          },
-        },
-      );
-
-      if (error) {
-        console.error("Erro ao chamar create-checkout-session:", error);
-        alert("Não foi possível iniciar o pagamento. Tente novamente em alguns instantes.");
-        setCheckoutLoadingSlug(null);
-        return;
-      }
-
-      if (!data?.ok || !data.checkout_url) {
-        console.error("Resposta inesperada de create-checkout-session:", data);
-        alert("Ocorreu um problema ao iniciar o pagamento. Tente novamente.");
-        setCheckoutLoadingSlug(null);
-        return;
-      }
-
-      // Redireciona para o Checkout da Stripe
-      window.location.href = data.checkout_url;
-    } catch (err) {
-      console.error("Erro inesperado ao iniciar o checkout:", err);
-      alert("Ocorreu um erro inesperado ao iniciar o pagamento. Tente novamente.");
-      setCheckoutLoadingSlug(null);
-    }
+  const handleDeleteConfirm = () => {
+    // TODO: Implementar exclusão no Supabase
+    console.log("Excluindo leitura:", deleteReading?.id);
+    setDeleteReading(null);
   };
-
-  const handleDeleteConfirm = async () => {
-    if (!deleteReading) return;
-
-    try {
-      setDeleteLoading(true);
-
-      const { error } = await supabaseClient.from("readings").update({ is_deleted: true }).eq("id", deleteReading.id);
-
-      if (error) {
-        console.error("Erro ao marcar leitura como excluída:", error);
-        setErrorMessage("Erro ao excluir leitura. Tente novamente.");
-        return;
-      }
-
-      // Remove da lista local
-      setReadings((prev) => prev.filter((r) => r.id !== deleteReading.id));
-    } catch (err) {
-      console.error("Erro inesperado ao excluir leitura:", err);
-      setErrorMessage("Erro inesperado ao excluir leitura.");
-    } finally {
-      setDeleteLoading(false);
-      setDeleteReading(null);
-    }
-  };
-
-  const filteredReadings =
-    filterOracle === "all" ? readings : readings.filter((r) => r.oracleTypes.includes(filterOracle));
-
-  // Pagination logic
-  const totalPages = itemsPerPage === -1 ? 1 : Math.max(1, Math.ceil(filteredReadings.length / itemsPerPage));
-  const startIndex = itemsPerPage === -1 ? 0 : (currentPage - 1) * itemsPerPage;
-  const endIndex = itemsPerPage === -1 ? filteredReadings.length : startIndex + itemsPerPage;
-  const paginatedReadings = filteredReadings.slice(startIndex, endIndex);
 
   return (
     <div className="min-h-screen bg-night-sky text-moonlight-text relative">
@@ -302,15 +104,8 @@ export function History() {
 
       <Header isLoggedIn={true} onBuyCredits={() => setShowPaymentModal(true)} />
 
-      <HelloBar
-        message={helloBarMessage}
-        type={helloBarType}
-        show={helloBarShow}
-        onClose={() => setHelloBarShow(false)}
-      />
-
       {/* Main Content */}
-      <main className="relative z-10" style={{ marginTop: "calc(80px + 48px)" }}>
+      <main className="relative z-10" style={{ marginTop: 'calc(80px + 48px)' }}>
         <style>{`
           .history-page-wrapper {
             width: 100%;
@@ -348,22 +143,21 @@ export function History() {
             }
           }
         `}</style>
-
+        
         <div className="history-page-wrapper">
           <div className="history-content-wrapper">
-            {/* Header */}
-            <div className="text-center" style={{ marginBottom: "24px" }}>
-              <h1 className="text-starlight-text" style={{ marginBottom: "16px" }}>
+            {/* Header - Fixed */}
+            <div className="text-center" style={{ marginBottom: '24px' }}>
+              <h1 className="text-starlight-text" style={{ marginBottom: '16px' }}>
                 Histórico de Leituras
               </h1>
-              <p className="text-lg text-moonlight-text">Todas as suas consultas salvas em um só lugar</p>
+              <p className="text-lg text-moonlight-text">
+                Todas as suas consultas salvas em um só lugar
+              </p>
             </div>
 
-            {/* Filters */}
-            <div
-              className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between"
-              style={{ marginBottom: "24px" }}
-            >
+            {/* Filters - Fixed */}
+            <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between" style={{ marginBottom: '24px' }}>
               <div className="flex flex-wrap gap-2">
                 <button
                   onClick={() => setFilterOracle("all")}
@@ -372,66 +166,61 @@ export function History() {
                       ? "bg-mystic-indigo hover:bg-mystic-indigo-dark text-starlight-text"
                       : "bg-transparent border border-obsidian-border text-moonlight-text hover:bg-midnight-surface"
                   }`}
-                  style={{ padding: "8px 16px" }}
+                  style={{ padding: '8px 16px' }}
                 >
                   Todos
                 </button>
                 <button
-                  onClick={() => setFilterOracle("tarot")}
+                  onClick={() => setFilterOracle("Tarot")}
                   className={`rounded-md transition-colors ${
-                    filterOracle === "tarot"
+                    filterOracle === "Tarot"
                       ? "bg-mystic-indigo hover:bg-mystic-indigo-dark text-starlight-text"
                       : "bg-transparent border border-obsidian-border text-moonlight-text hover:bg-midnight-surface"
                   }`}
-                  style={{ padding: "8px 16px" }}
+                  style={{ padding: '8px 16px' }}
                 >
                   Tarot
                 </button>
                 <button
-                  onClick={() => setFilterOracle("lenormand")}
+                  onClick={() => setFilterOracle("Tarot Cigano")}
                   className={`rounded-md transition-colors ${
-                    filterOracle === "lenormand"
+                    filterOracle === "Tarot Cigano"
                       ? "bg-mystic-indigo hover:bg-mystic-indigo-dark text-starlight-text"
                       : "bg-transparent border border-obsidian-border text-moonlight-text hover:bg-midnight-surface"
                   }`}
-                  style={{ padding: "8px 16px" }}
+                  style={{ padding: '8px 16px' }}
                 >
                   Tarot Cigano
                 </button>
                 <button
-                  onClick={() => setFilterOracle("cartomancy")}
+                  onClick={() => setFilterOracle("Cartomancia Clássica")}
                   className={`rounded-md transition-colors ${
-                    filterOracle === "cartomancy"
+                    filterOracle === "Cartomancia Clássica"
                       ? "bg-mystic-indigo hover:bg-mystic-indigo-dark text-starlight-text"
                       : "bg-transparent border border-obsidian-border text-moonlight-text hover:bg-midnight-surface"
                   }`}
-                  style={{ padding: "8px 16px" }}
+                  style={{ padding: '8px 16px' }}
                 >
                   Cartomancia Clássica
                 </button>
               </div>
 
               <div className="text-sm text-moonlight-text">
-                {loading
-                  ? "Carregando leituras..."
-                  : `${filteredReadings.length} ${filteredReadings.length === 1 ? "leitura" : "leituras"}`}
+                {filteredReadings.length} {filteredReadings.length === 1 ? 'leitura' : 'leituras'}
               </div>
             </div>
 
-            {/* Controls Bar */}
+            {/* Controls Bar - Fixed (Dropdown + Link + Pagination) */}
             {filteredReadings.length > 0 && (
-              <div
-                className="flex flex-row items-center justify-between flex-nowrap"
-                style={{ marginBottom: "24px", gap: "8px" }}
-              >
+              <div className="flex flex-row items-center justify-between flex-nowrap" style={{ marginBottom: '24px', gap: '8px' }}>
                 {/* Dropdown */}
-                <div className="flex items-center gap-2 flex-shrink-0" style={{ minWidth: "120px" }}>
+                <div className="flex items-center gap-2 flex-shrink-0" style={{ minWidth: '120px' }}>
                   <span className="text-sm text-moonlight-text hidden sm:inline">Exibir:</span>
                   <select
                     value={itemsPerPage}
                     onChange={(e) => handleItemsPerPageChange(Number(e.target.value))}
                     className="bg-midnight-surface border border-obsidian-border rounded-lg text-starlight-text focus:outline-none focus:border-mystic-indigo text-sm"
-                    style={{ padding: "8px 12px" }}
+                    style={{ padding: '8px 12px' }}
                   >
                     <option value={20}>20</option>
                     <option value={50}>50</option>
@@ -440,59 +229,48 @@ export function History() {
                   </select>
                 </div>
 
-                {/* Return Link */}
+                {/* Return Link - Center */}
                 <div className="flex-1 flex items-center justify-center min-w-0">
-                  <Link
-                    to="/dashboard"
+                  <Link 
+                    to="/dashboard" 
                     className="text-mystic-indigo hover:text-mystic-indigo-dark transition-colors text-sm sm:text-base whitespace-nowrap return-link-full"
                   >
                     ← Retornar à home
                   </Link>
-                  <Link
-                    to="/dashboard"
+                  <Link 
+                    to="/dashboard" 
                     className="text-mystic-indigo hover:text-mystic-indigo-dark transition-colors text-sm sm:text-base whitespace-nowrap return-link-short"
                   >
                     ← Home
                   </Link>
                 </div>
 
-                {/* Pagination */}
-                <div
-                  className="flex items-center flex-shrink-0"
-                  style={{
-                    gap: "8px",
-                    minWidth: "120px",
-                    justifyContent: "flex-end",
-                  }}
-                >
+                {/* Pagination - Right */}
+                <div className="flex items-center flex-shrink-0" style={{ gap: '8px', minWidth: '120px', justifyContent: 'flex-end' }}>
                   {itemsPerPage !== -1 ? (
                     totalPages > 1 ? (
                       <>
                         <Button
                           variant="outline"
                           size="sm"
-                          onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                          onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
                           disabled={currentPage === 1}
                           className="border-obsidian-border"
-                          style={{ padding: "8px" }}
+                          style={{ padding: '8px' }}
                         >
                           <ChevronLeft className="w-4 h-4" />
                         </Button>
                         <span className="text-xs sm:text-sm text-moonlight-text whitespace-nowrap">
-                          <span className="hidden sm:inline">
-                            Página {currentPage} de {totalPages}
-                          </span>
-                          <span className="sm:hidden">
-                            {currentPage}/{totalPages}
-                          </span>
+                          <span className="hidden sm:inline">Página {currentPage} de {totalPages}</span>
+                          <span className="sm:hidden">{currentPage}/{totalPages}</span>
                         </span>
                         <Button
                           variant="outline"
                           size="sm"
-                          onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                          onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
                           disabled={currentPage === totalPages}
                           className="border-obsidian-border"
-                          style={{ padding: "8px" }}
+                          style={{ padding: '8px' }}
                         >
                           <ChevronRight className="w-4 h-4" />
                         </Button>
@@ -508,133 +286,102 @@ export function History() {
               </div>
             )}
 
-            {/* Erro */}
-            {errorMessage && (
-              <div className="bg-blood-moon-error/10 border border-blood-moon-error/40 text-blood-moon-error px-4 py-3 rounded-xl text-sm mb-4">
-                {errorMessage}
-              </div>
-            )}
-
             {/* Desktop: Table View */}
-            {paginatedReadings.length > 0 && (
-              <div
-                className="hidden md:block bg-midnight-surface/80 backdrop-blur-sm border border-obsidian-border rounded-2xl overflow-hidden"
-                style={{ padding: "24px", marginBottom: "32px" }}
-              >
-                <table className="w-full">
-                  <thead>
-                    <tr className="border-b border-obsidian-border">
-                      <th className="text-left text-sm text-moonlight-text" style={{ padding: "16px" }}>
-                        Data e Hora
-                      </th>
-                      <th className="text-left text-sm text-moonlight-text" style={{ padding: "16px" }}>
-                        Oráculo
-                      </th>
-                      <th className="text-left text-sm text-moonlight-text" style={{ padding: "16px" }}>
-                        Pergunta
-                      </th>
-                      <th className="text-right text-sm text-moonlight-text" style={{ padding: "16px" }}>
-                        Ações
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {paginatedReadings.map((reading) => (
-                      <tr
-                        key={reading.id}
-                        className="border-b border-obsidian-border last:border-0 hover:bg-night-sky/50 transition-colors cursor-pointer"
-                        onClick={() => setSelectedReading(reading)}
-                      >
-                        <td style={{ padding: "16px" }}>
-                          <div className="text-starlight-text">
-                            {new Date(reading.date).toLocaleDateString("pt-BR")}
-                          </div>
-                          <div className="text-sm text-moonlight-text/70">{reading.time}</div>
-                        </td>
-                        <td style={{ padding: "16px" }}>
-                          <div
-                            className="inline-flex items-center rounded-full bg-mystic-indigo/10 border border-mystic-indigo/30"
-                            style={{ padding: "6px 12px", gap: "8px" }}
+            <div className="hidden md:block bg-midnight-surface/80 backdrop-blur-sm border border-obsidian-border rounded-2xl overflow-hidden" style={{ padding: '24px', marginBottom: '32px' }}>
+              <table className="w-full">
+                <thead>
+                  <tr className="border-b border-obsidian-border">
+                    <th className="text-left text-sm text-moonlight-text" style={{ padding: '16px' }}>Data e Hora</th>
+                    <th className="text-left text-sm text-moonlight-text" style={{ padding: '16px' }}>Oráculo</th>
+                    <th className="text-left text-sm text-moonlight-text" style={{ padding: '16px' }}>Pergunta</th>
+                    <th className="text-right text-sm text-moonlight-text" style={{ padding: '16px' }}>Ações</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {paginatedReadings.map((reading) => (
+                    <tr
+                      key={reading.id}
+                      className="border-b border-obsidian-border last:border-0 hover:bg-night-sky/50 transition-colors cursor-pointer"
+                      onClick={() => setSelectedReading(reading)}
+                    >
+                      <td style={{ padding: '16px' }}>
+                        <div className="text-starlight-text">
+                          {new Date(reading.date).toLocaleDateString('pt-BR')}
+                        </div>
+                        <div className="text-sm text-moonlight-text/70">
+                          {reading.time}
+                        </div>
+                      </td>
+                      <td style={{ padding: '16px' }}>
+                        <div className="inline-flex items-center rounded-full bg-mystic-indigo/10 border border-mystic-indigo/30" style={{ padding: '6px 12px', gap: '8px' }}>
+                          <Sparkles className="w-3 h-3 text-mystic-indigo" />
+                          <span className="text-xs text-mystic-indigo">{reading.oracle}</span>
+                        </div>
+                      </td>
+                      <td style={{ padding: '16px' }}>
+                        <p className="text-starlight-text line-clamp-1">{reading.question}</p>
+                        <p className="text-moonlight-text text-sm line-clamp-1" style={{ marginTop: '4px' }}>{reading.preview}</p>
+                      </td>
+                      <td style={{ padding: '16px' }}>
+                        <div className="flex items-center justify-end" style={{ gap: '8px' }}>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setSelectedReading(reading);
+                            }}
+                            className="text-mystic-indigo hover:text-mystic-indigo-dark"
                           >
-                            <Sparkles className="w-3 h-3 text-mystic-indigo" />
-                            <span className="text-xs text-mystic-indigo">{reading.oracleLabel}</span>
-                          </div>
-                        </td>
-                        <td style={{ padding: "16px" }}>
-                          <p className="text-starlight-text line-clamp-1">{reading.question}</p>
-                          <p className="text-moonlight-text text-sm line-clamp-1" style={{ marginTop: "4px" }}>
-                            {reading.preview}
-                          </p>
-                        </td>
-                        <td style={{ padding: "16px" }}>
-                          <div className="flex items-center justify-end" style={{ gap: "8px" }}>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setSelectedReading(reading);
-                              }}
-                              className="text-mystic-indigo hover:text-mystic-indigo-dark"
-                            >
-                              <Eye className="w-4 h-4" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setDeleteReading(reading);
-                              }}
-                              className="text-blood-moon-error hover:text-blood-moon-error/80"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </Button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
+                            <Eye className="w-4 h-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setDeleteReading(reading);
+                            }}
+                            className="text-blood-moon-error hover:text-blood-moon-error/80"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
 
             {/* Mobile: Card View */}
-            <div className="md:hidden" style={{ marginBottom: "32px" }}>
+            <div className="md:hidden" style={{ marginBottom: '32px' }}>
               {paginatedReadings.map((reading, index) => (
                 <div
                   key={reading.id}
                   className="bg-midnight-surface/80 backdrop-blur-sm border border-obsidian-border rounded-xl hover:border-mystic-indigo transition-all cursor-pointer"
                   onClick={() => setSelectedReading(reading)}
-                  style={{
-                    padding: "24px",
-                    marginBottom: index < paginatedReadings.length - 1 ? "16px" : "0",
-                  }}
+                  style={{ padding: '24px', marginBottom: index < paginatedReadings.length - 1 ? '16px' : '0' }}
                 >
-                  <div className="flex items-start justify-between" style={{ marginBottom: "12px" }}>
-                    <div
-                      className="inline-flex items-center rounded-full bg-mystic-indigo/10 border border-mystic-indigo/30"
-                      style={{ padding: "6px 12px", gap: "8px" }}
-                    >
+                  <div className="flex items-start justify-between" style={{ marginBottom: '12px' }}>
+                    <div className="inline-flex items-center rounded-full bg-mystic-indigo/10 border border-mystic-indigo/30" style={{ padding: '6px 12px', gap: '8px' }}>
                       <Sparkles className="w-3 h-3 text-mystic-indigo" />
-                      <span className="text-xs text-mystic-indigo">{reading.oracleLabel}</span>
+                      <span className="text-xs text-mystic-indigo">{reading.oracle}</span>
                     </div>
                     <div className="text-right">
                       <div className="text-xs text-moonlight-text">
-                        {new Date(reading.date).toLocaleDateString("pt-BR")}
+                        {new Date(reading.date).toLocaleDateString('pt-BR')}
                       </div>
-                      <div className="text-xs text-moonlight-text/70">{reading.time}</div>
+                      <div className="text-xs text-moonlight-text/70">
+                        {reading.time}
+                      </div>
                     </div>
                   </div>
 
-                  <p className="text-starlight-text line-clamp-2" style={{ marginBottom: "8px" }}>
-                    {reading.question}
-                  </p>
-                  <p className="text-moonlight-text text-sm line-clamp-2" style={{ marginBottom: "16px" }}>
-                    {reading.preview}
-                  </p>
+                  <p className="text-starlight-text line-clamp-2" style={{ marginBottom: '8px' }}>{reading.question}</p>
+                  <p className="text-moonlight-text text-sm line-clamp-2" style={{ marginBottom: '16px' }}>{reading.preview}</p>
 
-                  <div className="flex" style={{ gap: "8px" }}>
+                  <div className="flex" style={{ gap: '8px' }}>
                     <Button
                       size="sm"
                       onClick={(e) => {
@@ -643,7 +390,7 @@ export function History() {
                       }}
                       className="flex-1 bg-mystic-indigo hover:bg-mystic-indigo-dark text-starlight-text"
                     >
-                      <Eye className="w-4 h-4" style={{ marginRight: "8px" }} />
+                      <Eye className="w-4 h-4" style={{ marginRight: '8px' }} />
                       Ver leitura
                     </Button>
                     <Button
@@ -663,25 +410,19 @@ export function History() {
             </div>
 
             {/* Empty State */}
-            {!loading && filteredReadings.length === 0 && (
-              <div
-                className="text-center"
-                style={{
-                  paddingTop: "48px",
-                  paddingBottom: "48px",
-                  marginBottom: "48px",
-                }}
-              >
-                <Sparkles className="w-12 h-12 text-moonlight-text mx-auto" style={{ marginBottom: "16px" }} />
-                <h3 className="text-starlight-text" style={{ marginBottom: "8px" }}>
-                  Nenhuma leitura encontrada
-                </h3>
-                <p className="text-moonlight-text" style={{ marginBottom: "24px" }}>
+            {filteredReadings.length === 0 && (
+              <div className="text-center" style={{ paddingTop: '48px', paddingBottom: '48px', marginBottom: '48px' }}>
+                <Sparkles className="w-12 h-12 text-moonlight-text mx-auto" style={{ marginBottom: '16px' }} />
+                <h3 className="text-starlight-text" style={{ marginBottom: '8px' }}>Nenhuma leitura encontrada</h3>
+                <p className="text-moonlight-text" style={{ marginBottom: '24px' }}>
                   {filterOracle === "all"
                     ? "Você ainda não fez nenhuma consulta"
-                    : "Você não tem leituras desse tipo de oráculo"}
+                    : `Você não tem leituras de ${filterOracle}`}
                 </p>
-                <Button className="bg-mystic-indigo hover:bg-mystic-indigo-dark text-starlight-text" asChild>
+                <Button 
+                  className="bg-mystic-indigo hover:bg-mystic-indigo-dark text-starlight-text"
+                  asChild
+                >
                   <Link to="/dashboard">Fazer uma consulta</Link>
                 </Button>
               </div>
@@ -712,64 +453,43 @@ export function History() {
             }
           }
         `}</style>
-        <div className="footer-container w-full" style={{ paddingTop: "48px", paddingBottom: "48px" }}>
+        <div className="footer-container w-full" style={{ paddingTop: '48px', paddingBottom: '48px' }}>
           <div className="max-w-[1400px] mx-auto">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-12" style={{ marginBottom: "80px" }}>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-12" style={{ marginBottom: '80px' }}>
               {/* Logo e descrição */}
               <div>
-                <div className="flex items-center mb-4" style={{ gap: "12px" }}>
+                <div className="flex items-center mb-4" style={{ gap: '12px' }}>
                   <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-mystic-indigo to-oracle-ember flex items-center justify-center">
                     <Sparkles className="w-5 h-5 text-starlight-text" />
                   </div>
                   <span className="text-starlight-text">Tarot Online</span>
                 </div>
                 <small className="block text-moonlight-text/70">
-                  Consultas de Tarot, Tarot Cigano e Cartomancia Clássica disponíveis 24/7 com interpretações profundas
-                  e personalizadas.
+                  Consultas de Tarot, Tarot Cigano e Cartomancia Clássica disponíveis 24/7 com interpretações profundas e personalizadas.
                 </small>
               </div>
 
               {/* Links - Serviços */}
               <div>
-                <h3 className="text-base text-starlight-text" style={{ marginBottom: "16px" }}>
-                  Serviços
-                </h3>
-                <ul
-                  style={{
-                    display: "flex",
-                    flexDirection: "column",
-                    gap: "12px",
-                  }}
-                >
+                <h3 className="text-base text-starlight-text" style={{ marginBottom: '16px' }}>Serviços</h3>
+                <ul style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                   <li>
-                    <Link
-                      to="/dashboard"
-                      className="text-sm text-moonlight-text/70 hover:text-mystic-indigo transition-colors"
-                    >
+                    <Link to="/dashboard" className="text-sm text-moonlight-text/70 hover:text-mystic-indigo transition-colors">
                       Tarot
                     </Link>
                   </li>
                   <li>
-                    <Link
-                      to="/dashboard"
-                      className="text-sm text-moonlight-text/70 hover:text-mystic-indigo transition-colors"
-                    >
+                    <Link to="/dashboard" className="text-sm text-moonlight-text/70 hover:text-mystic-indigo transition-colors">
                       Tarot Cigano
                     </Link>
                   </li>
                   <li>
-                    <Link
-                      to="/dashboard"
-                      className="text-sm text-moonlight-text/70 hover:text-mystic-indigo transition-colors"
-                    >
+                    <Link to="/dashboard" className="text-sm text-moonlight-text/70 hover:text-mystic-indigo transition-colors">
                       Cartomancia Clássica
                     </Link>
                   </li>
                   <li>
-                    <Link
-                      to="/historico"
-                      className="text-sm text-moonlight-text/70 hover:text-mystic-indigo transition-colors"
-                    >
+                    <Link to="/historico" className="text-sm text-moonlight-text/70 hover:text-mystic-indigo transition-colors">
                       Histórico de leituras
                     </Link>
                   </li>
@@ -778,51 +498,35 @@ export function History() {
 
               {/* Links - Informações */}
               <div>
-                <h3 className="text-base text-starlight-text" style={{ marginBottom: "16px" }}>
-                  Informações
-                </h3>
-                <ul
-                  style={{
-                    display: "flex",
-                    flexDirection: "column",
-                    gap: "12px",
-                  }}
-                >
+                <h3 className="text-base text-starlight-text" style={{ marginBottom: '16px' }}>Informações</h3>
+                <ul style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                   <li>
-                    <button
-                      onClick={() => {
-                        /* TODO: implementar página */
-                      }}
+                    <button 
+                      onClick={() => {/* TODO: implementar página */}}
                       className="text-sm text-moonlight-text/70 hover:text-mystic-indigo transition-colors"
                     >
                       Sobre nós
                     </button>
                   </li>
                   <li>
-                    <button
-                      onClick={() => {
-                        /* TODO: implementar página */
-                      }}
+                    <button 
+                      onClick={() => {/* TODO: implementar página */}}
                       className="text-sm text-moonlight-text/70 hover:text-mystic-indigo transition-colors"
                     >
                       Termos de uso
                     </button>
                   </li>
                   <li>
-                    <button
-                      onClick={() => {
-                        /* TODO: implementar página */
-                      }}
+                    <button 
+                      onClick={() => {/* TODO: implementar página */}}
                       className="text-sm text-moonlight-text/70 hover:text-mystic-indigo transition-colors"
                     >
                       Política de privacidade
                     </button>
                   </li>
                   <li>
-                    <button
-                      onClick={() => {
-                        /* TODO: implementar página */
-                      }}
+                    <button 
+                      onClick={() => {/* TODO: implementar página */}}
                       className="text-sm text-moonlight-text/70 hover:text-mystic-indigo transition-colors"
                     >
                       Contato
@@ -833,7 +537,7 @@ export function History() {
             </div>
 
             {/* Copyright */}
-            <div style={{ paddingTop: "32px" }}>
+            <div style={{ paddingTop: '32px' }}>
               <small className="block text-center text-moonlight-text/70">
                 © 2024 Tarot Online. Todos os direitos reservados.
               </small>
@@ -842,20 +546,14 @@ export function History() {
         </div>
       </footer>
 
-      {/* Payment Modal - igual HomeLogada */}
+      {/* Payment Modal */}
       {showPaymentModal && (
         <>
-          {/* Backdrop com blur */}
-          <div
+          <div 
             className="fixed inset-0 z-50 bg-night-sky/80 backdrop-blur-md"
             onClick={() => setShowPaymentModal(false)}
           />
-
-          {/* Modal */}
-          <div
-            className="fixed inset-0 z-50 flex items-center justify-center pointer-events-none"
-            style={{ padding: "16px" }}
-          >
+          <div className="fixed inset-0 z-50 flex items-center justify-center pointer-events-none" style={{ padding: '16px' }}>
             <div className="relative pointer-events-auto">
               {/* Botão X - Fora do modal, canto superior direito */}
               <button
@@ -879,145 +577,18 @@ export function History() {
                 </svg>
               </button>
 
-              <div
-                className="bg-midnight-surface border border-obsidian-border rounded-3xl shadow-2xl w-full max-w-3xl max-h-[80vh] overflow-y-auto"
-                style={{ padding: "32px" }}
+              <div 
+                className="bg-midnight-surface border border-obsidian-border rounded-3xl shadow-2xl w-full max-w-2xl max-h-[80vh] overflow-y-auto"
+                style={{ padding: '32px' }}
                 onClick={(e) => e.stopPropagation()}
               >
-                <div className="mb-6">
-                  <h2 className="text-2xl md:text-3xl text-starlight-text text-center">Comprar Créditos</h2>
+                <div style={{ marginBottom: '24px' }}>
+                  <h2 className="text-starlight-text">Comprar Créditos</h2>
                 </div>
-
-                <p className="text-lg text-moonlight-text text-center" style={{ marginBottom: "32px" }}>
-                  Escolha o plano ideal para você:
-                </p>
-
-                {/* Plans Grid */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  {/* Plano Iniciante */}
-                  <div
-                    className="plan-card-mobile bg-night-sky/50 border border-obsidian-border rounded-2xl flex flex-col items-center text-center"
-                    style={{ padding: "24px" }}
-                  >
-                    <style>{`
-                      @media (max-width: 767px) {
-                        .plan-card-mobile {
-                          padding: 16px !important;
-                        }
-                        .plan-card-mobile .plan-title {
-                          font-size: 1.125rem !important;
-                          margin-bottom: 6px !important;
-                        }
-                        .plan-card-mobile .plan-credits-number {
-                          font-size: 2rem !important;
-                        }
-                        .plan-card-mobile .plan-credits-text {
-                          font-size: 0.875rem !important;
-                        }
-                        .plan-card-mobile .plan-credits-wrapper {
-                          margin-bottom: 6px !important;
-                        }
-                        .plan-card-mobile .plan-price {
-                          font-size: 1.5rem !important;
-                        }
-                        .plan-card-mobile .plan-price-per {
-                          font-size: 0.75rem !important;
-                          margin-top: 2px !important;
-                        }
-                        .plan-card-mobile .plan-price-wrapper {
-                          margin-bottom: 10px !important;
-                        }
-                        .plan-card-mobile .plan-button {
-                          height: 40px !important;
-                          font-size: 0.875rem !important;
-                        }
-                        .plan-card-mobile .plan-badge {
-                          font-size: 0.625rem !important;
-                          padding: 2px 10px !important;
-                        }
-                      }
-                    `}</style>
-                    <h3 className="plan-title text-xl text-starlight-text" style={{ marginBottom: "8px" }}>
-                      Iniciante
-                    </h3>
-                    <div className="plan-credits-wrapper" style={{ marginBottom: "8px" }}>
-                      <div className="plan-credits-number text-3xl text-starlight-text">10</div>
-                      <div className="plan-credits-text text-moonlight-text/70">créditos</div>
-                    </div>
-                    <div className="plan-price-wrapper" style={{ marginBottom: "12px" }}>
-                      <div className="plan-price text-2xl text-mystic-indigo">R$ 25,00</div>
-                      <div className="plan-price-per text-sm text-moonlight-text/70" style={{ marginTop: "2px" }}>
-                        R$ 2,50/cada
-                      </div>
-                    </div>
-                    <button
-                      className="plan-button w-full bg-mystic-indigo hover:bg-mystic-indigo-dark text-starlight-text mt-auto h-11 rounded-full text-sm font-medium transition-colors"
-                      onClick={() => handlePlanCheckout("credits_10")}
-                      disabled={checkoutLoadingSlug !== null}
-                    >
-                      {checkoutLoadingSlug === "credits_10" ? "Redirecionando..." : "Escolher"}
-                    </button>
-                  </div>
-
-                  {/* Plano Explorador */}
-                  <div
-                    className="plan-card-mobile bg-night-sky/50 border-2 border-mystic-indigo rounded-2xl flex flex-col items-center text-center relative"
-                    style={{ padding: "24px" }}
-                  >
-                    <div
-                      className="plan-badge absolute -top-3 left-1/2 -translate-x-1/2 bg-mystic-indigo text-starlight-text text-xs rounded-full"
-                      style={{ paddingLeft: "12px", paddingRight: "12px", paddingTop: "4px", paddingBottom: "4px" }}
-                    >
-                      POPULAR
-                    </div>
-                    <h3 className="plan-title text-xl text-starlight-text" style={{ marginBottom: "8px" }}>
-                      Explorador
-                    </h3>
-                    <div className="plan-credits-wrapper" style={{ marginBottom: "8px" }}>
-                      <div className="plan-credits-number text-3xl text-starlight-text">25</div>
-                      <div className="plan-credits-text text-moonlight-text/70">créditos</div>
-                    </div>
-                    <div className="plan-price-wrapper" style={{ marginBottom: "12px" }}>
-                      <div className="plan-price text-2xl text-mystic-indigo">R$ 50,00</div>
-                      <div className="plan-price-per text-sm text-moonlight-text/70" style={{ marginTop: "2px" }}>
-                        R$ 2,00/cada
-                      </div>
-                    </div>
-                    <button
-                      className="plan-button w-full bg-mystic-indigo hover:bg-mystic-indigo-dark text-starlight-text mt-auto h-11 rounded-full text-sm font-medium transition-colors"
-                      onClick={() => handlePlanCheckout("credits_25")}
-                      disabled={checkoutLoadingSlug !== null}
-                    >
-                      {checkoutLoadingSlug === "credits_25" ? "Redirecionando..." : "Escolher"}
-                    </button>
-                  </div>
-
-                  {/* Plano Místico */}
-                  <div
-                    className="plan-card-mobile bg-night-sky/50 border border-obsidian-border rounded-2xl flex flex-col items-center text-center"
-                    style={{ padding: "24px" }}
-                  >
-                    <h3 className="plan-title text-xl text-starlight-text" style={{ marginBottom: "8px" }}>
-                      Místico
-                    </h3>
-                    <div className="plan-credits-wrapper" style={{ marginBottom: "8px" }}>
-                      <div className="plan-credits-number text-3xl text-starlight-text">60</div>
-                      <div className="plan-credits-text text-moonlight-text/70">créditos</div>
-                    </div>
-                    <div className="plan-price-wrapper" style={{ marginBottom: "12px" }}>
-                      <div className="plan-price text-2xl text-mystic-indigo">R$ 100,00</div>
-                      <div className="plan-price-per text-sm text-moonlight-text/70" style={{ marginTop: "2px" }}>
-                        R$ 1,67/cada
-                      </div>
-                    </div>
-                    <button
-                      className="plan-button w-full bg-mystic-indigo hover:bg-mystic-indigo-dark text-starlight-text mt-auto h-11 rounded-full text-sm font-medium transition-colors"
-                      onClick={() => handlePlanCheckout("credits_60")}
-                      disabled={checkoutLoadingSlug !== null}
-                    >
-                      {checkoutLoadingSlug === "credits_60" ? "Redirecionando..." : "Escolher"}
-                    </button>
-                  </div>
+                <div className="flex items-center justify-center" style={{ padding: '64px 0' }}>
+                  <p className="text-lg text-moonlight-text">
+                    Gateway de pagamento será integrado aqui
+                  </p>
                 </div>
               </div>
             </div>
@@ -1025,31 +596,82 @@ export function History() {
         </>
       )}
 
-      {/* Reading Result Modal */}
+      {/* Reading Detail Modal */}
       {selectedReading && (
-        <ReadingResultModal
-          isOpen={!!selectedReading}
-          onClose={() => setSelectedReading(null)}
-          spread={selectedReading.spreadLabel}
-          question={selectedReading.question}
-          selectedCards={[]}
-          response={selectedReading.fullReading}
-          isLoading={false}
-          currentCredits={null}
-          onOpenPurchaseCredits={() => {
-            window.location.href = "/dashboard";
-          }}
-        />
+        <>
+          <div 
+            className="fixed inset-0 z-50 bg-night-sky/80 backdrop-blur-md"
+            onClick={() => setSelectedReading(null)}
+          />
+          <div className="fixed inset-0 z-50 flex items-center justify-center pointer-events-none" style={{ padding: '16px' }}>
+            <div className="relative pointer-events-auto">
+              {/* Botão X - Fora do modal, canto superior direito */}
+              <button
+                onClick={() => setSelectedReading(null)}
+                className="absolute -top-4 -right-4 w-10 h-10 rounded-full bg-midnight-surface border border-obsidian-border text-moonlight-text hover:text-starlight-text hover:border-mystic-indigo transition-colors flex items-center justify-center z-10"
+                aria-label="Fechar"
+              >
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="20"
+                  height="20"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <line x1="18" y1="6" x2="6" y2="18"></line>
+                  <line x1="6" y1="6" x2="18" y2="18"></line>
+                </svg>
+              </button>
+
+              <div 
+                className="bg-midnight-surface border border-obsidian-border rounded-3xl shadow-2xl w-full max-w-3xl max-h-[80vh] overflow-y-auto"
+                style={{ padding: '32px' }}
+                onClick={(e) => e.stopPropagation()}
+              >
+                <div style={{ marginBottom: '24px' }}>
+                  <h2 className="text-starlight-text">Leitura Completa</h2>
+                </div>
+
+                <div>
+                  <div className="inline-flex items-center rounded-full bg-mystic-indigo/10 border border-mystic-indigo/30" style={{ padding: '6px 12px', gap: '8px', marginBottom: '24px' }}>
+                    <Sparkles className="w-3 h-3 text-mystic-indigo" />
+                    <span className="text-xs text-mystic-indigo">{selectedReading.oracle}</span>
+                  </div>
+                  <p className="text-sm text-moonlight-text" style={{ marginBottom: '24px' }}>
+                    {new Date(selectedReading.date).toLocaleDateString('pt-BR')} às {selectedReading.time}
+                  </p>
+                  <h3 className="text-starlight-text" style={{ marginBottom: '24px' }}>{selectedReading.question}</h3>
+                  <div className="prose prose-invert max-w-none" style={{ marginBottom: '32px' }}>
+                    <p className="text-moonlight-text">{selectedReading.fullReading}</p>
+                  </div>
+                </div>
+
+                <div className="flex" style={{ gap: '12px' }}>
+                  <Button
+                    className="flex-1 bg-mystic-indigo hover:bg-mystic-indigo-dark text-starlight-text"
+                    onClick={() => setSelectedReading(null)}
+                  >
+                    Fechar
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </>
       )}
 
       {/* Delete Confirmation Modal */}
       {deleteReading && (
         <>
-          <div className="fixed inset-0 z-50 bg-night-sky/80 backdrop-blur-md" onClick={() => setDeleteReading(null)} />
-          <div
-            className="fixed inset-0 z-50 flex items-center justify-center pointer-events-none"
-            style={{ padding: "16px" }}
-          >
+          <div 
+            className="fixed inset-0 z-50 bg-night-sky/80 backdrop-blur-md"
+            onClick={() => setDeleteReading(null)}
+          />
+          <div className="fixed inset-0 z-50 flex items-center justify-center pointer-events-none" style={{ padding: '16px' }}>
             <div className="relative pointer-events-auto">
               {/* Botão X - Fora do modal, canto superior direito */}
               <button
@@ -1073,25 +695,23 @@ export function History() {
                 </svg>
               </button>
 
-              <div
+              <div 
                 className="bg-midnight-surface border border-obsidian-border rounded-3xl shadow-2xl w-full max-w-md"
-                style={{ padding: "32px" }}
+                style={{ padding: '32px' }}
                 onClick={(e) => e.stopPropagation()}
               >
-                <div style={{ marginBottom: "24px" }}>
+                <div style={{ marginBottom: '24px' }}>
                   <h2 className="text-starlight-text">Confirmar Exclusão</h2>
                 </div>
 
-                <p className="text-moonlight-text" style={{ marginBottom: "32px" }}>
-                  Esta ação remove a leitura do seu histórico. Ela permanece registrada internamente para fins de
-                  auditoria. Deseja continuar?
+                <p className="text-moonlight-text" style={{ marginBottom: '32px' }}>
+                  Esta ação não pode ser revertida. Tem certeza que deseja excluir esta tiragem e sua leitura?
                 </p>
 
-                <div className="flex" style={{ gap: "12px" }}>
+                <div className="flex" style={{ gap: '12px' }}>
                   <Button
                     className="flex-1 bg-mystic-indigo hover:bg-mystic-indigo-dark text-starlight-text"
                     onClick={() => setDeleteReading(null)}
-                    disabled={deleteLoading}
                   >
                     Cancelar
                   </Button>
@@ -1099,9 +719,8 @@ export function History() {
                     variant="outline"
                     className="flex-1 border-blood-moon-error text-blood-moon-error hover:bg-blood-moon-error hover:text-starlight-text"
                     onClick={handleDeleteConfirm}
-                    disabled={deleteLoading}
                   >
-                    {deleteLoading ? "Excluindo..." : "Excluir"}
+                    Excluir
                   </Button>
                 </div>
               </div>

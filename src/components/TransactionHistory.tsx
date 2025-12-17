@@ -4,55 +4,22 @@ import { Button } from "./ui/button";
 import { ChevronLeft, ChevronRight, CreditCard } from "lucide-react";
 import { Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import { ReadingResultModal } from "./ReadingResultModal";
-import { HelloBar } from "./HelloBar";
-
-type CreateCheckoutSessionResponse = {
-  ok: boolean;
-  checkout_url: string;
-  session_id: string;
-};
 
 interface Transaction {
   id: string;
-  date: string; // ISO para exibição (data)
+  date: string;
   time: string;
   amount: string;
-  eventLabel: string;
-  isUsage: boolean;
-  creditsChangeAbs?: number;
-  completedAtRaw?: string; // created_at original da credit_transactions (para vincular à leitura)
+  package: string;
 }
-
-type ReadingRow = {
-  question: string | null;
-  response: string | null;
-  oracles: any;
-  total_credits_cost: number | null;
-  created_at: string;
-  completed_at: string | null;
-};
 
 export function TransactionHistory() {
   const [itemsPerPage, setItemsPerPage] = useState<number>(20);
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
-  const [checkoutLoadingSlug, setCheckoutLoadingSlug] = useState<string | null>(null);
-
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-
-  const [helloBarMessage, setHelloBarMessage] = useState("");
-  const [helloBarType, setHelloBarType] = useState<"success" | "warning" | "error">("success");
-  const [helloBarShow, setHelloBarShow] = useState(false);
-
-  // Modal de leitura vinculada ao uso de créditos
-  const [showReadingModal, setShowReadingModal] = useState(false);
-  const [readingModalLoading, setReadingModalLoading] = useState(false);
-  const [readingModalQuestion, setReadingModalQuestion] = useState("");
-  const [readingModalSpread, setReadingModalSpread] = useState("");
-  const [readingModalResponse, setReadingModalResponse] = useState("");
 
   // Pagination logic
   const totalPages = itemsPerPage === -1 ? 1 : Math.ceil(transactions.length / itemsPerPage);
@@ -63,52 +30,6 @@ export function TransactionHistory() {
   const handleItemsPerPageChange = (value: number) => {
     setItemsPerPage(value);
     setCurrentPage(1);
-  };
-
-  const handlePlanCheckout = async (packageSlug: "credits_10" | "credits_25" | "credits_60") => {
-    try {
-      setCheckoutLoadingSlug(packageSlug);
-
-      const baseUrl = window.location.origin;
-      const currentPath = window.location.pathname;
-
-      const { data, error } = await supabase.functions.invoke<CreateCheckoutSessionResponse>(
-        "create-checkout-session",
-        {
-          body: {
-            package_slug: packageSlug,
-            success_url: `${baseUrl}${currentPath}?payment_status=success`,
-            cancel_url: `${baseUrl}${currentPath}?payment_status=error`,
-          },
-        },
-      );
-
-      if (error) {
-        console.error("Erro ao criar sessão de checkout:", error);
-        setCheckoutLoadingSlug(null);
-        setHelloBarType("error");
-        setHelloBarMessage("Não foi possível iniciar o pagamento. Tente novamente.");
-        setHelloBarShow(true);
-        return;
-      }
-
-      if (!data?.ok || !data.checkout_url) {
-        console.error("Resposta inesperada de create-checkout-session:", data);
-        setCheckoutLoadingSlug(null);
-        setHelloBarType("error");
-        setHelloBarMessage("Não foi possível iniciar o pagamento. Tente novamente.");
-        setHelloBarShow(true);
-        return;
-      }
-
-      window.location.href = data.checkout_url;
-    } catch (err) {
-      console.error("Erro inesperado ao iniciar checkout:", err);
-      setCheckoutLoadingSlug(null);
-      setHelloBarType("error");
-      setHelloBarMessage("Erro inesperado ao iniciar o pagamento.");
-      setHelloBarShow(true);
-    }
   };
 
   const fetchTransactions = async () => {
@@ -130,6 +51,8 @@ export function TransactionHistory() {
       }
 
       if (!user) {
+        // Em teoria não chega aqui porque a rota é protegida,
+        // mas se chegar, melhor avisar:
         setErrorMessage("Sessão expirada. Faça login novamente.");
         setTransactions([]);
         return;
@@ -138,7 +61,7 @@ export function TransactionHistory() {
       // 2) Busca histórico em credit_transactions
       const { data, error } = await supabase
         .from("credit_transactions")
-        .select("id, credits_change, amount_cents, currency, description, created_at, tx_type")
+        .select("id, credits_change, amount_cents, currency, description, created_at")
         .eq("user_id", user.id)
         .order("created_at", { ascending: false });
 
@@ -152,34 +75,25 @@ export function TransactionHistory() {
       const mapped: Transaction[] = (data || []).map((row: any) => {
         const d = new Date(row.created_at);
 
-        const dateIso = d.toISOString();
+        const date = d.toISOString();
         const time = d.toLocaleTimeString("pt-BR", {
           hour: "2-digit",
           minute: "2-digit",
         });
 
-        const description: string = row.description ?? "";
-        const txType: string = row.tx_type ?? "";
-        const isUsage = description === "Uso de créditos em leitura";
-        const creditsChangeAbs = row.credits_change != null ? Math.abs(Number(row.credits_change)) : undefined;
-
-        // --- COLUNA VALOR ---
+        // --- NOVO: Valor financeiro ---
         let amount: string;
 
         if (row.amount_cents == null) {
-          // Sem valor financeiro:
-          // - uso de créditos em leitura -> "–"
-          // - bônus etc -> "Grátis"
-          if (isUsage) {
-            amount = "–";
-          } else {
-            amount = "Grátis";
-          }
+          // Sem valor financeiro → grátis
+          amount = "Grátis";
         } else {
           const cents = Number(row.amount_cents);
-          const value = cents / 100;
+          const value = cents / 100; // ex: 10000 -> 100.00
+
           const currencyCode = row.currency || "BRL";
 
+          // Intl.NumberFormat usa o código da moeda (BRL) pra gerar "R$"
           amount = new Intl.NumberFormat("pt-BR", {
             style: "currency",
             currency: currencyCode,
@@ -188,41 +102,14 @@ export function TransactionHistory() {
           }).format(value);
         }
 
-        // --- COLUNA EVENTO ---
-        let eventLabel = description || "Movimentação de créditos";
-
-        // Se for compra de pacote via Stripe, tentar mapear pelo "credits_XX"
-        if (txType === "purchase" && description) {
-          const match = description.match(/credits_(\d+)/);
-          if (match) {
-            const creditsAmount = Number(match[1]);
-
-            if (creditsAmount === 10) {
-              eventLabel = "Pacote Iniciante (10 créditos)";
-            } else if (creditsAmount === 25) {
-              eventLabel = "Pacote Explorador (25 créditos)";
-            } else if (creditsAmount === 60) {
-              eventLabel = "Pacote Místico (60 créditos)";
-            } else {
-              eventLabel = `Pacote de créditos (${creditsAmount})`;
-            }
-          }
-        }
-
-        // Pequeno ajuste pra deixar o texto de boas-vindas mais amigável
-        if (txType === "bonus" && description === "Boas-vindas (3 créditos)") {
-          eventLabel = "Bônus de boas-vindas (3 créditos)";
-        }
+        const pkg = row.description || "Movimentação de créditos";
 
         return {
           id: row.id,
-          date: dateIso,
+          date,
           time,
-          amount,
-          eventLabel,
-          isUsage,
-          creditsChangeAbs,
-          completedAtRaw: row.created_at as string,
+          amount, // agora é "R$ 100,00" ou "grátis"
+          package: pkg, // "Boas vindas (3 créditos)", etc.
         };
       });
 
@@ -235,99 +122,6 @@ export function TransactionHistory() {
       setLoading(false);
     }
   };
-
-  const handleOpenReadingFromTransaction = async (transaction: Transaction) => {
-    if (!transaction.isUsage || !transaction.creditsChangeAbs) return;
-
-    try {
-      setShowReadingModal(true);
-      setReadingModalLoading(true);
-      setReadingModalQuestion("");
-      setReadingModalSpread("");
-      setReadingModalResponse("");
-
-      // completed_at da leitura == created_at da transação (mesmo now() na mesma transação)
-      const completedAtValue = transaction.completedAtRaw ?? transaction.date;
-
-      const { data, error } = await supabase
-        .from("readings")
-        .select("question, response, oracles, total_credits_cost, created_at, completed_at")
-        .eq("total_credits_cost", transaction.creditsChangeAbs)
-        .eq("completed_at", completedAtValue)
-        .order("completed_at", { ascending: true })
-        .limit(1);
-
-      if (error) {
-        console.error("Erro ao buscar leitura vinculada:", error);
-        setReadingModalResponse("Não foi possível carregar os detalhes dessa leitura. Tente novamente mais tarde.");
-        return;
-      }
-
-      const rows = (data as ReadingRow[] | null) ?? [];
-      const reading = rows[0] ?? null;
-
-      if (!reading) {
-        setReadingModalResponse("Não foi possível localizar a leitura vinculada a este uso de créditos.");
-        return;
-      }
-
-      const question: string = reading.question ?? "";
-      const response: string = reading.response ?? "";
-
-      // Tentar extrair o nome do método/spread do JSON oracles
-      let spreadLabel = "Leitura anterior";
-      const oracles = reading.oracles as any;
-
-      try {
-        const spreads = Array.isArray(oracles)
-          ? oracles
-          : oracles?.spreads && Array.isArray(oracles.spreads)
-            ? oracles.spreads
-            : null;
-
-        if (spreads && spreads.length > 0) {
-          const first = spreads[0];
-          if (first?.spread_name) {
-            spreadLabel = String(first.spread_name);
-          } else if (first?.spread_code) {
-            spreadLabel = String(first.spread_code);
-          }
-        }
-      } catch (e) {
-        console.warn("Não foi possível interpretar spreads da leitura:", e);
-      }
-
-      setReadingModalQuestion(question);
-      setReadingModalSpread(spreadLabel);
-      setReadingModalResponse(response || "Não há resposta registrada para esta leitura.");
-    } catch (err) {
-      console.error("Erro inesperado ao carregar leitura vinculada:", err);
-      setReadingModalResponse("Ocorreu um erro ao carregar os detalhes desta leitura.");
-    } finally {
-      setReadingModalLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const status = params.get("payment_status");
-    if (!status) return;
-
-    if (status === "success") {
-      setHelloBarType("success");
-      setHelloBarMessage("Pacote adquirido com sucesso!");
-      setHelloBarShow(true);
-    } else if (status === "error") {
-      setHelloBarType("error");
-      setHelloBarMessage("Erro no pagamento, tente novamente.");
-      setHelloBarShow(true);
-    }
-
-    // Remove o parâmetro da URL
-    const url = new URL(window.location.href);
-    url.searchParams.delete("payment_status");
-    window.history.replaceState({}, "", url.toString());
-  }, []);
 
   useEffect(() => {
     fetchTransactions();
@@ -344,13 +138,6 @@ export function TransactionHistory() {
       </div>
 
       <Header isLoggedIn={true} onBuyCredits={() => setShowPaymentModal(true)} />
-
-      <HelloBar
-        show={helloBarShow}
-        onClose={() => setHelloBarShow(false)}
-        type={helloBarType}
-        message={helloBarMessage}
-      />
 
       {/* Main Content */}
       <main className="relative z-10" style={{ marginTop: "calc(80px + 48px)" }}>
@@ -399,7 +186,7 @@ export function TransactionHistory() {
               <h1 className="text-starlight-text" style={{ marginBottom: "16px" }}>
                 Histórico de Transações
               </h1>
-              <p className="text-lg text-moonlight-text">Todas as suas movimentações de créditos</p>
+              <p className="text-lg text-moonlight-text">Todas as suas compras de créditos</p>
             </div>
 
             {/* Info bar */}
@@ -454,11 +241,7 @@ export function TransactionHistory() {
                 {/* Pagination - Right */}
                 <div
                   className="flex items-center flex-shrink-0"
-                  style={{
-                    gap: "8px",
-                    minWidth: "120px",
-                    justifyContent: "flex-end",
-                  }}
+                  style={{ gap: "8px", minWidth: "120px", justifyContent: "flex-end" }}
                 >
                   {itemsPerPage !== -1 ? (
                     totalPages > 1 ? (
@@ -521,7 +304,7 @@ export function TransactionHistory() {
                       Valor
                     </th>
                     <th className="text-left text-sm text-moonlight-text" style={{ padding: "16px" }}>
-                      Evento
+                      Pacote
                     </th>
                   </tr>
                 </thead>
@@ -544,14 +327,11 @@ export function TransactionHistory() {
                       </td>
                       <td style={{ padding: "16px" }}>
                         <div
-                          className={`inline-flex items-center rounded-full bg-mystic-indigo/10 border border-mystic-indigo/30 ${
-                            transaction.isUsage ? "cursor-pointer hover:bg-mystic-indigo/20" : ""
-                          }`}
+                          className="inline-flex items-center rounded-full bg-mystic-indigo/10 border border-mystic-indigo/30"
                           style={{ padding: "6px 12px", gap: "8px" }}
-                          onClick={() => transaction.isUsage && handleOpenReadingFromTransaction(transaction)}
                         >
                           <CreditCard className="w-3 h-3 text-mystic-indigo" />
-                          <span className="text-xs text-mystic-indigo">{transaction.eventLabel}</span>
+                          <span className="text-xs text-mystic-indigo">{transaction.package}</span>
                         </div>
                       </td>
                     </tr>
@@ -566,21 +346,15 @@ export function TransactionHistory() {
                 <div
                   key={transaction.id}
                   className="bg-midnight-surface/80 backdrop-blur-sm border border-obsidian-border rounded-xl"
-                  style={{
-                    padding: "20px",
-                    marginBottom: index < paginatedTransactions.length - 1 ? "16px" : "0",
-                  }}
+                  style={{ padding: "20px", marginBottom: index < paginatedTransactions.length - 1 ? "16px" : "0" }}
                 >
                   <div className="flex items-start justify-between" style={{ marginBottom: "12px" }}>
                     <div
-                      className={`inline-flex items-center rounded-full bg-mystic-indigo/10 border border-mystic-indigo/30 ${
-                        transaction.isUsage ? "cursor-pointer hover:bg-mystic-indigo/20" : ""
-                      }`}
+                      className="inline-flex items-center rounded-full bg-mystic-indigo/10 border border-mystic-indigo/30"
                       style={{ padding: "6px 12px", gap: "8px" }}
-                      onClick={() => transaction.isUsage && handleOpenReadingFromTransaction(transaction)}
                     >
                       <CreditCard className="w-3 h-3 text-mystic-indigo" />
-                      <span className="text-xs text-mystic-indigo">{transaction.eventLabel}</span>
+                      <span className="text-xs text-mystic-indigo">{transaction.package}</span>
                     </div>
                     <div className="text-starlight-text">{transaction.amount}</div>
                   </div>
@@ -603,208 +377,12 @@ export function TransactionHistory() {
                 <h3 className="text-starlight-text" style={{ marginBottom: "8px" }}>
                   Nenhuma transação encontrada
                 </h3>
-                <p className="text-moonlight-text text-sm">Suas movimentações de créditos aparecerão aqui</p>
+                <p className="text-moonlight-text text-sm">Suas compras de créditos aparecerão aqui</p>
               </div>
             )}
           </div>
         </div>
       </main>
-
-      {/* Modal de leitura vinculada a "Uso de créditos em leitura" */}
-      <ReadingResultModal
-        isOpen={showReadingModal}
-        onClose={() => setShowReadingModal(false)}
-        spread={readingModalSpread}
-        question={readingModalQuestion}
-        selectedCards={[]}
-        response={readingModalResponse}
-        isLoading={readingModalLoading}
-        currentCredits={null}
-        onOpenPurchaseCredits={() => setShowPaymentModal(true)}
-      />
-
-      {/* Modal de compra de créditos */}
-      {showPaymentModal && (
-        <>
-          {/* Backdrop com blur */}
-          <div
-            className="fixed inset-0 z-50 bg-night-sky/80 backdrop-blur-md"
-            onClick={() => setShowPaymentModal(false)}
-          />
-
-          {/* Modal */}
-          <div
-            className="fixed inset-0 z-50 flex items-center justify-center pointer-events-none"
-            style={{ padding: "16px" }}
-          >
-            <div className="relative pointer-events-auto">
-              {/* Botão X - Fora do modal, canto superior direito */}
-              <button
-                onClick={() => setShowPaymentModal(false)}
-                className="absolute -top-4 -right-4 w-10 h-10 rounded-full bg-midnight-surface border border-obsidian-border text-moonlight-text hover:text-starlight-text hover:border-mystic-indigo transition-colors flex items-center justify-center z-10"
-                aria-label="Fechar"
-              >
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  width="20"
-                  height="20"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                >
-                  <line x1="18" y1="6" x2="6" y2="18"></line>
-                  <line x1="6" y1="6" x2="18" y2="18"></line>
-                </svg>
-              </button>
-
-              <div
-                className="bg-midnight-surface border border-obsidian-border rounded-3xl shadow-2xl w-full max-w-3xl max-h-[80vh] overflow-y-auto"
-                style={{ padding: "32px" }}
-                onClick={(e) => e.stopPropagation()}
-              >
-                <div className="mb-6">
-                  <h2 className="text-2xl md:text-3xl text-starlight-text text-center">Comprar Créditos</h2>
-                </div>
-
-                <p className="text-lg text-moonlight-text text-center" style={{ marginBottom: "32px" }}>
-                  Escolha o plano ideal para você:
-                </p>
-
-                {/* Plans Grid */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  {/* Plano Iniciante */}
-                  <div
-                    className="plan-card-mobile bg-night-sky/50 border border-obsidian-border rounded-2xl flex flex-col items-center text-center"
-                    style={{ padding: "24px" }}
-                  >
-                    <style>{`
-                @media (max-width: 767px) {
-                  .plan-card-mobile {
-                    padding: 16px !important;
-                  }
-                  .plan-card-mobile .plan-title {
-                    font-size: 1.125rem !important;
-                    margin-bottom: 6px !important;
-                  }
-                  .plan-card-mobile .plan-credits-number {
-                    font-size: 2rem !important;
-                  }
-                  .plan-card-mobile .plan-credits-text {
-                    font-size: 0.875rem !important;
-                  }
-                  .plan-card-mobile .plan-credits-wrapper {
-                    margin-bottom: 6px !important;
-                  }
-                  .plan-card-mobile .plan-price {
-                    font-size: 1.5rem !important;
-                  }
-                  .plan-card-mobile .plan-price-per {
-                    font-size: 0.75rem !important;
-                    margin-top: 2px !important;
-                  }
-                  .plan-card-mobile .plan-price-wrapper {
-                    margin-bottom: 10px !important;
-                  }
-                  .plan-card-mobile .plan-button {
-                    height: 40px !important;
-                    font-size: 0.875rem !important;
-                  }
-                  .plan-card-mobile .plan-badge {
-                    font-size: 0.625rem !important;
-                    padding: 2px 10px !important;
-                  }
-                }
-              `}</style>
-                    <h3 className="plan-title text-xl text-starlight-text" style={{ marginBottom: "8px" }}>
-                      Iniciante
-                    </h3>
-                    <div className="plan-credits-wrapper" style={{ marginBottom: "8px" }}>
-                      <div className="plan-credits-number text-3xl text-starlight-text">10</div>
-                      <div className="plan-credits-text text-moonlight-text/70">créditos</div>
-                    </div>
-                    <div className="plan-price-wrapper" style={{ marginBottom: "12px" }}>
-                      <div className="plan-price text-2xl text-mystic-indigo">R$ 25,00</div>
-                      <div className="plan-price-per text-sm text-moonlight-text/70" style={{ marginTop: "2px" }}>
-                        R$ 2,50/cada
-                      </div>
-                    </div>
-                    <Button
-                      className="plan-button w-full bg-mystic-indigo hover:bg-mystic-indigo-dark text-starlight-text mt-auto"
-                      onClick={() => handlePlanCheckout("credits_10")}
-                      disabled={checkoutLoadingSlug !== null}
-                    >
-                      {checkoutLoadingSlug === "credits_10" ? "Redirecionando..." : "Escolher"}
-                    </Button>
-                  </div>
-
-                  {/* Plano Explorador */}
-                  <div
-                    className="plan-card-mobile bg-night-sky/50 border-2 border-mystic-indigo rounded-2xl flex flex-col items-center text-center relative"
-                    style={{ padding: "24px" }}
-                  >
-                    <div
-                      className="plan-badge absolute -top-3 left-1/2 -translate-x-1/2 bg-mystic-indigo text-starlight-text text-xs rounded-full"
-                      style={{ paddingLeft: "12px", paddingRight: "12px", paddingTop: "4px", paddingBottom: "4px" }}
-                    >
-                      POPULAR
-                    </div>
-                    <h3 className="plan-title text-xl text-starlight-text" style={{ marginBottom: "8px" }}>
-                      Explorador
-                    </h3>
-                    <div className="plan-credits-wrapper" style={{ marginBottom: "8px" }}>
-                      <div className="plan-credits-number text-3xl text-starlight-text">25</div>
-                      <div className="plan-credits-text text-moonlight-text/70">créditos</div>
-                    </div>
-                    <div className="plan-price-wrapper" style={{ marginBottom: "12px" }}>
-                      <div className="plan-price text-2xl text-mystic-indigo">R$ 50,00</div>
-                      <div className="plan-price-per text-sm text-moonlight-text/70" style={{ marginTop: "2px" }}>
-                        R$ 2,00/cada
-                      </div>
-                    </div>
-                    <Button
-                      className="plan-button w-full bg-mystic-indigo hover:bg-mystic-indigo-dark text-starlight-text mt-auto"
-                      onClick={() => handlePlanCheckout("credits_25")}
-                      disabled={checkoutLoadingSlug !== null}
-                    >
-                      {checkoutLoadingSlug === "credits_25" ? "Redirecionando..." : "Escolher"}
-                    </Button>
-                  </div>
-
-                  {/* Plano Místico */}
-                  <div
-                    className="plan-card-mobile bg-night-sky/50 border border-obsidian-border rounded-2xl flex flex-col items-center text-center"
-                    style={{ padding: "24px" }}
-                  >
-                    <h3 className="plan-title text-xl text-starlight-text" style={{ marginBottom: "8px" }}>
-                      Místico
-                    </h3>
-                    <div className="plan-credits-wrapper" style={{ marginBottom: "8px" }}>
-                      <div className="plan-credits-number text-3xl text-starlight-text">60</div>
-                      <div className="plan-credits-text text-moonlight-text/70">créditos</div>
-                    </div>
-                    <div className="plan-price-wrapper" style={{ marginBottom: "12px" }}>
-                      <div className="plan-price text-2xl text-mystic-indigo">R$ 100,00</div>
-                      <div className="plan-price-per text-sm text-moonlight-text/70" style={{ marginTop: "2px" }}>
-                        R$ 1,67/cada
-                      </div>
-                    </div>
-                    <Button
-                      className="plan-button w-full bg-mystic-indigo hover:bg-mystic-indigo-dark text-starlight-text mt-auto"
-                      onClick={() => handlePlanCheckout("credits_60")}
-                      disabled={checkoutLoadingSlug !== null}
-                    >
-                      {checkoutLoadingSlug === "credits_60" ? "Redirecionando..." : "Escolher"}
-                    </Button>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </>
-      )}
 
       {/* Footer */}
       <footer
