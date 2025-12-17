@@ -1120,6 +1120,20 @@ function SecuritySection({
   const [passwordTotpVerifying, setPasswordTotpVerifying] = useState(false);
 
   // --------- HELPERS GERAIS ---------
+  const withTimeout = async <T,>(promise: Promise<T>, ms: number, label: string): Promise<T> => {
+    let t: any;
+    try {
+      return await Promise.race([
+        promise,
+        new Promise<T>((_, reject) => {
+          t = setTimeout(() => reject(new Error(`TIMEOUT_${label}`)), ms);
+        }),
+      ]);
+    } finally {
+      clearTimeout(t);
+    }
+  };
+
   const resetTotpSetupState = () => {
     setTotpQrCode(null);
     setTotpSecret(null);
@@ -1538,30 +1552,63 @@ function SecuritySection({
       return;
     }
 
-    if (!disableCode.trim()) {
+    const code = disableCode.trim();
+    if (!code) {
       setDisableError("Informe o código de 6 dígitos do app autenticador.");
       return;
     }
 
     setDisableVerifying(true);
+    setTwoFactorSaving(true);
 
     try {
-      // 1) Verifica o código TOTP para obter sessão AAL2
-      const { error: verifyError } = await supabase.auth.mfa.challengeAndVerify({
-        factorId: disableFactorId,
-        code: disableCode.trim(),
-      } as any);
+      // Garante sessão válida
+      const { data: sessionData, error: sessionError } = await withTimeout(
+        supabase.auth.getSession(),
+        8000,
+        "GET_SESSION",
+      );
+
+      if (sessionError || !sessionData?.session) {
+        console.error("Erro ao checar sessão (desativar 2FA):", sessionError);
+        setDisableError("Sessão expirada. Faça login novamente.");
+        return;
+      }
+
+      const mfa = (supabase.auth as any).mfa;
+
+      // 1) Challenge
+      const { data: challengeData, error: challengeError } = await withTimeout(
+        mfa.challenge({ factorId: disableFactorId }),
+        12000,
+        "MFA_CHALLENGE",
+      );
+
+      if (challengeError || !challengeData?.id) {
+        console.error("Erro ao criar challenge MFA:", challengeError, challengeData);
+        setDisableError("Não foi possível iniciar a validação do 2FA. Tente novamente.");
+        return;
+      }
+
+      // 2) Verify (eleva a sessão para AAL2)
+      const { data: verifyData, error: verifyError } = await withTimeout(
+        mfa.verify({ factorId: disableFactorId, challengeId: challengeData.id, code }),
+        12000,
+        "MFA_VERIFY",
+      );
 
       if (verifyError) {
-        console.error("Erro ao verificar TOTP para desativar:", verifyError);
+        console.error("Erro ao verificar TOTP para desativar:", verifyError, verifyData);
         setDisableError("Código inválido. Confira no app autenticador e tente novamente.");
         return;
       }
 
-      // 2) Agora pode desativar (unenroll exige aal2)
-      const { error: unenrollError } = await supabase.auth.mfa.unenroll({
-        factorId: disableFactorId,
-      } as any);
+      // 3) Unenroll (remove o fator)
+      const { error: unenrollError } = await withTimeout(
+        mfa.unenroll({ factorId: disableFactorId }),
+        12000,
+        "MFA_UNENROLL",
+      );
 
       if (unenrollError) {
         console.error("Erro ao desativar fator TOTP:", unenrollError);
@@ -1569,30 +1616,29 @@ function SecuritySection({
         return;
       }
 
-      // Limpa fatores TOTP residuais
+      // 4) Cleanup: remove qualquer outro TOTP residual (por segurança)
       try {
-        const { data: factorsData, error: listError } = await supabase.auth.mfa.listFactors();
+        const { data: factorsData, error: listError } = await withTimeout(mfa.listFactors(), 12000, "MFA_LIST");
         if (!listError) {
           const anyFactors: any = factorsData;
           const totpFactors = (anyFactors?.totp ?? []) as Array<{ id: string }>;
-          for (const factor of totpFactors) {
-            if (factor.id !== disableFactorId) {
-              try {
-                await supabase.auth.mfa.unenroll({ factorId: factor.id } as any);
-              } catch (cleanupErr) {
-                console.error("Erro ao limpar fator TOTP residual:", cleanupErr);
-              }
+          for (const f of totpFactors) {
+            try {
+              await withTimeout(mfa.unenroll({ factorId: f.id }), 12000, "MFA_UNENROLL_CLEANUP");
+            } catch (cleanupErr) {
+              console.error("Erro ao limpar fator TOTP residual:", cleanupErr);
             }
           }
         }
-      } catch (cleanupErrOuter) {
-        console.error("Erro ao listar fatores para cleanup de TOTP:", cleanupErrOuter);
+      } catch (cleanupOuter) {
+        console.error("Erro no cleanup de fatores:", cleanupOuter);
       }
 
+      // 5) Atualiza flag no profiles
       const {
         data: { user },
         error: userError,
-      } = await supabase.auth.getUser();
+      } = await withTimeout(supabase.auth.getUser(), 8000, "GET_USER");
 
       if (userError || !user) {
         console.error("Erro ao buscar usuário para desativar 2FA:", userError);
@@ -1600,10 +1646,14 @@ function SecuritySection({
         return;
       }
 
-      const { error: updateError } = await supabase
-        .from("profiles")
-        .update({ two_factor_enabled: false } as any)
-        .eq("id", user.id);
+      const { error: updateError } = await withTimeout(
+        supabase
+          .from("profiles")
+          .update({ two_factor_enabled: false } as any)
+          .eq("id", user.id),
+        12000,
+        "DB_UPDATE_PROFILE_2FA",
+      );
 
       if (updateError) {
         console.error("Erro ao atualizar two_factor_enabled (desativar):", updateError);
@@ -1611,15 +1661,24 @@ function SecuritySection({
         return;
       }
 
+      // Sucesso UI
       setTwoFactorEnabled(false);
       setSuccessMessage("Autenticação de dois fatores desativada.");
       setShowDisableModal(false);
       resetDisableState();
-    } catch (err) {
+    } catch (err: any) {
       console.error("Erro inesperado ao desativar 2FA:", err);
+
+      const msg = String(err?.message || "");
+      if (msg.startsWith("TIMEOUT_")) {
+        setDisableError("A desativação do 2FA demorou demais. Tente novamente.");
+        return;
+      }
+
       setDisableError("Erro inesperado ao desativar o 2FA. Tente novamente.");
     } finally {
       setDisableVerifying(false);
+      setTwoFactorSaving(false);
     }
   };
 
