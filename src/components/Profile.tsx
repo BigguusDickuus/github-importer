@@ -788,7 +788,7 @@ function AccountSection({ twoFactorEnabled }: { twoFactorEnabled: boolean }) {
 
   return (
     <div className="bg-midnight-surface border border-obsidian-border rounded-2xl p-6">
-      <h3 className="text-starlight-text mb-6">Conta</h3>
+      <h2 className="text-lg font-semibold text-starlight-text mb-4">Conta</h2>
 
       {loading ? (
         <div className="text-moonlight-text">Carregando...</div>
@@ -1508,15 +1508,15 @@ function SecuritySection({
         return;
       }
 
-      const totpFactors = ((data as any)?.totp ?? []) as Array<{ id: string; status?: string }>;
-      const verified = totpFactors.find((f) => f.status === "verified") ?? totpFactors[0];
+      const anyData: any = data;
+      const totpFactors = (anyData?.totp ?? []) as Array<{ id: string }>;
 
-      if (!verified?.id) {
+      if (!totpFactors.length) {
         setDisableError("Nenhum fator TOTP encontrado para desativar.");
         return;
       }
 
-      setDisableFactorId(verified.id);
+      setDisableFactorId(totpFactors[0].id);
     } catch (err) {
       console.error("Erro inesperado ao preparar desativação de 2FA:", err);
       setDisableError("Erro inesperado ao preparar a desativação do 2FA.");
@@ -1533,9 +1533,12 @@ function SecuritySection({
   const handleConfirmDisableTwoFactor = async () => {
     setDisableError(null);
 
-    const code = disableCode.trim();
+    if (!disableFactorId) {
+      setDisableError("Erro interno ao desativar 2FA. Recarregue a página e tente novamente.");
+      return;
+    }
 
-    if (code.length !== 6) {
+    if (!disableCode.trim()) {
       setDisableError("Informe o código de 6 dígitos do app autenticador.");
       return;
     }
@@ -1543,105 +1546,74 @@ function SecuritySection({
     setDisableVerifying(true);
 
     try {
-      // Sempre relista o fator verified na hora do confirm (evita id stale)
-      const { data: factorsData, error: listError } = await supabase.auth.mfa.listFactors();
-      if (listError) {
-        console.error("Erro ao listar fatores MFA (confirm disable):", listError);
-        setDisableError("Não foi possível localizar o fator de 2FA. Tente novamente.");
-        return;
-      }
+      const code = disableCode.replace(/\D/g, "").slice(0, 6);
 
-      const totpFactors = ((factorsData as any)?.totp ?? []) as Array<{ id: string; status?: string }>;
-      const verified = totpFactors.find((f) => f.status === "verified") ?? totpFactors[0];
-
-      if (!verified?.id) {
-        setDisableError("Nenhum fator TOTP encontrado para desativar.");
-        return;
-      }
-
-      const factorId = verified.id;
-
-      // 1) Eleva para AAL2 (server-side)
-      const { data: cavData, error: cavError } = await supabase.auth.mfa.challengeAndVerify({
-        factorId,
+      // 1) Eleva a sessão via challenge+verify
+      const { error: verifyError } = await supabase.auth.mfa.challengeAndVerify({
+        factorId: disableFactorId,
         code,
       } as any);
 
-      if (cavError) {
-        console.error("Erro ao verificar TOTP para desativar:", cavError);
-        setDisableError("Código inválido. Confira no app autenticador e tente novamente.");
+      if (verifyError) {
+        console.error("Erro ao validar 2FA para desativar:", verifyError);
+        setDisableError("Código inválido. Verifique e tente novamente.");
         return;
       }
 
-      // 2) Força o client a “assentar” a sessão AAL2 antes do unenroll (evita travar/abort sem request)
-      const sessionLike = (cavData as any)?.session;
-      if (sessionLike?.access_token && sessionLike?.refresh_token) {
-        const { error: setSessionError } = await supabase.auth.setSession({
-          access_token: sessionLike.access_token,
-          refresh_token: sessionLike.refresh_token,
-        } as any);
-
-        if (setSessionError) {
-          console.warn("Aviso: setSession pós challengeAndVerify falhou (seguindo mesmo assim):", setSessionError);
-        }
-      }
-
-      await supabase.auth.refreshSession();
-      await new Promise((r) => setTimeout(r, 200));
-
-      // 3) Unenroll (agora sim)
-      const { error: unenrollError } = await supabase.auth.mfa.unenroll({ factorId } as any);
+      // 2) Unenroll do fator
+      const { error: unenrollError } = await supabase.auth.mfa.unenroll({
+        factorId: disableFactorId,
+      } as any);
 
       if (unenrollError) {
-        console.error("Erro ao desativar fator TOTP:", unenrollError);
-        setDisableError("Não foi possível desativar o 2FA. Tente novamente.");
+        console.error("Erro ao desativar 2FA (unenroll):", unenrollError);
+        setDisableError(unenrollError.message || "Não foi possível desativar o 2FA.");
         return;
       }
 
-      // 4) Atualiza flag em profiles
-      const {
-        data: { user },
-        error: userError,
-      } = await supabase.auth.getUser();
+      // 3) Cleanup: remove fatores TOTP residuais (se existirem)
+      try {
+        const { data: factorsData, error: listError } = await supabase.auth.mfa.listFactors();
 
-      if (userError || !user) {
-        console.error("Erro ao buscar usuário para desativar 2FA:", userError);
-        setDisableError("Sessão expirada. Faça login novamente.");
-        return;
+        if (!listError) {
+          const anyFactors: any = factorsData;
+          const totpFactors = (anyFactors?.totp ?? []) as Array<{ id: string }>;
+
+          for (const factor of totpFactors) {
+            if (factor.id !== disableFactorId) {
+              try {
+                await supabase.auth.mfa.unenroll({ factorId: factor.id } as any);
+              } catch (cleanupErr) {
+                console.error("Erro ao limpar fator TOTP residual:", cleanupErr);
+              }
+            }
+          }
+        }
+      } catch (cleanupErrOuter) {
+        console.error("Erro ao listar fatores para cleanup de TOTP:", cleanupErrOuter);
       }
 
-      const { error: updateError } = await supabase
-        .from("profiles")
-        .update({ two_factor_enabled: false } as any)
-        .eq("id", user.id);
+      // 4) Atualiza flag no profiles
+      try {
+        const { data: authData } = await supabase.auth.getUser();
+        const userId = authData?.user?.id;
 
-      if (updateError) {
-        console.error("Erro ao atualizar two_factor_enabled (desativar):", updateError);
-        // não bloqueia a UX: o 2FA já foi removido no Auth
+        if (userId) {
+          await supabase
+            .from("profiles")
+            .update({ two_factor_enabled: false } as any)
+            .eq("id", userId);
+        }
+      } catch (profileErr) {
+        console.error("Erro ao atualizar flag two_factor_enabled no profiles:", profileErr);
       }
 
       setTwoFactorEnabled(false);
-      setSuccessMessage("Autenticação de dois fatores desativada.");
       setShowDisableModal(false);
       resetDisableState();
-
-      // 5) Cleanup opcional (não bloqueia UI)
-      void (async () => {
-        try {
-          const { data, error } = await supabase.auth.mfa.listFactors();
-          if (error) return;
-
-          const totp = ((data as any)?.totp ?? []) as Array<{ id: string }>;
-          await Promise.allSettled(
-            totp.filter((f) => f.id !== factorId).map((f) => supabase.auth.mfa.unenroll({ factorId: f.id } as any)),
-          );
-        } catch (e) {
-          console.warn("Cleanup de fatores TOTP falhou (ok ignorar):", e);
-        }
-      })();
     } catch (err) {
       console.error("Erro inesperado ao desativar 2FA:", err);
-      setDisableError("Erro inesperado ao desativar o 2FA. Tente novamente.");
+      setDisableError("Erro inesperado ao desativar o 2FA.");
     } finally {
       setDisableVerifying(false);
     }
@@ -1891,7 +1863,7 @@ function SecuritySection({
               <Button
                 className="bg-blood-moon-error/90 hover:bg-blood-moon-error text-starlight-text px-4 py-2"
                 onClick={handleConfirmDisableTwoFactor}
-                disabled={disableVerifying || twoFactorSaving || disableCode.trim().length !== 6}
+                disabled={disableVerifying || twoFactorSaving || !disableFactorId}
               >
                 {disableVerifying ? "Desativando..." : "Desativar 2FA"}
               </Button>
