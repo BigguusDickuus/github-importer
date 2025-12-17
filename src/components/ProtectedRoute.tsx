@@ -1,123 +1,98 @@
-import { ReactNode, useEffect, useRef, useState } from "react";
+import { ReactNode, useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { supabase, resetSupabaseClient } from "@/integrations/supabase/client";
+import { supabase } from "@/integrations/supabase/client";
 
 interface ProtectedRouteProps {
   children: ReactNode;
   requireAdmin?: boolean;
 }
 
+/**
+ * Componente que protege rotas:
+ * - Enquanto checa a sessão, mostra tela de "Carregando..."
+ * - Se não tiver sessão, redireciona pra "/"
+ * - Se tiver sessão, renderiza o children normalmente
+ * - Se requireAdmin=true, exige profiles.is_admin=true (senão manda pra /dashboard)
+ */
 export function ProtectedRoute({ children, requireAdmin = false }: ProtectedRouteProps) {
-  const [checking, setChecking] = useState(true); // só bootstrap
+  const [checking, setChecking] = useState(true);
   const [allowed, setAllowed] = useState(false);
 
   const navigate = useNavigate();
   const location = useLocation();
 
-  const mountedRef = useRef(true);
-  const inFlightRef = useRef(false);
+  useEffect(() => {
+    let isMounted = true;
 
-  const canReloadNow = () => {
-    const key = "to_wakeup_reload_ts";
-    const last = Number(sessionStorage.getItem(key) || "0");
-    const now = Date.now();
-    if (now - last < 5000) return false;
-    sessionStorage.setItem(key, String(now));
-    return true;
-  };
+    const checkSession = async () => {
+      try {
+        const { data, error } = await supabase.auth.getSession();
 
-  const runCheck = async (opts?: { bootstrap?: boolean }) => {
-    const bootstrap = opts?.bootstrap ?? false;
-    if (inFlightRef.current) return;
-    inFlightRef.current = true;
+        if (!isMounted) return;
 
-    if (bootstrap) setChecking(true);
+        if (error) {
+          console.error("Erro ao checar sessão:", error);
+          setAllowed(false);
+          setChecking(false);
+          navigate("/", { replace: true, state: { from: location } });
+          return;
+        }
 
-    const watchdog = window.setTimeout(() => {
-      if (document.visibilityState === "visible") {
-        console.warn("ProtectedRoute: auth travou; recarregando página para destravar.");
-        window.location.reload();
-      }
-    }, 12000);
+        if (!data.session) {
+          // Não tem sessão → manda pra landing
+          setAllowed(false);
+          setChecking(false);
+          navigate("/", { replace: true, state: { from: location } });
+          return;
+        }
 
-    try {
-      const { data, error } = await supabase.auth.getSession();
-      if (!mountedRef.current) return;
+        // Tem sessão. Se rota exigir admin, valida is_admin
+        if (requireAdmin) {
+          const userId = data.session.user.id;
 
-      if (error || !data.session) {
+          const { data: profile, error: profileError } = await supabase
+            .from("profiles")
+            .select("is_admin")
+            .eq("id", userId)
+            .maybeSingle();
+
+          if (!isMounted) return;
+
+          if (profileError) {
+            console.error("Erro ao checar is_admin:", profileError);
+            setAllowed(false);
+            setChecking(false);
+            navigate("/dashboard", { replace: true, state: { from: location } });
+            return;
+          }
+
+          if (!profile?.is_admin) {
+            // Logado, mas não-admin → volta pro dashboard
+            setAllowed(false);
+            setChecking(false);
+            navigate("/dashboard", { replace: true, state: { from: location } });
+            return;
+          }
+        }
+
+        // Permite acesso
+        setAllowed(true);
+        setChecking(false);
+      } catch (err) {
+        console.error("Erro inesperado ao checar sessão:", err);
+        if (!isMounted) return;
         setAllowed(false);
         setChecking(false);
         navigate("/", { replace: true, state: { from: location } });
-        return;
       }
-
-      if (!requireAdmin) {
-        setAllowed(true);
-        setChecking(false);
-        return;
-      }
-
-      const userId = data.session.user.id;
-
-      const { data: profile, error: profileError } = await supabase
-        .from("profiles")
-        .select("is_admin")
-        .eq("id", userId)
-        .maybeSingle();
-
-      if (!mountedRef.current) return;
-
-      if (profileError || !profile?.is_admin) {
-        setAllowed(false);
-        setChecking(false);
-        navigate("/dashboard", { replace: true, state: { from: location } });
-        return;
-      }
-
-      setAllowed(true);
-      setChecking(false);
-    } finally {
-      clearTimeout(watchdog);
-      inFlightRef.current = false;
-      if (mountedRef.current && bootstrap) setChecking(false);
-    }
-  };
-
-  useEffect(() => {
-    mountedRef.current = true;
-
-    // Bootstrap inicial (pode mostrar carregando)
-    runCheck({ bootstrap: true });
-
-    // Ao voltar pra aba: revalida em background (sem tela azul)
-    const wake = () => {
-      if (document.visibilityState !== "visible") return;
-
-      // Se ficou travado em inFlight, runCheck nunca roda -> reload imediato
-      if (inFlightRef.current) {
-        if (canReloadNow()) {
-          console.warn("ProtectedRoute: voltou pra aba com inFlight travado. Reload imediato.");
-          window.location.reload();
-        }
-        return;
-      }
-
-      try {
-        resetSupabaseClient();
-      } catch {}
-      runCheck({ bootstrap: false });
     };
 
-    document.addEventListener("visibilitychange", wake);
-    window.addEventListener("focus", wake);
+    checkSession();
 
     return () => {
-      mountedRef.current = false;
-      document.removeEventListener("visibilitychange", wake);
-      window.removeEventListener("focus", wake);
+      isMounted = false;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [requireAdmin, location.pathname]);
+  }, [navigate, location, requireAdmin]);
 
   if (checking) {
     return (
@@ -127,6 +102,10 @@ export function ProtectedRoute({ children, requireAdmin = false }: ProtectedRout
     );
   }
 
-  if (!allowed) return null;
+  if (!allowed) {
+    // Já estamos redirecionando, então não renderiza nada
+    return null;
+  }
+
   return <>{children}</>;
 }
