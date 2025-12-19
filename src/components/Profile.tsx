@@ -104,10 +104,19 @@ export function Profile() {
   };
 
   // Carrega preferências (manter contexto + limite de uso) + 2FA + saldo.
-  // CRÍTICO: precisa rodar também quando a sessão “aparece” (onAuthStateChange),
-  // senão o toggle de 2FA fica preso em OFF quando getUser dá "Auth session missing" no bootstrap.
+  // Fonte de verdade do toggle 2FA = /auth/v1/factors (supabase.auth.mfa.listFactors()).
+  // Se a sessão ainda não estiver pronta, listFactors pode falhar ANTES de fazer request (sem aparecer no Network).
+  // Este bloco faz retry curto para garantir que o GET /auth/v1/factors aconteça.
   useEffect(() => {
     let cancelled = false;
+    let retryTimer: number | null = null;
+
+    const clearRetry = () => {
+      if (retryTimer != null) {
+        window.clearTimeout(retryTimer);
+        retryTimer = null;
+      }
+    };
 
     const fetchCreditsForUserId = async (userId: string) => {
       try {
@@ -127,30 +136,6 @@ export function Profile() {
       } catch (err) {
         console.error("Erro inesperado ao buscar saldo de créditos:", err);
         if (!cancelled) setCredits(0);
-      }
-    };
-
-    const loadTwoFactorForUserId = async (userId: string) => {
-      try {
-        // ✅ ESTA É A CHAMADA QUE TEM QUE APARECER NO NETWORK:
-        // GET https://<project>.supabase.co/auth/v1/factors
-        const { data: factorsData, error: factorsError } = await supabase.auth.mfa.listFactors();
-
-        if (factorsError) {
-          console.warn("Profile: listFactors erro:", factorsError);
-          return;
-        }
-
-        const enabled = hasVerifiedTotpFromFactors(factorsData);
-        setTwoFactorEnabled(enabled);
-
-        // best-effort: sincroniza flag no profiles (não bloqueia UI)
-        void supabase
-          .from("profiles")
-          .update({ two_factor_enabled: enabled } as any)
-          .eq("id", userId);
-      } catch (e) {
-        console.warn("Profile: falha inesperada ao buscar factors:", e);
       }
     };
 
@@ -192,6 +177,49 @@ export function Profile() {
       }
     };
 
+    const loadTwoFactorForUserId = async (userId: string, attempt = 1) => {
+      try {
+        // ✅ ESTA É A CHAMADA QUE PRECISA APARECER NO NETWORK:
+        // GET https://<project>.supabase.co/auth/v1/factors
+        const { data: factorsData, error: factorsError } = await supabase.auth.mfa.listFactors();
+
+        if (factorsError) {
+          const msg = String((factorsError as any)?.message ?? "");
+          console.warn("Profile: listFactors erro", { attempt, msg, factorsError });
+
+          // Se a sessão ainda não está pronta, o Supabase pode falhar sem request.
+          // Retry curto para forçar o GET aparecer assim que o token existir.
+          if (!cancelled && msg.includes("Auth session missing") && attempt < 8) {
+            clearRetry();
+            retryTimer = window.setTimeout(() => {
+              void loadTwoFactorForUserId(userId, attempt + 1);
+            }, 350);
+          }
+
+          return;
+        }
+
+        const enabled = hasVerifiedTotpFromFactors(factorsData);
+
+        if (!cancelled) setTwoFactorEnabled(enabled);
+
+        // best-effort: sincroniza flag no profiles (não bloqueia UI)
+        void supabase
+          .from("profiles")
+          .update({ two_factor_enabled: enabled } as any)
+          .eq("id", userId);
+      } catch (e) {
+        console.warn("Profile: falha inesperada ao buscar factors", { attempt, e });
+
+        if (!cancelled && attempt < 8) {
+          clearRetry();
+          retryTimer = window.setTimeout(() => {
+            void loadTwoFactorForUserId(userId, attempt + 1);
+          }, 350);
+        }
+      }
+    };
+
     const bootstrap = async () => {
       try {
         const {
@@ -201,7 +229,7 @@ export function Profile() {
 
         // Se ainda não tem sessão, não “crava” estado errado. Vai atualizar via onAuthStateChange.
         if (userError || !user?.id) {
-          const msg = (userError as any)?.message ?? "";
+          const msg = String((userError as any)?.message ?? "");
           if (msg && !msg.includes("Auth session missing")) console.error("Erro ao buscar usuário logado:", userError);
           return;
         }
@@ -241,6 +269,7 @@ export function Profile() {
 
     return () => {
       cancelled = true;
+      clearRetry();
       listener?.subscription?.unsubscribe();
     };
   }, []);
