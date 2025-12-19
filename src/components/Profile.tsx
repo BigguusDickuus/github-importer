@@ -103,32 +103,48 @@ export function Profile() {
     }
   };
 
-  // 1. Criamos UMA única função que carrega TUDO (Créditos, Preferências e 2FA)
+  // ===== Lock de MFA para evitar deadlock entre:
+  // - onAuthStateChange -> refreshAllUserData() -> mfa.listFactors()
+  // - handlers do modal -> challenge/verify/enroll/unenroll + listFactors()
+  const mfaBusyRef = useRef(false);
+  const pendingRefreshUserIdRef = useRef<string | null>(null);
+  const pendingRefreshTimerRef = useRef<number | null>(null);
+
+  const setMfaBusy = (busy: boolean) => {
+    mfaBusyRef.current = busy;
+  };
+
+  // 1) UMA única função que carrega TUDO (Créditos, Preferências e 2FA)
   const refreshAllUserData = async (userId: string) => {
     try {
       console.log("🔄 Iniciando carregamento de dados para o usuário:", userId);
 
-      // Carrega em paralelo para ser rápido
       await Promise.all([
-        // Carrega créditos
+        // Créditos
         (async () => {
           const { data } = await supabase.from("credit_balances").select("balance").eq("user_id", userId).maybeSingle();
           setCredits(data?.balance ?? 0);
         })(),
 
-        // Carrega 2FA (A fonte da verdade)
+        // 2FA (fonte da verdade) — mas NÃO durante operação de MFA
         (async () => {
+          if (mfaBusyRef.current) {
+            console.log("🔐 Pulando mfa.listFactors (MFA busy)");
+            return;
+          }
+
           const { data: factorsData, error: factorsError } = await supabase.auth.mfa.listFactors();
           if (factorsError) {
             console.error("Erro ao buscar 2FA:", factorsError);
             return;
           }
+
           const isEnabled = hasVerifiedTotpFromFactors(factorsData);
           console.log("🔐 Estado do 2FA no servidor:", isEnabled);
           setTwoFactorEnabled(isEnabled);
         })(),
 
-        // Carrega Preferências (Contexto e Limites)
+        // Preferências (Contexto e Limites)
         (async () => {
           const { data: prefs } = await supabase.from("profiles").select("*").eq("id", userId).maybeSingle();
           if (prefs) {
@@ -146,30 +162,57 @@ export function Profile() {
     }
   };
 
-  // 2. O useEffect agora apenas "vigia" se o usuário está logado
+  // Debounce + respeita lock de MFA
+  const scheduleRefreshAllUserData = (userId: string) => {
+    pendingRefreshUserIdRef.current = userId;
+
+    if (pendingRefreshTimerRef.current) {
+      window.clearTimeout(pendingRefreshTimerRef.current);
+    }
+
+    pendingRefreshTimerRef.current = window.setTimeout(() => {
+      pendingRefreshTimerRef.current = null;
+      const uid = pendingRefreshUserIdRef.current;
+      if (!uid) return;
+
+      if (mfaBusyRef.current) {
+        // tenta de novo em breve
+        scheduleRefreshAllUserData(uid);
+        return;
+      }
+
+      refreshAllUserData(uid);
+    }, 250);
+  };
+
+  // 2) O useEffect agora só "vigia" login/logout e agenda refresh
   useEffect(() => {
-    // Tenta carregar imediatamente
     const init = async () => {
       const {
         data: { user },
       } = await supabase.auth.getUser();
-      if (user) refreshAllUserData(user.id);
+      if (user) scheduleRefreshAllUserData(user.id);
     };
     init();
 
-    // Escuta mudanças (login/logout) para atualizar a tela na hora
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((event, session) => {
       if (session?.user) {
-        refreshAllUserData(session.user.id);
+        scheduleRefreshAllUserData(session.user.id);
       } else if (event === "SIGNED_OUT") {
         setTwoFactorEnabled(false);
         setCredits(0);
       }
     });
 
-    return () => subscription.unsubscribe();
+    return () => {
+      subscription.unsubscribe();
+      if (pendingRefreshTimerRef.current) {
+        window.clearTimeout(pendingRefreshTimerRef.current);
+        pendingRefreshTimerRef.current = null;
+      }
+    };
   }, []);
 
   // Detecta retorno do Stripe (?payment_status=success|error) e mostra HelloBar + refresh créditos
@@ -374,7 +417,11 @@ export function Profile() {
                 />
               </TabsContent>
               <TabsContent value="security">
-                <SecuritySection twoFactorEnabled={twoFactorEnabled} setTwoFactorEnabled={setTwoFactorEnabled} />
+                <SecuritySection
+                  twoFactorEnabled={twoFactorEnabled}
+                  setTwoFactorEnabled={setTwoFactorEnabled}
+                  setMfaBusy={setMfaBusy}
+                />
               </TabsContent>
               <TabsContent value="billing">
                 <BillingSection onPurchaseClick={() => setShowPaymentModal(true)} />
@@ -441,7 +488,11 @@ export function Profile() {
               />
             </div>
             <div ref={securityRef}>
-              <SecuritySection twoFactorEnabled={twoFactorEnabled} setTwoFactorEnabled={setTwoFactorEnabled} />
+              <SecuritySection
+                twoFactorEnabled={twoFactorEnabled}
+                setTwoFactorEnabled={setTwoFactorEnabled}
+                setMfaBusy={setMfaBusy}
+              />
             </div>
             <div ref={billingRef}>
               <BillingSection onPurchaseClick={() => setShowPaymentModal(true)} />
@@ -1099,9 +1150,11 @@ function PreferencesSection({
 function SecuritySection({
   twoFactorEnabled,
   setTwoFactorEnabled,
+  setMfaBusy,
 }: {
   twoFactorEnabled: boolean;
   setTwoFactorEnabled: (value: boolean) => void;
+  setMfaBusy: (busy: boolean) => void;
 }) {
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
@@ -1550,8 +1603,9 @@ function SecuritySection({
 
   // Cancelar setup: se já criou fator mas não confirmou, tenta descartar
   const handleCancelTotpSetup = async () => {
+    setMfaBusy(true);
     try {
-      // SÓ deleta se o status global do 2FA ainda for false
+      // SÓ deleta se ainda não habilitou 2FA globalmente
       if (totpFactorId && !twoFactorEnabled) {
         console.log("🧹 Removendo fator pendente...");
         await supabase.auth.mfa.unenroll({ factorId: totpFactorId } as any);
@@ -1559,56 +1613,61 @@ function SecuritySection({
     } catch (err) {
       console.warn("Erro ao limpar:", err);
     } finally {
-      // Limpa os estados e fecha o modal
-      setTotpQrCode(null);
-      setTotpFactorId(null);
-      setTotpSecret(null);
-      setTotpCode("");
-      setTotpError(null);
+      resetTotpSetupState();
+      setShowTotpModal(false); // <-- FECHA O MODAL DE VERDADE
+      setMfaBusy(false);
     }
   };
 
   const handleConfirmTotp = async () => {
     if (!totpFactorId) return;
-    if (!totpCode.trim()) {
+
+    const code = totpCode.trim();
+    if (!code) {
       setTotpError("Informe o código de 6 dígitos.");
       return;
     }
 
+    setMfaBusy(true);
     setTotpVerifying(true);
     setTotpError(null);
 
     try {
-      // 1. Tenta a verificação inicial
+      // 1) Verifica
       const { error: verifyError } = await supabase.auth.mfa.challengeAndVerify({
         factorId: totpFactorId,
-        code: totpCode.trim(),
-      });
+        code,
+      } as any);
 
-      // Função interna para checar se o MFA ativou mesmo
+      if (verifyError) {
+        console.error("Erro ao verificar TOTP (enroll):", verifyError);
+        setTotpError("Código inválido. Confira no app autenticador e tente novamente.");
+        return;
+      }
+
+      // 2) Checa status real (2 tentativas)
       const checkRealStatus = async () => {
         const { data } = await supabase.auth.mfa.listFactors();
         return hasVerifiedTotpFromFactors(data);
       };
 
-      // 2. Espera 200ms e checa o status real (Tentativa 1)
       await new Promise((resolve) => setTimeout(resolve, 200));
       let isActuallyEnabled = await checkRealStatus();
 
-      // 3. Se ainda for false, tenta mais uma vez (Tentativa 2)
       if (!isActuallyEnabled) {
-        await new Promise((resolve) => setTimeout(resolve, 500)); // dá um fôlego maior
+        await new Promise((resolve) => setTimeout(resolve, 500));
         isActuallyEnabled = await checkRealStatus();
       }
 
-      // 4. Se virou TRUE, finaliza com sucesso
       if (isActuallyEnabled) {
         setTwoFactorEnabled(true);
-        setTotpQrCode(null); // Fecha o modal
-        setTotpFactorId(null);
         setSuccessMessage("2FA ativado com sucesso!");
 
-        // Atualiza o banco em background (sem await para não travar)
+        // Fecha modal e limpa estado
+        resetTotpSetupState();
+        setShowTotpModal(false);
+
+        // Atualiza flag no profiles em background
         supabase.auth.getUser().then(({ data }) => {
           if (data.user) {
             supabase
@@ -1617,16 +1676,17 @@ function SecuritySection({
               .eq("id", data.user.id);
           }
         });
+
         return;
       }
 
-      // 5. Se após as tentativas continuar FALSE, erro.
-      setTotpError("Não conseguimos confirmar a ativação. Feche o modal e tente novamente mais tarde.");
+      setTotpError("Não conseguimos confirmar a ativação. Tente novamente.");
     } catch (err) {
       console.error("Erro no fluxo de confirmação:", err);
       setTotpError("Erro inesperado. Tente novamente.");
     } finally {
       setTotpVerifying(false);
+      setMfaBusy(false);
     }
   };
 
@@ -1670,8 +1730,11 @@ function SecuritySection({
         return;
       }
 
-      const chosen = totpFactors[0].id;
+      const verified = totpFactors.find((f: any) => String((f as any)?.status ?? "").toLowerCase() === "verified");
+      const chosen = (verified?.id ?? totpFactors[0]?.id) as string;
+
       setDisableFactorId(chosen);
+      pushDisableLog(traceId, "disableFactorId:set", { disableFactorId: chosen });
       pushDisableLog(traceId, "disableFactorId:set", { disableFactorId: chosen });
     } catch (err) {
       console.error("Erro inesperado ao preparar desativação de 2FA:", err);
@@ -1715,7 +1778,7 @@ function SecuritySection({
       setDisableError("Informe o código de 6 dígitos do app autenticador.");
       return;
     }
-
+    setMfaBusy(true);
     setDisableVerifying(true);
     pushDisableLog(traceId, "disableVerifying:true");
 
@@ -1811,6 +1874,7 @@ function SecuritySection({
     } finally {
       pushDisableLog(traceId, "handleConfirmDisableTwoFactor:finally");
       setDisableVerifying(false);
+      setMfaBusy(false);
     }
   };
 
