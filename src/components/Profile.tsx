@@ -273,7 +273,7 @@ useEffect(() => {
       clearRetry();
       listener?.subscription?.unsubscribe();
     };
-  }, []);
+  }, [];
 
   // Detecta retorno do Stripe (?payment_status=success|error) e mostra HelloBar + refresh créditos
   useEffect(() => {
@@ -740,7 +740,7 @@ useEffect(() => {
       <TarotOnlineFooter />
     </div>
   );
-}
+};
 
 function AccountSection({ twoFactorEnabled }: { twoFactorEnabled: boolean }) {
   const [name, setName] = useState("");
