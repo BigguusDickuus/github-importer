@@ -627,6 +627,10 @@ function AccountSection({ twoFactorEnabled }: { twoFactorEnabled: boolean }) {
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
 
+  // Snapshot inicial para detectar alterações e controlar o botão de salvar
+  const initialNameRef = useRef<string>("");
+  const initialPhoneRef = useRef<string>("");
+
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
@@ -670,6 +674,16 @@ function AccountSection({ twoFactorEnabled }: { twoFactorEnabled: boolean }) {
         setName(profile?.full_name ?? "");
         setEmail(profile?.email ?? user.email ?? "");
         setPhone(profile?.phone ?? "");
+
+        // Snapshot inicial (para detectar alterações)
+        initialNameRef.current = profile?.full_name ?? "";
+        initialPhoneRef.current = profile?.phone ?? "";
+        setHasChanges(false);
+
+        // reset de campos sensíveis ao recarregar
+        setConfirmPassword("");
+        setTotpCode("");
+        setTotpError(null);
       } catch (err) {
         console.error("Erro inesperado ao carregar dados do usuário:", err);
         setErrorMessage("Erro inesperado ao carregar seus dados.");
@@ -682,9 +696,13 @@ function AccountSection({ twoFactorEnabled }: { twoFactorEnabled: boolean }) {
   }, []);
 
   useEffect(() => {
-    if (!loading) setHasChanges(true);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [name, phone]);
+    if (loading) return;
+
+    const dirty =
+      name.trim() !== (initialNameRef.current ?? "").trim() || phone.trim() !== (initialPhoneRef.current ?? "").trim();
+
+    setHasChanges(dirty);
+  }, [name, phone, loading]);
 
   const canSave = hasChanges && !!confirmPassword && (!twoFactorEnabled || totpCode.trim().length >= 6) && !loading;
 
@@ -693,15 +711,19 @@ function AccountSection({ twoFactorEnabled }: { twoFactorEnabled: boolean }) {
     setSuccessMessage(null);
     setTotpError(null);
 
+    if (!hasChanges) {
+      setErrorMessage("Faça uma alteração em Nome ou Telefone antes de salvar.");
+      return;
+    }
+
     if (!confirmPassword) {
       setErrorMessage("Informe sua senha atual para confirmar.");
       return;
     }
 
-    try {
-      setSaving(true);
+    setSaving(true);
 
-      // 1) Buscar usuário
+    try {
       const {
         data: { user },
         error: userError,
@@ -713,53 +735,57 @@ function AccountSection({ twoFactorEnabled }: { twoFactorEnabled: boolean }) {
         return;
       }
 
-      // 1.1) Reautenticar (senha atual)
+      // 1) Reauth com senha atual
       const { error: reauthError } = await supabase.auth.signInWithPassword({
-        email: user.email ?? email,
+        email: user.email!,
         password: confirmPassword,
       });
 
       if (reauthError) {
-        setErrorMessage("Senha atual incorreta. Tente novamente.");
+        console.error("Erro ao confirmar senha:", reauthError);
+        setErrorMessage("Senha atual incorreta. Verifique e tente novamente.");
         return;
       }
 
-      // 1.5) Se o usuário tem 2FA ativo, elevar sessão para AAL2 via TOTP antes de salvar
+      // 2) Se 2FA está ativo, exige código TOTP
       if (twoFactorEnabled) {
-        const { data: factorsData, error: factorsError } = await supabase.auth.mfa.listFactors();
+        if (totpCode.trim().length < 6) {
+          setTotpError("Informe o código 2FA (6 dígitos) para confirmar.");
+          return;
+        }
+
+        const { data: factors, error: factorsError } = await supabase.auth.mfa.listFactors();
         if (factorsError) {
-          console.error("Erro ao listar fatores de 2FA (perfil):", factorsError);
-          setTotpError("Não foi possível validar o 2FA. Tente novamente.");
+          console.error("Erro ao listar fatores MFA:", factorsError);
+          setTotpError("Não foi possível validar o 2FA agora. Tente novamente.");
           return;
         }
 
-        const totpFactors = (factorsData as any)?.totp ?? [];
-        const verifiedTotp = totpFactors.find((f: any) => f.status === "verified") ?? totpFactors[0];
+        const anyFactors: any = factors;
+        const totpFactors: Array<{ id: string; status?: string }> =
+          (anyFactors?.totp as Array<{ id: string; status?: string }>) ??
+          (anyFactors?.all as Array<{ id: string; status?: string }>) ??
+          [];
 
-        if (!verifiedTotp?.id) {
-          setTotpError("2FA está ativo, mas não encontrei um fator TOTP válido para este usuário.");
-          return;
-        }
-
-        const code = totpCode.trim();
-        if (!code || code.length < 6) {
-          setTotpError("Informe o código de 6 dígitos do seu autenticador (2FA).");
+        const verified = totpFactors.find((f) => (f.status ?? "") === "verified");
+        if (!verified?.id) {
+          setTotpError("Nenhum fator TOTP verificado encontrado. Recarregue e tente novamente.");
           return;
         }
 
         const { error: verifyError } = await supabase.auth.mfa.challengeAndVerify({
-          factorId: verifiedTotp.id,
-          code,
+          factorId: verified.id,
+          code: totpCode,
         } as any);
 
         if (verifyError) {
-          console.error("Erro ao validar 2FA (perfil):", verifyError);
-          setTotpError("Código 2FA inválido. Verifique e tente novamente.");
+          console.error("Erro ao verificar TOTP:", verifyError);
+          setTotpError("Código inválido. Confira no app autenticador e tente novamente.");
           return;
         }
       }
 
-      // 2) Atualizar dados no profiles
+      // 3) Atualizar dados no profiles
       const { error: updateError } = await supabase
         .from("profiles")
         .update({
@@ -774,10 +800,15 @@ function AccountSection({ twoFactorEnabled }: { twoFactorEnabled: boolean }) {
         return;
       }
 
-      setSuccessMessage("Alterações salvas com sucesso.");
+      // Atualiza snapshot e UI
+      initialNameRef.current = name;
+      initialPhoneRef.current = phone;
       setHasChanges(false);
+
+      setSuccessMessage("Alterações salvas com sucesso!");
       setConfirmPassword("");
       setTotpCode("");
+      setTotpError(null);
     } catch (err) {
       console.error("Erro inesperado ao salvar perfil:", err);
       setErrorMessage("Erro inesperado ao salvar. Tente novamente.");
@@ -787,17 +818,20 @@ function AccountSection({ twoFactorEnabled }: { twoFactorEnabled: boolean }) {
   };
 
   return (
-    <div className="bg-midnight-surface border border-obsidian-border rounded-2xl p-6">
-      <h2 className="text-lg font-semibold text-starlight-text mb-4">Conta</h2>
+    <div className="bg-midnight-surface border border-obsidian-border rounded-2xl p-6 md:p-8">
+      <h3 className="text-starlight-text mb-6">Conta</h3>
 
       {loading ? (
         <div className="text-moonlight-text">Carregando...</div>
       ) : (
         <div className="space-y-4">
           <div>
-            <Label className="text-moonlight-text">Nome</Label>
+            <Label htmlFor="fullName-profile" className="text-moonlight-text mb-2 block">
+              Nome
+            </Label>
             <Input
-              className="bg-night-sky border-obsidian-border text-starlight-text mt-1"
+              id="fullName-profile"
+              className="bg-night-sky border-obsidian-border text-starlight-text"
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="Seu nome"
@@ -805,45 +839,53 @@ function AccountSection({ twoFactorEnabled }: { twoFactorEnabled: boolean }) {
           </div>
 
           <div>
-            <Label className="text-moonlight-text">Email</Label>
+            <Label htmlFor="email-profile" className="text-moonlight-text mb-2 block">
+              Email
+            </Label>
             <Input
-              className="bg-night-sky border-obsidian-border text-starlight-text mt-1 opacity-70"
+              id="email-profile"
+              className="bg-night-sky border-obsidian-border text-starlight-text opacity-70"
               value={email}
               disabled
             />
-            <p className="text-xs text-moonlight-text mt-1">E-mail é gerenciado pelo login (Auth).</p>
           </div>
 
           <div>
-            <Label className="text-moonlight-text">Telefone</Label>
+            <Label htmlFor="phone-profile" className="text-moonlight-text mb-2 block">
+              Telefone
+            </Label>
             <Input
-              className="bg-night-sky border-obsidian-border text-starlight-text mt-1"
+              id="phone-profile"
+              className="bg-night-sky border-obsidian-border text-starlight-text"
               value={phone}
               onChange={(e) => setPhone(e.target.value)}
               placeholder="(11) 99999-9999"
             />
           </div>
 
-          {hasChanges && (
-            <>
-              <div className="pt-2">
-                <Label htmlFor="confirmPassword-profile" className="text-moonlight-text mb-2 block">
-                  Confirmar senha atual
-                </Label>
-                <Input
-                  id="confirmPassword-profile"
-                  type="password"
-                  className="bg-night-sky border-obsidian-border text-starlight-text"
-                  value={confirmPassword}
-                  onChange={(e) => setConfirmPassword(e.target.value)}
-                  placeholder="Informe sua senha atual"
-                />
-                <p className="text-xs text-moonlight-text mt-1">
-                  Por segurança, é necessário confirmar sua senha ao alterar dados da conta.
-                </p>
+          {/* Área de salvar (sempre visível) */}
+          <div className="pt-2 space-y-4">
+            {hasChanges ? (
+              <>
+                <div>
+                  <Label htmlFor="confirmPassword-profile" className="text-moonlight-text mb-2 block">
+                    Confirmar senha atual
+                  </Label>
+                  <Input
+                    id="confirmPassword-profile"
+                    type="password"
+                    className="bg-night-sky border-obsidian-border text-starlight-text"
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    placeholder="Informe sua senha atual"
+                  />
+                  <p className="text-xs text-moonlight-text mt-1">
+                    Por segurança, é necessário confirmar sua senha ao alterar dados da conta.
+                  </p>
+                </div>
 
                 {twoFactorEnabled && (
-                  <div className="mt-4">
+                  <div>
                     <Label htmlFor="profile-2fa-code" className="text-moonlight-text mb-2 block">
                       Código 2FA (Autenticador)
                     </Label>
@@ -862,23 +904,28 @@ function AccountSection({ twoFactorEnabled }: { twoFactorEnabled: boolean }) {
                     {totpError && <p className="text-xs text-blood-moon-error mt-2">{totpError}</p>}
                   </div>
                 )}
-              </div>
+              </>
+            ) : (
+              <p className="text-xs text-moonlight-text">
+                Faça uma alteração em <span className="text-starlight-text">Nome</span> ou{" "}
+                <span className="text-starlight-text">Telefone</span> para habilitar o salvamento.
+              </p>
+            )}
 
-              {errorMessage && <p className="text-sm text-blood-moon-error">{errorMessage}</p>}
-              {successMessage && <p className="text-sm text-emerald-400">{successMessage}</p>}
+            {errorMessage && <p className="text-sm text-blood-moon-error">{errorMessage}</p>}
+            {successMessage && <p className="text-sm text-emerald-400">{successMessage}</p>}
 
-              <div className="pt-2 flex justify-end">
-                <Button
-                  className="bg-aurora-accent hover:bg-aurora-accent/90 text-midnight-surface font-semibold"
-                  style={{ paddingLeft: "32px", paddingRight: "32px" }}
-                  onClick={handleSave}
-                  disabled={!canSave || saving}
-                >
-                  {saving ? "Salvando..." : "Salvar alterações"}
-                </Button>
-              </div>
-            </>
-          )}
+            <div className="flex justify-end">
+              <Button
+                className="bg-aurora-accent hover:bg-aurora-accent/90 text-midnight-surface font-semibold disabled:opacity-50"
+                style={{ paddingLeft: "32px", paddingRight: "32px" }}
+                onClick={handleSave}
+                disabled={!canSave || saving}
+              >
+                {saving ? "Salvando..." : "Salvar alterações"}
+              </Button>
+            </div>
+          </div>
         </div>
       )}
     </div>
@@ -1493,10 +1540,29 @@ function SecuritySection({
     setTwoFactorSaving(true);
 
     try {
-      // 1) Limpa fatores TOTP não verificados antigos
-      await removeUnverifiedTotpFactors();
+      // 1) Evita re-enroll se já existir fator TOTP verificado
+      try {
+        const { data: factorsData, error: factorsError } = await supabase.auth.mfa.listFactors();
+        if (!factorsError && factorsData) {
+          const anyFactors: any = factorsData;
+          const totpFactors: Array<{ id: string; status?: string }> =
+            (anyFactors?.totp as Array<{ id: string; status?: string }>) ??
+            (anyFactors?.all as Array<{ id: string; status?: string }>) ??
+            [];
 
-      // 2) Cria fator novo
+          if (totpFactors.some((f) => (f.status ?? "") === "verified")) {
+            setTwoFactorEnabled(true);
+            setSuccessMessage("2FA já está ativo neste usuário.");
+            setShowTotpModal(false);
+            return;
+          }
+        }
+      } catch (err) {
+        // Se falhar, segue para o enroll normalmente (melhor tentar do que bloquear).
+        console.error("Falha ao checar fatores MFA antes do enroll:", err);
+      }
+
+      // 2) Cria fator novo (ATIVAÇÃO NÃO DEVE CHAMAR unenroll automaticamente)
       const { data, error } = await supabase.auth.mfa.enroll({
         factorType: "totp",
         friendlyName: "TOTP TarotOnline",
