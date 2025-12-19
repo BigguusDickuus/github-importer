@@ -23,19 +23,16 @@ export function Header({ isLoggedIn = false, onBuyCredits, onLoginClick }: Heade
   const [isAdmin, setIsAdmin] = useState(false);
   const [adminLoading, setAdminLoading] = useState(false);
 
-  const getUserIdFromSession = async (): Promise<string | null> => {
-    const { data, error } = await supabase.auth.getSession();
-
+  const getUserIdSafe = async (): Promise<string | null> => {
+    // getUser() é mais estável do que getSession() quando o app está em transição MFA/AAL
+    const { data, error } = await supabase.auth.getUser();
     if (error) {
-      // Esse é o erro que costuma acontecer logo após login; não “crava” estado errado.
       const msg = (error as any)?.message ?? "";
       if (msg.includes("Auth session missing")) return null;
-
-      console.error("Erro ao checar sessão:", error);
+      console.error("Erro ao checar usuário:", error);
       return null;
     }
-
-    return data.session?.user?.id ?? null;
+    return data.user?.id ?? null;
   };
 
   const fetchCreditsForUser = async (userId: string) => {
@@ -70,7 +67,7 @@ export function Header({ isLoggedIn = false, onBuyCredits, onLoginClick }: Heade
     try {
       setCreditsLoading(true);
 
-      const userId = await getUserIdFromSession();
+      const userId = await getUserIdSafe();
       if (!userId) return;
 
       await fetchCreditsForUser(userId);
@@ -86,7 +83,7 @@ export function Header({ isLoggedIn = false, onBuyCredits, onLoginClick }: Heade
     try {
       setAdminLoading(true);
 
-      const userId = await getUserIdFromSession();
+      const userId = await getUserIdSafe();
       if (!userId) return;
 
       await fetchIsAdminForUser(userId);
