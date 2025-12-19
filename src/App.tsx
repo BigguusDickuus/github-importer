@@ -3,7 +3,6 @@ import { useEffect, useState, useRef } from "react";
 import { supabase, resetSupabaseClient } from "@/integrations/supabase/client";
 import { HomeDeslogada } from "./components/Landing";
 import { HomeLogada } from "./components/HomeLogada";
-import { Dashboard } from "./components/Dashboard";
 import { History } from "./components/History";
 import { TransactionHistory } from "./components/TransactionHistory";
 import { Profile } from "./components/Profile";
@@ -11,6 +10,31 @@ import { Admin } from "./components/Admin";
 import { Login } from "./components/Login";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 import { ResetPassword } from "./components/ResetPassword";
+
+const MFA_BUSY_UNTIL_KEY = "to_mfa_busy_until";
+const isMfaBusy = () => {
+  try {
+    const until = Number(sessionStorage.getItem(MFA_BUSY_UNTIL_KEY) || "0");
+    return until > 0 && Date.now() < until;
+  } catch {
+    return false;
+  }
+};
+
+async function getUserWithTimeout(timeoutMs: number) {
+  let timerId: number | null = null;
+
+  const timeoutPromise = new Promise<never>((_, reject) => {
+    timerId = window.setTimeout(() => reject(new Error("GET_USER_TIMEOUT")), timeoutMs);
+  });
+
+  try {
+    const res = (await Promise.race([supabase.auth.getUser(), timeoutPromise])) as any;
+    return res as { data: any; error: any };
+  } finally {
+    if (timerId !== null) window.clearTimeout(timerId);
+  }
+}
 
 function LandingGate() {
   const [checking, setChecking] = useState(true);
@@ -23,7 +47,7 @@ function LandingGate() {
     const key = "to_wakeup_reload_ts";
     const last = Number(sessionStorage.getItem(key) || "0");
     const now = Date.now();
-    if (now - last < 5000) return false; // no máx 1 reload a cada 15s por aba
+    if (now - last < 5000) return false;
     sessionStorage.setItem(key, String(now));
     return true;
   };
@@ -35,23 +59,32 @@ function LandingGate() {
 
     if (bootstrap) setChecking(true);
 
-    // Watchdog: se auth travar de novo (caso raro), reload resolve o lock de verdade.
     const watchdog = window.setTimeout(() => {
-      if (document.visibilityState === "visible") {
+      // ✅ Nunca reload durante MFA
+      if (document.visibilityState === "visible" && !isMfaBusy() && canReloadNow()) {
         console.warn("LandingGate: auth travou; recarregando página para destravar.");
         window.location.reload();
       }
     }, 12000);
 
     try {
-      const { data, error } = await supabase.auth.getSession();
+      const { data, error } = await getUserWithTimeout(3000);
       if (!mountedRef.current) return;
 
       if (error) {
-        console.error("LandingGate: erro getSession:", error);
         setHasSession(false);
       } else {
-        setHasSession(!!data.session);
+        setHasSession(!!data.user);
+      }
+    } catch {
+      if (!mountedRef.current) return;
+      setHasSession(false);
+
+      // best-effort: soft reset (não recria client)
+      if (!isMfaBusy()) {
+        try {
+          resetSupabaseClient();
+        } catch {}
       }
     } finally {
       clearTimeout(watchdog);
@@ -63,31 +96,20 @@ function LandingGate() {
   useEffect(() => {
     mountedRef.current = true;
 
-    // Bootstrap inicial (pode mostrar "Carregando...")
     run({ bootstrap: true });
 
-    // Mantém sincronizado com login/logout sem precisar ficar chamando getSession em loop
     const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
       if (!mountedRef.current) return;
-      setHasSession(!!session);
+      if (isMfaBusy()) return;
+      setHasSession(!!session?.user);
       setChecking(false);
     });
 
-    // Ao voltar pra aba: revalida em background (não seta checking=true)
     const wake = () => {
       if (document.visibilityState !== "visible") return;
+      if (isMfaBusy()) return;
+      if (inFlightRef.current) return;
 
-      // Se existe uma checagem travada, run() nunca vai rodar (inFlightRef fica true).
-      // Então: reload imediato ao voltar pra aba.
-      if (inFlightRef.current) {
-        if (canReloadNow()) {
-          console.warn("LandingGate: voltou pra aba com inFlight travado. Reload imediato.");
-          window.location.reload();
-        }
-        return;
-      }
-
-      // Caso normal: reseta o client e revalida em background
       try {
         resetSupabaseClient();
       } catch {}
@@ -143,21 +165,29 @@ function LoginGate() {
     if (bootstrap) setChecking(true);
 
     const watchdog = window.setTimeout(() => {
-      if (document.visibilityState === "visible") {
+      if (document.visibilityState === "visible" && !isMfaBusy() && canReloadNow()) {
         console.warn("LoginGate: auth travou; recarregando página para destravar.");
         window.location.reload();
       }
     }, 12000);
 
     try {
-      const { data, error } = await supabase.auth.getSession();
+      const { data, error } = await getUserWithTimeout(3000);
       if (!mountedRef.current) return;
 
       if (error) {
-        console.error("LoginGate: erro getSession:", error);
         setHasSession(false);
       } else {
-        setHasSession(!!data.session);
+        setHasSession(!!data.user);
+      }
+    } catch {
+      if (!mountedRef.current) return;
+      setHasSession(false);
+
+      if (!isMfaBusy()) {
+        try {
+          resetSupabaseClient();
+        } catch {}
       }
     } finally {
       clearTimeout(watchdog);
@@ -173,20 +203,15 @@ function LoginGate() {
 
     const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
       if (!mountedRef.current) return;
-      setHasSession(!!session);
+      if (isMfaBusy()) return;
+      setHasSession(!!session?.user);
       setChecking(false);
     });
 
     const wake = () => {
       if (document.visibilityState !== "visible") return;
-
-      if (inFlightRef.current) {
-        if (canReloadNow()) {
-          console.warn("LoginGate: voltou pra aba com inFlight travado. Reload imediato.");
-          window.location.reload();
-        }
-        return;
-      }
+      if (isMfaBusy()) return;
+      if (inFlightRef.current) return;
 
       try {
         resetSupabaseClient();
@@ -223,7 +248,6 @@ export default function App() {
   return (
     <Router>
       <Routes>
-        {/* / agora é gate: logado -> /dashboard | deslogado -> Landing */}
         <Route path="/" element={<LandingGate />} />
 
         <Route
@@ -235,7 +259,6 @@ export default function App() {
           }
         />
 
-        {/* Rotas “oficiais” em lowercase */}
         <Route
           path="/history"
           element={
@@ -244,6 +267,7 @@ export default function App() {
             </ProtectedRoute>
           }
         />
+
         <Route
           path="/transaction-history"
           element={
@@ -253,7 +277,6 @@ export default function App() {
           }
         />
 
-        {/* Compat: rotas antigas com maiúscula (caso existam links/menus antigos) */}
         <Route path="/History" element={<Navigate to="/history" replace />} />
         <Route path="/TransactionHistory" element={<Navigate to="/transaction-history" replace />} />
 
@@ -265,6 +288,7 @@ export default function App() {
             </ProtectedRoute>
           }
         />
+
         <Route
           path="/admin"
           element={
@@ -274,12 +298,10 @@ export default function App() {
           }
         />
 
-        {/* /login também vira gate */}
         <Route path="/login" element={<LoginGate />} />
 
         <Route path="/reset-password" element={<ResetPassword />} />
 
-        {/* Catch-all */}
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </Router>
