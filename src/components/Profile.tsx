@@ -1561,20 +1561,7 @@ function SecuritySection({
     setTotpVerifying(true);
 
     try {
-      const { error: verifyError } = await supabase.auth.mfa.challengeAndVerify({
-        factorId: totpFactorId,
-        code: totpCode.trim(),
-      } as any);
-
-      if (verifyError) {
-        console.error("Erro ao verificar TOTP:", verifyError);
-        setTotpError("Código inválido. Confira no app autenticador e tente novamente.");
-        return;
-      }
-
-      // Delay para estabilizar sessão após mudança AAL1→AAL2
-      await new Promise((resolve) => setTimeout(resolve, 0));
-
+      // Buscar usuário ANTES de challengeAndVerify para evitar deadlock
       const {
         data: { user },
         error: userError,
@@ -1588,10 +1575,26 @@ function SecuritySection({
         return;
       }
 
+      const userId = user.id;
+
+      const { error: verifyError } = await supabase.auth.mfa.challengeAndVerify({
+        factorId: totpFactorId,
+        code: totpCode.trim(),
+      } as any);
+
+      if (verifyError) {
+        console.error("Erro ao verificar TOTP:", verifyError);
+        setTotpError("Código inválido. Confira no app autenticador e tente novamente.");
+        return;
+      }
+
+      // Delay de 500ms para estabilizar sessão após mudança AAL1→AAL2
+      await new Promise((resolve) => setTimeout(resolve, 500));
+
       const { error: updateError } = await supabase
         .from("profiles")
         .update({ two_factor_enabled: true } as any)
-        .eq("id", user.id);
+        .eq("id", userId);
 
       if (updateError) {
         console.error("Erro ao atualizar two_factor_enabled:", updateError);
@@ -1701,6 +1704,19 @@ function SecuritySection({
     pushDisableLog(traceId, "disableVerifying:true");
 
     try {
+      // Buscar usuário ANTES de challengeAndVerify para evitar deadlock depois
+      pushDisableLog(traceId, "auth.getUser:before_challenge:start");
+      const {
+        data: { user: preUser },
+        error: preUserError,
+      } = await supabase.auth.getUser();
+      pushDisableLog(traceId, "auth.getUser:before_challenge:done", {
+        error: serializeSupabaseError(preUserError),
+        user_id: preUser?.id ?? null,
+      });
+
+      const userId = preUser?.id ?? null;
+
       // 1) Verifica o TOTP (AAL2). IMPORTANTE: NÃO chamar getSession aqui (ele está pendurando no seu app)
       pushDisableLog(traceId, "mfa.challengeAndVerify:start", { factorId: disableFactorId });
       const { error: verifyError } = await supabase.auth.mfa.challengeAndVerify({
@@ -1715,8 +1731,8 @@ function SecuritySection({
         return;
       }
 
-      // Delay para estabilizar sessão após mudança AAL1→AAL2
-      await new Promise((resolve) => setTimeout(resolve, 0));
+      // Delay de 500ms para estabilizar sessão após mudança AAL1→AAL2
+      await new Promise((resolve) => setTimeout(resolve, 500));
 
       pushDisableLog(traceId, "checkpoint:after_verify_before_unenroll");
 
@@ -1756,27 +1772,13 @@ function SecuritySection({
         pushDisableLog(traceId, "cleanup:catch", { err: serializeUnknownError(e) });
       }
 
-      // 4) Sync final (sem getSession)
-      pushDisableLog(traceId, "auth.refreshSession:start");
-      const refresh = await supabase.auth.refreshSession();
-      pushDisableLog(traceId, "auth.refreshSession:done", { error: serializeSupabaseError(refresh.error) });
-
-      pushDisableLog(traceId, "auth.getUser:final:start");
-      const {
-        data: { user },
-        error: userErrFinal,
-      } = await supabase.auth.getUser();
-      pushDisableLog(traceId, "auth.getUser:final:done", {
-        error: serializeSupabaseError(userErrFinal),
-        user_id: user?.id ?? null,
-      });
-
-      if (user?.id) {
-        pushDisableLog(traceId, "profiles.update:start", { user_id: user.id, two_factor_enabled: false });
+      // 4) Atualizar profiles usando userId capturado ANTES do challengeAndVerify
+      if (userId) {
+        pushDisableLog(traceId, "profiles.update:start", { user_id: userId, two_factor_enabled: false });
         const upd = await supabase
           .from("profiles")
           .update({ two_factor_enabled: false } as any)
-          .eq("id", user.id);
+          .eq("id", userId);
         pushDisableLog(traceId, "profiles.update:done", { error: serializeSupabaseError((upd as any)?.error) });
       }
 
