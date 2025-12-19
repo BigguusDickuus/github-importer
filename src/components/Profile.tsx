@@ -145,7 +145,8 @@ export function Profile() {
             return;
           }
 
-          const totpFactors = ((factorsData as any)?.totp ?? []) as any[];
+          const anyFactors: any = factorsData;
+          const totpFactors = (anyFactors?.totp ?? anyFactors?.all ?? []) as any[];
           const hasVerifiedTotp = totpFactors.some((f) => f?.status === "verified");
           const desired = hasVerifiedTotp || profileFlag;
 
@@ -193,15 +194,21 @@ export function Profile() {
 
     void bootstrap();
 
-    const { data: listener } = supabase.auth.onAuthStateChange(async (_event, session) => {
+    const { data: listener } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (cancelled) return;
 
-      const userId = session?.user?.id ?? null;
-      if (!userId) {
+      // Só zera estados quando realmente saiu da conta.
+      if (event === "SIGNED_OUT" || event === "USER_DELETED") {
         setCredits(0);
         setTwoFactorEnabled(false);
         return;
       }
+
+      const userId = session?.user?.id ?? null;
+
+      // Durante refresh/MFA pode haver eventos onde session/userId vêm null momentaneamente.
+      // NÃO derrube o toggle/saldo nesses casos (isso fazia o switch ficar OFF indevidamente).
+      if (!userId) return;
 
       await Promise.all([loadPreferencesForUserId(userId), fetchCreditsForUserId(userId)]);
     });
@@ -1804,7 +1811,7 @@ function SecuritySection({
 
         if (!listError) {
           const anyFactors: any = factorsData;
-          const totpFactors = (anyFactors?.totp ?? []) as Array<{ id: string }>;
+          const totpFactors = (anyFactors?.totp ?? anyFactors?.all ?? []) as Array<{ id: string }>;
           for (const factor of totpFactors) {
             if (factor.id !== disableFactorId) {
               pushDisableLog(traceId, "cleanup.unenroll_residual:start", { factorId: factor.id });
