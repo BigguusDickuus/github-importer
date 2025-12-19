@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useId } from "react";
 import { Header } from "./Header";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
@@ -706,6 +706,8 @@ function AccountSection({ twoFactorEnabled }: { twoFactorEnabled: boolean }) {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
+  const profile2faCodeId = useId();
+
   useEffect(() => {
     const loadUserData = async () => {
       try {
@@ -912,11 +914,11 @@ function AccountSection({ twoFactorEnabled }: { twoFactorEnabled: boolean }) {
 
                 {twoFactorEnabled && (
                   <div className="mt-4">
-                    <Label htmlFor="profile-2fa-code" className="text-moonlight-text mb-2 block">
+                    <Label htmlFor={profile2faCodeId} className="text-moonlight-text mb-2 block">
                       Código 2FA (Autenticador)
                     </Label>
                     <Input
-                      id="profile-2fa-code"
+                      id={profile2faCodeId}
                       inputMode="numeric"
                       autoComplete="one-time-code"
                       className="bg-night-sky border-obsidian-border text-starlight-text"
@@ -1212,6 +1214,19 @@ function SecuritySection({
     setPasswordTotpCode("");
     setPasswordTotpError(null);
     setPasswordTotpVerifying(false);
+  };
+
+  // --- MFA busy gate (evita ProtectedRoute rodar getSession no wake durante challenge/verify) ---
+  const MFA_BUSY_UNTIL_KEY = "to_mfa_busy_until";
+  const markMfaBusy = (ms = 45000) => {
+    try {
+      sessionStorage.setItem(MFA_BUSY_UNTIL_KEY, String(Date.now() + ms));
+    } catch {}
+  };
+  const clearMfaBusy = () => {
+    try {
+      sessionStorage.removeItem(MFA_BUSY_UNTIL_KEY);
+    } catch {}
   };
 
   // --------- INSTRUMENTAÇÃO: DISABLE 2FA (TRACE PERSISTENTE) ---------
@@ -1562,6 +1577,9 @@ function SecuritySection({
     setTotpError(null);
     setTwoFactorSaving(true);
 
+    // ✅ começa “janela MFA” (usuário pode alternar para app autenticador)
+    markMfaBusy(45000);
+
     try {
       // 1) Limpa fatores TOTP não verificados antigos
       await removeUnverifiedTotpFactors();
@@ -1598,6 +1616,7 @@ function SecuritySection({
       setTotpError("Erro inesperado ao iniciar a configuração do 2FA.");
     } finally {
       setTwoFactorSaving(false);
+      // Não limpa busy aqui: o fluxo continua no confirm (challenge/verify).
     }
   };
 
@@ -1621,31 +1640,28 @@ function SecuritySection({
 
   const handleConfirmTotp = async () => {
     if (!totpFactorId) return;
-
-    const code = totpCode.trim();
-    if (!code) {
+    if (!totpCode.trim()) {
       setTotpError("Informe o código de 6 dígitos.");
       return;
     }
 
-    setMfaBusy(true);
     setTotpVerifying(true);
     setTotpError(null);
 
+    // ✅ mantém MFA busy enquanto verifica (usuário troca de app/aba)
+    markMfaBusy(45000);
+
     try {
-      // 1) Verifica
       const { error: verifyError } = await supabase.auth.mfa.challengeAndVerify({
         factorId: totpFactorId,
-        code,
+        code: totpCode.trim(),
       } as any);
 
       if (verifyError) {
-        console.error("Erro ao verificar TOTP (enroll):", verifyError);
         setTotpError("Código inválido. Confira no app autenticador e tente novamente.");
         return;
       }
 
-      // 2) Checa status real (2 tentativas)
       const checkRealStatus = async () => {
         const { data } = await supabase.auth.mfa.listFactors();
         return hasVerifiedTotpFromFactors(data);
@@ -1661,13 +1677,14 @@ function SecuritySection({
 
       if (isActuallyEnabled) {
         setTwoFactorEnabled(true);
+
+        // ✅ FECHA o modal de verdade
+        setShowTotpModal(false);
+        resetTotpSetupState();
+
         setSuccessMessage("2FA ativado com sucesso!");
 
-        // Fecha modal e limpa estado
-        resetTotpSetupState();
-        setShowTotpModal(false);
-
-        // Atualiza flag no profiles em background
+        // Atualiza banco em background
         supabase.auth.getUser().then(({ data }) => {
           if (data.user) {
             supabase
@@ -1680,13 +1697,13 @@ function SecuritySection({
         return;
       }
 
-      setTotpError("Não conseguimos confirmar a ativação. Tente novamente.");
+      setTotpError("Não conseguimos confirmar a ativação. Feche o modal e tente novamente mais tarde.");
     } catch (err) {
       console.error("Erro no fluxo de confirmação:", err);
       setTotpError("Erro inesperado. Tente novamente.");
     } finally {
       setTotpVerifying(false);
-      setMfaBusy(false);
+      clearMfaBusy();
     }
   };
 
@@ -1779,6 +1796,7 @@ function SecuritySection({
       return;
     }
     setMfaBusy(true);
+    markMfaBusy(45000);
     setDisableVerifying(true);
     pushDisableLog(traceId, "disableVerifying:true");
 
@@ -1873,6 +1891,7 @@ function SecuritySection({
       setDisableError("Erro inesperado ao desativar o 2FA. Tente novamente.");
     } finally {
       pushDisableLog(traceId, "handleConfirmDisableTwoFactor:finally");
+      clearMfaBusy();
       setDisableVerifying(false);
       setMfaBusy(false);
     }

@@ -1,16 +1,28 @@
 import { ReactNode, useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { supabase, resetSupabaseClient } from "@/integrations/supabase/client";
+import { supabase } from "@/integrations/supabase/client";
 
-// PATCH_MARK: PROTECTED_ROUTE_TIMEOUT_V1
+// PATCH_MARK: PROTECTED_ROUTE_MFA_GUARD_V2
+// Evita que getSession rode no wake (visibility/focus) durante fluxo MFA,
+// porque isso entra em race/lock com challengeAndVerify e gera timeout/reload.
 
 interface ProtectedRouteProps {
   children: ReactNode;
   requireAdmin?: boolean;
 }
 
+const MFA_BUSY_UNTIL_KEY = "to_mfa_busy_until";
+const isMfaBusy = () => {
+  try {
+    const until = Number(sessionStorage.getItem(MFA_BUSY_UNTIL_KEY) || "0");
+    return until > 0 && Date.now() < until;
+  } catch {
+    return false;
+  }
+};
+
 export function ProtectedRoute({ children, requireAdmin = false }: ProtectedRouteProps) {
-  const [checking, setChecking] = useState(true); // só bootstrap
+  const [checking, setChecking] = useState(true);
   const [allowed, setAllowed] = useState(false);
 
   const navigate = useNavigate();
@@ -18,7 +30,6 @@ export function ProtectedRoute({ children, requireAdmin = false }: ProtectedRout
 
   const mountedRef = useRef(true);
 
-  // evita concorrência / duplicação
   const inFlightRef = useRef(false);
   const inFlightStartedAtRef = useRef<number>(0);
 
@@ -47,51 +58,49 @@ export function ProtectedRoute({ children, requireAdmin = false }: ProtectedRout
     if (bootstrap) setChecking(true);
 
     try {
-      // 1) tentativa normal (rápida)
+      // ✅ Durante MFA, NÃO revalida em background (wake/focus). Mantém estado atual.
+      // Segurança mantém: bootstrap inicial ainda valida; aqui é só wake/revalidação.
+      if (!bootstrap && isMfaBusy()) {
+        console.warn("ProtectedRoute: MFA em andamento; pulando revalidação no wake.");
+        return;
+      }
+
       let sessionRes: { data: any; error: any } | null = null;
+
+      // 1) tentativa normal (curta)
       try {
         sessionRes = await getSessionWithTimeout(3000);
       } catch (e: any) {
         if (e?.message === "GET_SESSION_TIMEOUT") {
-          console.warn("ProtectedRoute: getSession timeout (1). Tentando resetSupabaseClient + retry.");
+          // ✅ Se MFA em andamento, não derruba nem tenta reset/retry: isso atrapalha o verify.
+          if (isMfaBusy()) {
+            console.warn("ProtectedRoute: getSession timeout durante MFA; ignorando.");
+            return;
+          }
+          console.warn("ProtectedRoute: getSession timeout (1).");
         } else {
-          console.warn("ProtectedRoute: getSession erro (1). Tentando resetSupabaseClient + retry.", e);
-        }
-      }
-
-      // 2) retry com reset (controlado)
-      if (!sessionRes) {
-        try {
-          resetSupabaseClient();
-        } catch {}
-        try {
-          sessionRes = await getSessionWithTimeout(3000);
-        } catch (e: any) {
-          console.warn("ProtectedRoute: getSession falhou também após reset.", e);
-          sessionRes = null;
+          console.warn("ProtectedRoute: getSession erro (1).", e);
         }
       }
 
       if (!mountedRef.current) return;
 
-      // 3) se ainda não conseguiu sessão, falha com segurança (sem reload)
+      // 2) se sem sessão, falha com segurança
       if (!sessionRes || sessionRes.error || !sessionRes.data?.session) {
         setAllowed(false);
         setChecking(false);
-
-        // segurança: manda pro login
         navigate("/", { replace: true, state: { from: location } });
         return;
       }
 
-      // 4) sem admin requerido
+      // 3) sem admin requerido
       if (!requireAdmin) {
         setAllowed(true);
         setChecking(false);
         return;
       }
 
-      // 5) valida admin
+      // 4) valida admin
       const userId = sessionRes.data.session.user.id;
 
       const { data: profile, error: profileError } = await supabase
@@ -121,22 +130,22 @@ export function ProtectedRoute({ children, requireAdmin = false }: ProtectedRout
   useEffect(() => {
     mountedRef.current = true;
 
-    // Bootstrap inicial (pode mostrar carregando)
+    // Bootstrap inicial (VALIDA DE VERDADE)
     runCheck({ bootstrap: true });
 
-    // Ao voltar pra aba: revalida em background.
-    // Importante: NÃO resetar client aqui (isso pode interferir em fluxos MFA quando o usuário troca de app)
     const wake = () => {
       if (document.visibilityState !== "visible") return;
 
-      // Se ficou travado, tenta destravar sem reload
+      // ✅ Se MFA está em andamento, não roda check no wake.
+      if (isMfaBusy()) return;
+
       if (inFlightRef.current) {
         const startedAt = inFlightStartedAtRef.current || 0;
         const age = startedAt ? Date.now() - startedAt : 0;
 
-        // se passou tempo demais, libera e tenta de novo
+        // Se ficou travado tempo demais, libera e revalida
         if (age > 6000) {
-          console.warn("ProtectedRoute: inFlight travado há >6s. Liberando e revalidando sem reload.");
+          console.warn("ProtectedRoute: inFlight travado >6s. Liberando e revalidando.");
           inFlightRef.current = false;
           inFlightStartedAtRef.current = 0;
           runCheck({ bootstrap: false });
