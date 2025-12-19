@@ -1551,18 +1551,17 @@ function SecuritySection({
   // Cancelar setup: se já criou fator mas não confirmou, tenta descartar
   const handleCancelTotpSetup = async () => {
     try {
-      // SÓ chama o unenroll (DELETE) se o 2FA ainda não estiver marcado como ativado
-      // Isso evita que o fechamento do modal apague um fator que acabou de ser verificado
+      // SÓ deleta se o status global do 2FA ainda for false
       if (totpFactorId && !twoFactorEnabled) {
-        console.log("🧹 Limpando fator não verificado após cancelamento...");
+        console.log("🧹 Removendo fator pendente...");
         await supabase.auth.mfa.unenroll({ factorId: totpFactorId } as any);
       }
     } catch (err) {
-      console.error("Erro ao cancelar setup TOTP:", err);
+      console.warn("Erro ao limpar:", err);
     } finally {
-      // Limpa todos os estados do modal independente de qualquer coisa
-      setTotpFactorId(null);
+      // Limpa os estados e fecha o modal
       setTotpQrCode(null);
+      setTotpFactorId(null);
       setTotpSecret(null);
       setTotpCode("");
       setTotpError(null);
@@ -1580,43 +1579,52 @@ function SecuritySection({
     setTotpError(null);
 
     try {
-      // 1. Verifica o código no Supabase Auth
-      const { data, error } = await supabase.auth.mfa.challengeAndVerify({
+      // 1. Tenta a verificação inicial
+      const { error: verifyError } = await supabase.auth.mfa.challengeAndVerify({
         factorId: totpFactorId,
         code: totpCode.trim(),
       });
 
-      if (error) {
-        console.error("Erro ao confirmar TOTP:", error);
-        setTotpError("Código inválido ou expirado. Tente novamente.");
-        setTotpVerifying(false); // Garante que destrava o botão em caso de erro
+      // Função interna para checar se o MFA ativou mesmo
+      const checkRealStatus = async () => {
+        const { data } = await supabase.auth.mfa.listFactors();
+        return hasVerifiedTotpFromFactors(data);
+      };
+
+      // 2. Espera 200ms e checa o status real (Tentativa 1)
+      await new Promise((resolve) => setTimeout(resolve, 200));
+      let isActuallyEnabled = await checkRealStatus();
+
+      // 3. Se ainda for false, tenta mais uma vez (Tentativa 2)
+      if (!isActuallyEnabled) {
+        await new Promise((resolve) => setTimeout(resolve, 500)); // dá um fôlego maior
+        isActuallyEnabled = await checkRealStatus();
+      }
+
+      // 4. Se virou TRUE, finaliza com sucesso
+      if (isActuallyEnabled) {
+        setTwoFactorEnabled(true);
+        setTotpQrCode(null); // Fecha o modal
+        setTotpFactorId(null);
+        setSuccessMessage("2FA ativado com sucesso!");
+
+        // Atualiza o banco em background (sem await para não travar)
+        supabase.auth.getUser().then(({ data }) => {
+          if (data.user) {
+            supabase
+              .from("profiles")
+              .update({ two_factor_enabled: true } as any)
+              .eq("id", data.user.id);
+          }
+        });
         return;
       }
 
-      // --- SUCESSO DE VERIFICAÇÃO ---
-
-      // 2. ATUALIZA A UI IMEDIATAMENTE (Fecha o modal e ativa o switch)
-      setTwoFactorEnabled(true);
-      setTotpQrCode(null);
-      setTotpFactorId(null);
-      setTotpSecret(null);
-      setTotpCode("");
-      setSuccessMessage("Autenticação de dois fatores ativada!");
-
-      // 3. ATUALIZA O BANCO (PROFILES) EM SEGUNDO PLANO
-      // Fazemos isso por último para que lentidão no banco não "trave" a UI
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      if (user) {
-        await supabase
-          .from("profiles")
-          .update({ two_factor_enabled: true } as any)
-          .eq("id", user.id);
-      }
+      // 5. Se após as tentativas continuar FALSE, erro.
+      setTotpError("Não conseguimos confirmar a ativação. Feche o modal e tente novamente mais tarde.");
     } catch (err) {
-      console.error("Erro inesperado ao confirmar TOTP:", err);
-      setTotpError("Erro inesperado ao confirmar o código. Tente novamente.");
+      console.error("Erro no fluxo de confirmação:", err);
+      setTotpError("Erro inesperado. Tente novamente.");
     } finally {
       setTotpVerifying(false);
     }
