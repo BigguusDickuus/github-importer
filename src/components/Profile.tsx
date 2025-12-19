@@ -1572,6 +1572,9 @@ function SecuritySection({
         return;
       }
 
+      // Delay para estabilizar sessão após mudança AAL1→AAL2
+      await new Promise((resolve) => setTimeout(resolve, 0));
+
       const {
         data: { user },
         error: userError,
@@ -1711,6 +1714,9 @@ function SecuritySection({
         setDisableError("Código inválido. Confira no app autenticador e tente novamente.");
         return;
       }
+
+      // Delay para estabilizar sessão após mudança AAL1→AAL2
+      await new Promise((resolve) => setTimeout(resolve, 0));
 
       pushDisableLog(traceId, "checkpoint:after_verify_before_unenroll");
 
