@@ -148,71 +148,25 @@ export function Profile() {
 
   // 2. O useEffect agora apenas "vigia" se o usuário está logado
   useEffect(() => {
-    const inicializarDados = async () => {
-      console.log("🛠️ [INÍCIO] A tentar carregar dados do utilizador...");
-
-      // 1. Tenta apanhar a sessão atual
+    // Tenta carregar imediatamente
+    const init = async () => {
       const {
-        data: { session },
-      } = await supabase.auth.getSession();
-      const user = session?.user;
-
-      if (!user) {
-        console.log("⚠️ [AVISO] Nenhum utilizador encontrado. O código para aqui.");
-        return;
-      }
-
-      console.log("✅ [OK] Utilizador identificado:", user.id);
-
-      // 2. BUSCA O ESTADO DO 2FA (A prioridade)
-      try {
-        console.log("📡 [MFA] A chamar listFactors agora...");
-        const { data: mfaData, error: mfaError } = await supabase.auth.mfa.listFactors();
-
-        if (mfaError) {
-          console.error("❌ [MFA] Erro do Supabase ao listar fatores:", mfaError);
-        } else {
-          // Usa a função auxiliar que já existe no seu ficheiro
-          const estaLigado = hasVerifiedTotpFromFactors(mfaData);
-          console.log("🔒 [MFA] Estado real no servidor:", estaLigado);
-          setTwoFactorEnabled(estaLigado);
-        }
-      } catch (err) {
-        console.error("💥 [MFA] Crash crítico ao tentar buscar 2FA:", err);
-      }
-
-      // 3. BUSCA CRÉDITOS E PREFERÊNCIAS (Em blocos separados para um não travar o outro)
-      try {
-        const { data: balance } = await supabase
-          .from("credit_balances")
-          .select("balance")
-          .eq("user_id", user.id)
-          .maybeSingle();
-        if (balance) setCredits(balance.balance);
-
-        const { data: profile } = await supabase.from("profiles").select("*").eq("id", user.id).maybeSingle();
-        if (profile) {
-          setKeepContext(!!profile.keep_context);
-          if (profile.usage_limit_credits) {
-            setHasActiveLimit(true);
-            setActiveLimitAmount(String(profile.usage_limit_credits));
-            setActiveLimitPeriod(profile.usage_limit_period);
-          }
-        }
-      } catch (err) {
-        console.error("❌ [DB] Erro ao carregar dados da tabela profiles/credits:", err);
-      }
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (user) refreshAllUserData(user.id);
     };
+    init();
 
-    // Corre a função assim que a página abre
-    inicializarDados();
-
-    // Se o utilizador fizer login/logout, recarrega
+    // Escuta mudanças (login/logout) para atualizar a tela na hora
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((event, session) => {
-      console.log("🔌 [AUTH] Mudança de estado detetada:", event);
-      if (session) inicializarDados();
+      if (session?.user) {
+        refreshAllUserData(session.user.id);
+      } else if (event === "SIGNED_OUT") {
+        setTwoFactorEnabled(false);
+        setCredits(0);
+      }
     });
 
     return () => subscription.unsubscribe();
@@ -1597,70 +1551,69 @@ function SecuritySection({
   // Cancelar setup: se já criou fator mas não confirmou, tenta descartar
   const handleCancelTotpSetup = async () => {
     try {
-      if (totpFactorId) {
+      // SÓ chama o unenroll (DELETE) se o 2FA ainda não estiver marcado como ativado
+      // Isso evita que o fechamento do modal apague um fator que acabou de ser verificado
+      if (totpFactorId && !twoFactorEnabled) {
+        console.log("🧹 Limpando fator não verificado após cancelamento...");
         await supabase.auth.mfa.unenroll({ factorId: totpFactorId } as any);
       }
     } catch (err) {
-      console.error("Erro ao descartar fator TOTP não verificado:", err);
+      console.error("Erro ao cancelar setup TOTP:", err);
     } finally {
-      resetTotpSetupState();
-      setShowTotpModal(false);
+      // Limpa todos os estados do modal independente de qualquer coisa
+      setTotpFactorId(null);
+      setTotpQrCode(null);
+      setTotpSecret(null);
+      setTotpCode("");
+      setTotpError(null);
     }
   };
 
   const handleConfirmTotp = async () => {
-    setTotpError(null);
-
-    if (!totpFactorId) {
-      setTotpError("Erro interno ao configurar 2FA. Recarregue a página e tente novamente.");
-      return;
-    }
-
-    const code = totpCode.trim();
-    if (!code) {
-      setTotpError("Informe o código gerado pelo app autenticador.");
+    if (!totpFactorId) return;
+    if (!totpCode.trim()) {
+      setTotpError("Informe o código de 6 dígitos.");
       return;
     }
 
     setTotpVerifying(true);
+    setTotpError(null);
 
     try {
-      // 1) Verifica o TOTP (isso já ativa/valida o fator no Supabase)
-      const { error: verifyError } = await supabase.auth.mfa.challengeAndVerify({
+      // 1. Verifica o código no Supabase Auth
+      const { data, error } = await supabase.auth.mfa.challengeAndVerify({
         factorId: totpFactorId,
-        code,
-      } as any);
+        code: totpCode.trim(),
+      });
 
-      if (verifyError) {
-        console.error("Erro ao verificar TOTP:", verifyError);
-        setTotpError("Código inválido. Confira no app autenticador e tente novamente.");
+      if (error) {
+        console.error("Erro ao confirmar TOTP:", error);
+        setTotpError("Código inválido ou expirado. Tente novamente.");
+        setTotpVerifying(false); // Garante que destrava o botão em caso de erro
         return;
       }
 
-      // 2) ✅ FECHA UI IMEDIATAMENTE (não depende do profiles.update)
+      // --- SUCESSO DE VERIFICAÇÃO ---
+
+      // 2. ATUALIZA A UI IMEDIATAMENTE (Fecha o modal e ativa o switch)
       setTwoFactorEnabled(true);
-      setSuccessMessage("Autenticação de dois fatores ativada.");
-      setShowTotpModal(false);
-      resetTotpSetupState();
+      setTotpQrCode(null);
+      setTotpFactorId(null);
+      setTotpSecret(null);
+      setTotpCode("");
+      setSuccessMessage("Autenticação de dois fatores ativada!");
 
-      // 3) Sync do profiles em background (best-effort) — NÃO bloquear UI
-      void (async () => {
-        try {
-          const {
-            data: { user },
-            error: userError,
-          } = await supabase.auth.getUser();
-
-          if (userError || !user?.id) return;
-
-          await supabase
-            .from("profiles")
-            .update({ two_factor_enabled: true } as any)
-            .eq("id", user.id);
-        } catch (e) {
-          console.warn("2FA ativado no Auth, mas falhou ao sincronizar profiles.two_factor_enabled:", e);
-        }
-      })();
+      // 3. ATUALIZA O BANCO (PROFILES) EM SEGUNDO PLANO
+      // Fazemos isso por último para que lentidão no banco não "trave" a UI
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (user) {
+        await supabase
+          .from("profiles")
+          .update({ two_factor_enabled: true } as any)
+          .eq("id", user.id);
+      }
     } catch (err) {
       console.error("Erro inesperado ao confirmar TOTP:", err);
       setTotpError("Erro inesperado ao confirmar o código. Tente novamente.");
