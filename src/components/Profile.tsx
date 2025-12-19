@@ -148,25 +148,71 @@ export function Profile() {
 
   // 2. O useEffect agora apenas "vigia" se o usuário está logado
   useEffect(() => {
-    // Tenta carregar imediatamente
-    const init = async () => {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      if (user) refreshAllUserData(user.id);
-    };
-    init();
+    const inicializarDados = async () => {
+      console.log("🛠️ [INÍCIO] A tentar carregar dados do utilizador...");
 
-    // Escuta mudanças (login/logout) para atualizar a tela na hora
+      // 1. Tenta apanhar a sessão atual
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      const user = session?.user;
+
+      if (!user) {
+        console.log("⚠️ [AVISO] Nenhum utilizador encontrado. O código para aqui.");
+        return;
+      }
+
+      console.log("✅ [OK] Utilizador identificado:", user.id);
+
+      // 2. BUSCA O ESTADO DO 2FA (A prioridade)
+      try {
+        console.log("📡 [MFA] A chamar listFactors agora...");
+        const { data: mfaData, error: mfaError } = await supabase.auth.mfa.listFactors();
+
+        if (mfaError) {
+          console.error("❌ [MFA] Erro do Supabase ao listar fatores:", mfaError);
+        } else {
+          // Usa a função auxiliar que já existe no seu ficheiro
+          const estaLigado = hasVerifiedTotpFromFactors(mfaData);
+          console.log("🔒 [MFA] Estado real no servidor:", estaLigado);
+          setTwoFactorEnabled(estaLigado);
+        }
+      } catch (err) {
+        console.error("💥 [MFA] Crash crítico ao tentar buscar 2FA:", err);
+      }
+
+      // 3. BUSCA CRÉDITOS E PREFERÊNCIAS (Em blocos separados para um não travar o outro)
+      try {
+        const { data: balance } = await supabase
+          .from("credit_balances")
+          .select("balance")
+          .eq("user_id", user.id)
+          .maybeSingle();
+        if (balance) setCredits(balance.balance);
+
+        const { data: profile } = await supabase.from("profiles").select("*").eq("id", user.id).maybeSingle();
+        if (profile) {
+          setKeepContext(!!profile.keep_context);
+          if (profile.usage_limit_credits) {
+            setHasActiveLimit(true);
+            setActiveLimitAmount(String(profile.usage_limit_credits));
+            setActiveLimitPeriod(profile.usage_limit_period);
+          }
+        }
+      } catch (err) {
+        console.error("❌ [DB] Erro ao carregar dados da tabela profiles/credits:", err);
+      }
+    };
+
+    // Corre a função assim que a página abre
+    inicializarDados();
+
+    // Se o utilizador fizer login/logout, recarrega
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((event, session) => {
-      if (session?.user) {
-        refreshAllUserData(session.user.id);
-      } else if (event === "SIGNED_OUT") {
-        setTwoFactorEnabled(false);
-        setCredits(0);
-      }
+      console.log("🔌 [AUTH] Mudança de estado detetada:", event);
+      if (session) inicializarDados();
     });
 
     return () => subscription.unsubscribe();
