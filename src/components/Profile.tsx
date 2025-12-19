@@ -103,175 +103,73 @@ export function Profile() {
     }
   };
 
-  // Carrega preferências (manter contexto + limite de uso) + 2FA + saldo.
-  // Fonte de verdade do toggle 2FA = /auth/v1/factors (supabase.auth.mfa.listFactors()).
-  // Se a sessão ainda não estiver pronta, listFactors pode falhar ANTES de fazer request (sem aparecer no Network).
-  // Este bloco faz retry curto para garantir que o GET /auth/v1/factors aconteça.
-  useEffect(() => {
-    let cancelled = false;
-    let retryTimer: number | null = null;
+  // 1. Criamos UMA única função que carrega TUDO (Créditos, Preferências e 2FA)
+  const refreshAllUserData = async (userId: string) => {
+    try {
+      console.log("🔄 Iniciando carregamento de dados para o usuário:", userId);
 
-    const clearRetry = () => {
-      if (retryTimer != null) {
-        window.clearTimeout(retryTimer);
-        retryTimer = null;
-      }
-    };
-
-    const fetchCreditsForUserId = async (userId: string) => {
-      try {
-        const { data: balanceData, error: balanceError } = await supabase
-          .from("credit_balances")
-          .select("balance")
-          .eq("user_id", userId)
-          .maybeSingle();
-
-        if (balanceError) {
-          console.error("Erro ao buscar saldo de créditos:", balanceError);
-          if (!cancelled) setCredits(0);
-          return;
-        }
-
-        if (!cancelled) setCredits(balanceData?.balance ?? 0);
-      } catch (err) {
-        console.error("Erro inesperado ao buscar saldo de créditos:", err);
-        if (!cancelled) setCredits(0);
-      }
-    };
-
-    const loadPreferencesForUserId = async (userId: string) => {
-      try {
-        const { data, error } = await supabase.from("profiles").select("*").eq("id", userId).maybeSingle();
-
-        if (error) {
-          console.error("Erro ao carregar preferências:", error);
-          return;
-        }
-
-        const prefs = (data ?? {}) as any;
-
-        // Manter contexto
-        if (typeof prefs.keep_context === "boolean") {
-          setKeepContext(!!prefs.keep_context);
-        }
-
-        // Limite de uso
-        if (prefs.usage_limit_credits != null && prefs.usage_limit_period) {
-          setHasActiveLimit(true);
-          setActiveLimitAmount(String(prefs.usage_limit_credits));
-          setActiveLimitPeriod(prefs.usage_limit_period);
-        } else {
-          setHasActiveLimit(false);
-          setActiveLimitAmount("");
-          setActiveLimitPeriod("dia");
-        }
-
-        // ⚠️ Não seta twoFactorEnabled aqui.
-        // Fonte de verdade do toggle = loadTwoFactorForUserId() via /auth/v1/factors.
-
-        // Inputs do formulário começam limpos / default
-        setLimitAmount("");
-        setLimitPeriod("dia");
-      } catch (err) {
-        console.error("Erro inesperado ao carregar preferências:", err);
-      }
-    };
-
-    const loadTwoFactorForUserId = async (userId: string, attempt = 1) => {
-      try {
-        // ✅ ESTA É A CHAMADA QUE PRECISA APARECER NO NETWORK:
-        // GET https://<project>.supabase.co/auth/v1/factors
-        const { data: factorsData, error: factorsError } = await supabase.auth.mfa.listFactors();
-
-        if (factorsError) {
-          const msg = String((factorsError as any)?.message ?? "");
-          console.warn("Profile: listFactors erro", { attempt, msg, factorsError });
-
-          // Se a sessão ainda não está pronta, o Supabase pode falhar sem request.
-          // Retry curto para forçar o GET aparecer assim que o token existir.
-          if (!cancelled && msg.includes("Auth session missing") && attempt < 8) {
-            clearRetry();
-            retryTimer = window.setTimeout(() => {
-              void loadTwoFactorForUserId(userId, attempt + 1);
-            }, 350);
-          }
-
-          return;
-        }
-
-        const enabled = hasVerifiedTotpFromFactors(factorsData);
-
-        if (!cancelled) setTwoFactorEnabled(enabled);
-
-        // best-effort: sincroniza flag no profiles (não bloqueia UI)
-        void supabase
-          .from("profiles")
-          .update({ two_factor_enabled: enabled } as any)
-          .eq("id", userId);
-      } catch (e) {
-        console.warn("Profile: falha inesperada ao buscar factors", { attempt, e });
-
-        if (!cancelled && attempt < 8) {
-          clearRetry();
-          retryTimer = window.setTimeout(() => {
-            void loadTwoFactorForUserId(userId, attempt + 1);
-          }, 350);
-        }
-      }
-    };
-
-    const bootstrap = async () => {
-      try {
-        const {
-          data: { user },
-          error: userError,
-        } = await supabase.auth.getUser();
-
-        // Se ainda não tem sessão, não “crava” estado errado. Vai atualizar via onAuthStateChange.
-        if (userError || !user?.id) {
-          const msg = String((userError as any)?.message ?? "");
-          if (msg && !msg.includes("Auth session missing")) console.error("Erro ao buscar usuário logado:", userError);
-          return;
-        }
-
-        await Promise.all([
-          loadPreferencesForUserId(user.id),
-          fetchCreditsForUserId(user.id),
-          loadTwoFactorForUserId(user.id),
-        ]);
-      } catch (e) {
-        console.error("Erro inesperado no bootstrap do Profile:", e);
-      }
-    };
-
-    void bootstrap();
-
-    const { data: listener } = supabase.auth.onAuthStateChange(async (event: any, session: any) => {
-      if (cancelled) return;
-
-      const userId = session?.user?.id ?? null;
-
-      // Só zera quando realmente saiu
-      if (!userId) {
-        if (event === "SIGNED_OUT") {
-          setCredits(0);
-          setTwoFactorEnabled(false);
-        }
-        return;
-      }
-
+      // Carrega em paralelo para ser rápido
       await Promise.all([
-        loadPreferencesForUserId(userId),
-        fetchCreditsForUserId(userId),
-        loadTwoFactorForUserId(userId),
+        // Carrega créditos
+        (async () => {
+          const { data } = await supabase.from("credit_balances").select("balance").eq("user_id", userId).maybeSingle();
+          setCredits(data?.balance ?? 0);
+        })(),
+
+        // Carrega 2FA (A fonte da verdade)
+        (async () => {
+          const { data: factorsData, error: factorsError } = await supabase.auth.mfa.listFactors();
+          if (factorsError) {
+            console.error("Erro ao buscar 2FA:", factorsError);
+            return;
+          }
+          const isEnabled = hasVerifiedTotpFromFactors(factorsData);
+          console.log("🔐 Estado do 2FA no servidor:", isEnabled);
+          setTwoFactorEnabled(isEnabled);
+        })(),
+
+        // Carrega Preferências (Contexto e Limites)
+        (async () => {
+          const { data: prefs } = await supabase.from("profiles").select("*").eq("id", userId).maybeSingle();
+          if (prefs) {
+            setKeepContext(!!prefs.keep_context);
+            if (prefs.usage_limit_credits) {
+              setHasActiveLimit(true);
+              setActiveLimitAmount(String(prefs.usage_limit_credits));
+              setActiveLimitPeriod(prefs.usage_limit_period);
+            }
+          }
+        })(),
       ]);
+    } catch (err) {
+      console.error("Erro ao carregar dados do perfil:", err);
+    }
+  };
+
+  // 2. O useEffect agora apenas "vigia" se o usuário está logado
+  useEffect(() => {
+    // Tenta carregar imediatamente
+    const init = async () => {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (user) refreshAllUserData(user.id);
+    };
+    init();
+
+    // Escuta mudanças (login/logout) para atualizar a tela na hora
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((event, session) => {
+      if (session?.user) {
+        refreshAllUserData(session.user.id);
+      } else if (event === "SIGNED_OUT") {
+        setTwoFactorEnabled(false);
+        setCredits(0);
+      }
     });
 
-    return () => {
-      cancelled = true;
-      clearRetry();
-      listener?.subscription?.unsubscribe();
-    };
+    return () => subscription.unsubscribe();
   }, []);
 
   // Detecta retorno do Stripe (?payment_status=success|error) e mostra HelloBar + refresh créditos
