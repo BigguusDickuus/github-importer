@@ -17,6 +17,18 @@ type CreateCheckoutSessionResponse = {
   session_id: string;
 };
 
+function hasVerifiedTotpFromFactors(factorsData: any): boolean {
+  const anyData: any = factorsData ?? {};
+  const totp = Array.isArray(anyData?.totp) ? anyData.totp : [];
+  const all = Array.isArray(anyData?.all) ? anyData.all : [];
+
+  const candidates = totp.length
+    ? totp
+    : all.filter((f: any) => String(f?.factor_type ?? f?.factorType ?? f?.type ?? "").toLowerCase() === "totp");
+
+  return candidates.some((f: any) => String(f?.status ?? "").toLowerCase() === "verified");
+}
+
 function extractTotpFactors(factorsData: any): any[] {
   const anyData: any = factorsData ?? {};
   const totp = Array.isArray(anyData?.totp) ? anyData.totp : [];
@@ -118,6 +130,30 @@ export function Profile() {
       }
     };
 
+    const loadTwoFactorForUserId = async (userId: string) => {
+      try {
+        // ✅ ESTA É A CHAMADA QUE TEM QUE APARECER NO NETWORK:
+        // GET https://<project>.supabase.co/auth/v1/factors
+        const { data: factorsData, error: factorsError } = await supabase.auth.mfa.listFactors();
+
+        if (factorsError) {
+          console.warn("Profile: listFactors erro:", factorsError);
+          return;
+        }
+
+        const enabled = hasVerifiedTotpFromFactors(factorsData);
+        setTwoFactorEnabled(enabled);
+
+        // best-effort: sincroniza flag no profiles (não bloqueia UI)
+        void supabase
+          .from("profiles")
+          .update({ two_factor_enabled: enabled } as any)
+          .eq("id", userId);
+      } catch (e) {
+        console.warn("Profile: falha inesperada ao buscar factors:", e);
+      }
+    };
+
     const loadPreferencesForUserId = async (userId: string) => {
       try {
         const { data, error } = await supabase.from("profiles").select("*").eq("id", userId).maybeSingle();
@@ -145,36 +181,8 @@ export function Profile() {
           setActiveLimitPeriod("dia");
         }
 
-        // 2FA: primeiro pega o flag (fallback)...
-        const profileFlag = typeof prefs.two_factor_enabled === "boolean" ? !!prefs.two_factor_enabled : false;
-
-        // ...e depois confirma no Auth (fonte de verdade)
-        try {
-          const { data: factorsData, error: factorsError } = await supabase.auth.mfa.listFactors();
-          if (factorsError) {
-            console.warn("listFactors erro:", factorsError);
-            setTwoFactorEnabled(profileFlag);
-            return;
-          }
-
-          const anyFactors: any = factorsData;
-          const totpFactors = extractTotpFactors(factorsData) as any[];
-          const hasVerifiedTotp = totpFactors.some((f: any) => String(f?.status ?? "").toLowerCase() === "verified");
-          const desired = hasVerifiedTotp || profileFlag;
-
-          setTwoFactorEnabled(desired);
-
-          // Corrige desync no profiles (best-effort)
-          if (typeof prefs.two_factor_enabled === "boolean" && prefs.two_factor_enabled !== desired) {
-            void supabase
-              .from("profiles")
-              .update({ two_factor_enabled: desired } as any)
-              .eq("id", userId);
-          }
-        } catch (e) {
-          console.warn("Não foi possível checar fatores de 2FA (listFactors):", e);
-          setTwoFactorEnabled(profileFlag);
-        }
+        // ⚠️ Não seta twoFactorEnabled aqui.
+        // Fonte de verdade do toggle = loadTwoFactorForUserId() via /auth/v1/factors.
 
         // Inputs do formulário começam limpos / default
         setLimitAmount("");
@@ -198,7 +206,11 @@ export function Profile() {
           return;
         }
 
-        await Promise.all([loadPreferencesForUserId(user.id), fetchCreditsForUserId(user.id)]);
+        await Promise.all([
+          loadPreferencesForUserId(user.id),
+          fetchCreditsForUserId(user.id),
+          loadTwoFactorForUserId(user.id),
+        ]);
       } catch (e) {
         console.error("Erro inesperado no bootstrap do Profile:", e);
       }
@@ -211,7 +223,7 @@ export function Profile() {
 
       const userId = session?.user?.id ?? null;
 
-      // Só “zera” quando realmente saiu.
+      // Só zera quando realmente saiu
       if (!userId) {
         if (event === "SIGNED_OUT") {
           setCredits(0);
@@ -220,7 +232,11 @@ export function Profile() {
         return;
       }
 
-      await Promise.all([loadPreferencesForUserId(userId), fetchCreditsForUserId(userId)]);
+      await Promise.all([
+        loadPreferencesForUserId(userId),
+        fetchCreditsForUserId(userId),
+        loadTwoFactorForUserId(userId),
+      ]);
     });
 
     return () => {
