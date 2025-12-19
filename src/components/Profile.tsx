@@ -79,21 +79,36 @@ export function Profile() {
     }
   };
 
-  // Carrega preferências (manter contexto + limite de uso) + saldo ao abrir /profile
+  // Carrega preferências (manter contexto + limite de uso) + 2FA + saldo.
+  // CRÍTICO: precisa rodar também quando a sessão “aparece” (onAuthStateChange),
+  // senão o toggle de 2FA fica preso em OFF quando getUser dá "Auth session missing" no bootstrap.
   useEffect(() => {
-    const loadPreferences = async () => {
-      try {
-        const {
-          data: { user },
-          error: userError,
-        } = await supabase.auth.getUser();
+    let cancelled = false;
 
-        if (userError || !user) {
-          console.error("Erro ao buscar usuário logado:", userError);
+    const fetchCreditsForUserId = async (userId: string) => {
+      try {
+        const { data: balanceData, error: balanceError } = await supabase
+          .from("credit_balances")
+          .select("balance")
+          .eq("user_id", userId)
+          .maybeSingle();
+
+        if (balanceError) {
+          console.error("Erro ao buscar saldo de créditos:", balanceError);
+          if (!cancelled) setCredits(0);
           return;
         }
 
-        const { data, error } = await supabase.from("profiles").select("*").eq("id", user.id).maybeSingle();
+        if (!cancelled) setCredits(balanceData?.balance ?? 0);
+      } catch (err) {
+        console.error("Erro inesperado ao buscar saldo de créditos:", err);
+        if (!cancelled) setCredits(0);
+      }
+    };
+
+    const loadPreferencesForUserId = async (userId: string) => {
+      try {
+        const { data, error } = await supabase.from("profiles").select("*").eq("id", userId).maybeSingle();
 
         if (error) {
           console.error("Erro ao carregar preferências:", error);
@@ -107,7 +122,7 @@ export function Profile() {
           setKeepContext(!!prefs.keep_context);
         }
 
-        // Limite de uso (se existir)
+        // Limite de uso
         if (prefs.usage_limit_credits != null && prefs.usage_limit_period) {
           setHasActiveLimit(true);
           setActiveLimitAmount(String(prefs.usage_limit_credits));
@@ -118,29 +133,34 @@ export function Profile() {
           setActiveLimitPeriod("dia");
         }
 
-        // 2FA (toggle inicial)
-        if (typeof prefs.two_factor_enabled === "boolean") {
-          setTwoFactorEnabled(!!prefs.two_factor_enabled);
-        }
+        // 2FA: primeiro pega o flag (fallback)...
+        const profileFlag = typeof prefs.two_factor_enabled === "boolean" ? !!prefs.two_factor_enabled : false;
 
-        // Também checa no Auth (fatores) para evitar desync entre profiles e Supabase MFA
+        // ...e depois confirma no Auth (fonte de verdade)
         try {
-          const { data: factorsData } = await supabase.auth.mfa.listFactors();
-          const totpFactors = (factorsData as any)?.totp ?? [];
-          const hasVerifiedTotp = totpFactors.some((f: any) => f.status === "verified");
-          const desired = hasVerifiedTotp || !!prefs.two_factor_enabled;
+          const { data: factorsData, error: factorsError } = await supabase.auth.mfa.listFactors();
+          if (factorsError) {
+            console.warn("listFactors erro:", factorsError);
+            setTwoFactorEnabled(profileFlag);
+            return;
+          }
+
+          const totpFactors = ((factorsData as any)?.totp ?? []) as any[];
+          const hasVerifiedTotp = totpFactors.some((f) => f?.status === "verified");
+          const desired = hasVerifiedTotp || profileFlag;
 
           setTwoFactorEnabled(desired);
 
-          // Se estiver desincronizado, corrige o flag no profiles
+          // Corrige desync no profiles (best-effort)
           if (typeof prefs.two_factor_enabled === "boolean" && prefs.two_factor_enabled !== hasVerifiedTotp) {
-            await supabase
+            void supabase
               .from("profiles")
               .update({ two_factor_enabled: hasVerifiedTotp } as any)
-              .eq("id", user.id);
+              .eq("id", userId);
           }
         } catch (e) {
           console.warn("Não foi possível checar fatores de 2FA (listFactors):", e);
+          setTwoFactorEnabled(profileFlag);
         }
 
         // Inputs do formulário começam limpos / default
@@ -151,8 +171,45 @@ export function Profile() {
       }
     };
 
-    loadPreferences();
-    fetchCredits();
+    const bootstrap = async () => {
+      try {
+        const {
+          data: { user },
+          error: userError,
+        } = await supabase.auth.getUser();
+
+        // Se ainda não tem sessão, não “crava” estado errado. Vai atualizar via onAuthStateChange.
+        if (userError || !user?.id) {
+          const msg = (userError as any)?.message ?? "";
+          if (msg && !msg.includes("Auth session missing")) console.error("Erro ao buscar usuário logado:", userError);
+          return;
+        }
+
+        await Promise.all([loadPreferencesForUserId(user.id), fetchCreditsForUserId(user.id)]);
+      } catch (e) {
+        console.error("Erro inesperado no bootstrap do Profile:", e);
+      }
+    };
+
+    void bootstrap();
+
+    const { data: listener } = supabase.auth.onAuthStateChange(async (_event, session) => {
+      if (cancelled) return;
+
+      const userId = session?.user?.id ?? null;
+      if (!userId) {
+        setCredits(0);
+        setTwoFactorEnabled(false);
+        return;
+      }
+
+      await Promise.all([loadPreferencesForUserId(userId), fetchCreditsForUserId(userId)]);
+    });
+
+    return () => {
+      cancelled = true;
+      listener?.subscription?.unsubscribe();
+    };
   }, []);
 
   // Detecta retorno do Stripe (?payment_status=success|error) e mostra HelloBar + refresh créditos
@@ -788,7 +845,7 @@ function AccountSection({ twoFactorEnabled }: { twoFactorEnabled: boolean }) {
 
   return (
     <div className="bg-midnight-surface border border-obsidian-border rounded-2xl p-6">
-      <h2 className="text-lg font-semibold text-starlight-text mb-4">Conta</h2>
+      <h3 className="text-starlight-text mb-6">Conta</h3>
 
       {loading ? (
         <div className="text-moonlight-text">Carregando...</div>
@@ -869,7 +926,7 @@ function AccountSection({ twoFactorEnabled }: { twoFactorEnabled: boolean }) {
 
               <div className="pt-2 flex justify-end">
                 <Button
-                  className="bg-aurora-accent hover:bg-aurora-accent/90 text-midnight-surface font-semibold"
+                  className="bg-mystic-indigo hover:bg-mystic-indigo-dark text-starlight-text font-semibold"
                   style={{ paddingLeft: "32px", paddingRight: "32px" }}
                   onClick={handleSave}
                   disabled={!canSave || saving}
@@ -1553,7 +1610,8 @@ function SecuritySection({
       return;
     }
 
-    if (!totpCode.trim()) {
+    const code = totpCode.trim();
+    if (!code) {
       setTotpError("Informe o código gerado pelo app autenticador.");
       return;
     }
@@ -1561,25 +1619,10 @@ function SecuritySection({
     setTotpVerifying(true);
 
     try {
-      // ✅ CRITICAL FIX: Buscar userId ANTES de challengeAndVerify
-      const {
-        data: { user },
-        error: userError,
-      } = await supabase.auth.getUser();
-
-      if (userError || !user) {
-        if (!(userError as any)?.message?.includes("Auth session missing")) {
-          console.error("Erro ao buscar usuário logado para 2FA:", userError);
-        }
-        setTotpError("Sessão expirada. Faça login novamente.");
-        return;
-      }
-
-      const userId = user.id; // ✅ Capturar ANTES do challengeAndVerify
-
+      // 1) Verifica o TOTP (isso já ativa/valida o fator no Supabase)
       const { error: verifyError } = await supabase.auth.mfa.challengeAndVerify({
         factorId: totpFactorId,
-        code: totpCode.trim(),
+        code,
       } as any);
 
       if (verifyError) {
@@ -1588,24 +1631,30 @@ function SecuritySection({
         return;
       }
 
-      await new Promise((resolve) => setTimeout(resolve, 500));
-
-      // ✅ Usa userId capturado ANTES
-      const { error: updateError } = await supabase
-        .from("profiles")
-        .update({ two_factor_enabled: true } as any)
-        .eq("id", userId);
-
-      if (updateError) {
-        console.error("Erro ao atualizar two_factor_enabled:", updateError);
-        setTotpError("2FA confirmado, mas houve erro ao salvar nas preferências.");
-        return;
-      }
-
+      // 2) ✅ FECHA UI IMEDIATAMENTE (não depende do profiles.update)
       setTwoFactorEnabled(true);
       setSuccessMessage("Autenticação de dois fatores ativada.");
       setShowTotpModal(false);
       resetTotpSetupState();
+
+      // 3) Sync do profiles em background (best-effort) — NÃO bloquear UI
+      void (async () => {
+        try {
+          const {
+            data: { user },
+            error: userError,
+          } = await supabase.auth.getUser();
+
+          if (userError || !user?.id) return;
+
+          await supabase
+            .from("profiles")
+            .update({ two_factor_enabled: true } as any)
+            .eq("id", user.id);
+        } catch (e) {
+          console.warn("2FA ativado no Auth, mas falhou ao sincronizar profiles.two_factor_enabled:", e);
+        }
+      })();
     } catch (err) {
       console.error("Erro inesperado ao confirmar TOTP:", err);
       setTotpError("Erro inesperado ao confirmar o código. Tente novamente.");
