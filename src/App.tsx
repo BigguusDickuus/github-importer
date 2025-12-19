@@ -21,20 +21,19 @@ const isMfaBusy = () => {
   }
 };
 
-async function getUserWithTimeout(timeoutMs: number) {
+const getUserWithTimeout = async (timeoutMs: number) => {
   let timerId: number | null = null;
-
   const timeoutPromise = new Promise<never>((_, reject) => {
     timerId = window.setTimeout(() => reject(new Error("GET_USER_TIMEOUT")), timeoutMs);
   });
 
   try {
     const res = (await Promise.race([supabase.auth.getUser(), timeoutPromise])) as any;
-    return res as { data: any; error: any };
+    return res as { data: { user: any | null }; error: any };
   } finally {
     if (timerId !== null) window.clearTimeout(timerId);
   }
-}
+};
 
 function LandingGate() {
   const [checking, setChecking] = useState(true);
@@ -43,15 +42,6 @@ function LandingGate() {
   const mountedRef = useRef(true);
   const inFlightRef = useRef(false);
 
-  const canReloadNow = () => {
-    const key = "to_wakeup_reload_ts";
-    const last = Number(sessionStorage.getItem(key) || "0");
-    const now = Date.now();
-    if (now - last < 5000) return false;
-    sessionStorage.setItem(key, String(now));
-    return true;
-  };
-
   const run = async (opts?: { bootstrap?: boolean }) => {
     const bootstrap = opts?.bootstrap ?? false;
     if (inFlightRef.current) return;
@@ -59,33 +49,28 @@ function LandingGate() {
 
     if (bootstrap) setChecking(true);
 
+    // Watchdog só se NÃO estiver em MFA (durante MFA o user troca de app/aba mesmo)
     const watchdog = window.setTimeout(() => {
-      // ✅ Nunca reload durante MFA
-      if (document.visibilityState === "visible" && !isMfaBusy() && canReloadNow()) {
+      if (!isMfaBusy() && document.visibilityState === "visible") {
         console.warn("LandingGate: auth travou; recarregando página para destravar.");
         window.location.reload();
       }
     }, 12000);
 
     try {
-      const { data, error } = await getUserWithTimeout(3000);
+      const { data, error } = await getUserWithTimeout(3500);
       if (!mountedRef.current) return;
 
       if (error) {
+        console.error("LandingGate: erro getUser:", error);
         setHasSession(false);
       } else {
         setHasSession(!!data.user);
       }
-    } catch {
+    } catch (e: any) {
       if (!mountedRef.current) return;
+      console.error("LandingGate: getUser timeout/erro:", e);
       setHasSession(false);
-
-      // best-effort: soft reset (não recria client)
-      if (!isMfaBusy()) {
-        try {
-          resetSupabaseClient();
-        } catch {}
-      }
     } finally {
       clearTimeout(watchdog);
       inFlightRef.current = false;
@@ -100,19 +85,20 @@ function LandingGate() {
 
     const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
       if (!mountedRef.current) return;
-      if (isMfaBusy()) return;
-      setHasSession(!!session?.user);
+      setHasSession(!!session);
       setChecking(false);
     });
 
     const wake = () => {
       if (document.visibilityState !== "visible") return;
+
+      // Durante MFA, NÃO revalida no wake (isso é o que causava lock/reload).
       if (isMfaBusy()) return;
-      if (inFlightRef.current) return;
 
       try {
         resetSupabaseClient();
       } catch {}
+
       run({ bootstrap: false });
     };
 
@@ -137,7 +123,6 @@ function LandingGate() {
   }
 
   if (hasSession) return <Navigate to="/dashboard" replace />;
-
   return <HomeDeslogada />;
 }
 
@@ -148,15 +133,6 @@ function LoginGate() {
   const mountedRef = useRef(true);
   const inFlightRef = useRef(false);
 
-  const canReloadNow = () => {
-    const key = "to_wakeup_reload_ts";
-    const last = Number(sessionStorage.getItem(key) || "0");
-    const now = Date.now();
-    if (now - last < 5000) return false;
-    sessionStorage.setItem(key, String(now));
-    return true;
-  };
-
   const run = async (opts?: { bootstrap?: boolean }) => {
     const bootstrap = opts?.bootstrap ?? false;
     if (inFlightRef.current) return;
@@ -165,30 +141,26 @@ function LoginGate() {
     if (bootstrap) setChecking(true);
 
     const watchdog = window.setTimeout(() => {
-      if (document.visibilityState === "visible" && !isMfaBusy() && canReloadNow()) {
+      if (!isMfaBusy() && document.visibilityState === "visible") {
         console.warn("LoginGate: auth travou; recarregando página para destravar.");
         window.location.reload();
       }
     }, 12000);
 
     try {
-      const { data, error } = await getUserWithTimeout(3000);
+      const { data, error } = await getUserWithTimeout(3500);
       if (!mountedRef.current) return;
 
       if (error) {
+        console.error("LoginGate: erro getUser:", error);
         setHasSession(false);
       } else {
         setHasSession(!!data.user);
       }
-    } catch {
+    } catch (e: any) {
       if (!mountedRef.current) return;
+      console.error("LoginGate: getUser timeout/erro:", e);
       setHasSession(false);
-
-      if (!isMfaBusy()) {
-        try {
-          resetSupabaseClient();
-        } catch {}
-      }
     } finally {
       clearTimeout(watchdog);
       inFlightRef.current = false;
@@ -203,19 +175,18 @@ function LoginGate() {
 
     const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
       if (!mountedRef.current) return;
-      if (isMfaBusy()) return;
-      setHasSession(!!session?.user);
+      setHasSession(!!session);
       setChecking(false);
     });
 
     const wake = () => {
       if (document.visibilityState !== "visible") return;
       if (isMfaBusy()) return;
-      if (inFlightRef.current) return;
 
       try {
         resetSupabaseClient();
       } catch {}
+
       run({ bootstrap: false });
     };
 
@@ -240,7 +211,6 @@ function LoginGate() {
   }
 
   if (hasSession) return <Navigate to="/dashboard" replace />;
-
   return <Login />;
 }
 
@@ -267,7 +237,6 @@ export default function App() {
             </ProtectedRoute>
           }
         />
-
         <Route
           path="/transaction-history"
           element={
@@ -299,7 +268,6 @@ export default function App() {
         />
 
         <Route path="/login" element={<LoginGate />} />
-
         <Route path="/reset-password" element={<ResetPassword />} />
 
         <Route path="*" element={<Navigate to="/" replace />} />

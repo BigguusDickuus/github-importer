@@ -17,20 +17,19 @@ const isMfaBusy = () => {
   }
 };
 
-async function getUserWithTimeout(timeoutMs: number) {
+const getUserWithTimeout = async (timeoutMs: number) => {
   let timerId: number | null = null;
-
   const timeoutPromise = new Promise<never>((_, reject) => {
     timerId = window.setTimeout(() => reject(new Error("GET_USER_TIMEOUT")), timeoutMs);
   });
 
   try {
     const res = (await Promise.race([supabase.auth.getUser(), timeoutPromise])) as any;
-    return res as { data: any; error: any };
+    return res as { data: { user: any | null }; error: any };
   } finally {
     if (timerId !== null) window.clearTimeout(timerId);
   }
-}
+};
 
 export function ProtectedRoute({ children, requireAdmin = false }: ProtectedRouteProps) {
   const [checking, setChecking] = useState(true);
@@ -45,20 +44,19 @@ export function ProtectedRoute({ children, requireAdmin = false }: ProtectedRout
   const runCheck = async (opts?: { bootstrap?: boolean }) => {
     const bootstrap = opts?.bootstrap ?? false;
     if (inFlightRef.current) return;
-    inFlightRef.current = true;
 
+    inFlightRef.current = true;
     if (bootstrap) setChecking(true);
 
     try {
-      // ✅ Durante MFA, não revalida em wake/focus (evita race com challengeAndVerify)
+      // Durante MFA, não revalida no wake/focus (isso é o que detonava tudo).
       if (!bootstrap && isMfaBusy()) return;
 
-      const { data, error } = await getUserWithTimeout(3000);
+      const { data, error } = await getUserWithTimeout(3500);
 
       if (!mountedRef.current) return;
 
-      const user = data?.user ?? null;
-      if (error || !user) {
+      if (error || !data.user) {
         setAllowed(false);
         setChecking(false);
         navigate("/", { replace: true, state: { from: location } });
@@ -71,10 +69,12 @@ export function ProtectedRoute({ children, requireAdmin = false }: ProtectedRout
         return;
       }
 
+      const userId = data.user.id;
+
       const { data: profile, error: profileError } = await supabase
         .from("profiles")
         .select("is_admin")
-        .eq("id", user.id)
+        .eq("id", userId)
         .maybeSingle();
 
       if (!mountedRef.current) return;
@@ -88,8 +88,7 @@ export function ProtectedRoute({ children, requireAdmin = false }: ProtectedRout
 
       setAllowed(true);
       setChecking(false);
-    } catch {
-      // Segurança: se travar/time-out, bloqueia
+    } catch (e) {
       if (!mountedRef.current) return;
       setAllowed(false);
       setChecking(false);
@@ -103,32 +102,12 @@ export function ProtectedRoute({ children, requireAdmin = false }: ProtectedRout
   useEffect(() => {
     mountedRef.current = true;
 
-    // Bootstrap inicial (valida de verdade)
     runCheck({ bootstrap: true });
-
-    // Mantém sincronizado com login/logout
-    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (!mountedRef.current) return;
-
-      // Durante MFA busy, não “chacoalha” a rota
-      if (isMfaBusy()) return;
-
-      if (!session?.user) {
-        setAllowed(false);
-        setChecking(false);
-        navigate("/", { replace: true, state: { from: location } });
-        return;
-      }
-
-      // Se logou, só confirma admin quando necessário
-      void runCheck({ bootstrap: false });
-    });
 
     const wake = () => {
       if (document.visibilityState !== "visible") return;
       if (isMfaBusy()) return;
-      if (inFlightRef.current) return;
-      void runCheck({ bootstrap: false });
+      runCheck({ bootstrap: false });
     };
 
     document.addEventListener("visibilitychange", wake);
@@ -136,7 +115,6 @@ export function ProtectedRoute({ children, requireAdmin = false }: ProtectedRout
 
     return () => {
       mountedRef.current = false;
-      listener?.subscription?.unsubscribe();
       document.removeEventListener("visibilitychange", wake);
       window.removeEventListener("focus", wake);
     };

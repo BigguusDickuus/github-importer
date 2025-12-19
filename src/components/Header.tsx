@@ -106,16 +106,31 @@ export function Header({ isLoggedIn = false, onBuyCredits, onLoginClick }: Heade
 
   // 2) ✅ O que realmente destrava: quando a sessão “aparece” após login, refaz fetch
   useEffect(() => {
-    const { data } = supabase.auth.onAuthStateChange(async (_event, session) => {
+    const { data } = supabase.auth.onAuthStateChange(async (event, session) => {
       const userId = session?.user?.id ?? null;
 
+      // Em eventos de MFA, alguns builds entregam session null momentaneamente.
+      // NÃO zera a UI: re-busca user via getUser().
       if (!userId) {
-        setCredits(null);
-        setIsAdmin(false);
+        const ev = String(event || "");
+        if (ev === "SIGNED_OUT") {
+          setCredits(null);
+          setIsAdmin(false);
+          return;
+        }
+
+        setCreditsLoading(true);
+        setAdminLoading(true);
+        try {
+          await fetchCredits();
+          if (isLoggedIn) await fetchIsAdmin();
+        } finally {
+          setCreditsLoading(false);
+          setAdminLoading(false);
+        }
         return;
       }
 
-      // Só faz sentido buscar admin se a UI está no modo logado
       if (isLoggedIn) {
         setCreditsLoading(true);
         setAdminLoading(true);
@@ -126,7 +141,6 @@ export function Header({ isLoggedIn = false, onBuyCredits, onLoginClick }: Heade
           setAdminLoading(false);
         }
       } else {
-        // Se não está logado, pelo menos mantém credits coerente
         setCreditsLoading(true);
         try {
           await fetchCreditsForUser(userId);

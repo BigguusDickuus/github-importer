@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useId } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Header } from "./Header";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
@@ -706,8 +706,6 @@ function AccountSection({ twoFactorEnabled }: { twoFactorEnabled: boolean }) {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
-  const profile2faCodeId = useId();
-
   useEffect(() => {
     const loadUserData = async () => {
       try {
@@ -914,11 +912,11 @@ function AccountSection({ twoFactorEnabled }: { twoFactorEnabled: boolean }) {
 
                 {twoFactorEnabled && (
                   <div className="mt-4">
-                    <Label htmlFor={profile2faCodeId} className="text-moonlight-text mb-2 block">
+                    <Label htmlFor="profile-2fa-code" className="text-moonlight-text mb-2 block">
                       Código 2FA (Autenticador)
                     </Label>
                     <Input
-                      id={profile2faCodeId}
+                      id="profile-2fa-code"
                       inputMode="numeric"
                       autoComplete="one-time-code"
                       className="bg-night-sky border-obsidian-border text-starlight-text"
@@ -1216,19 +1214,6 @@ function SecuritySection({
     setPasswordTotpVerifying(false);
   };
 
-  // --- MFA busy gate (evita ProtectedRoute rodar getSession no wake durante challenge/verify) ---
-  const MFA_BUSY_UNTIL_KEY = "to_mfa_busy_until";
-  const markMfaBusy = (ms = 45000) => {
-    try {
-      sessionStorage.setItem(MFA_BUSY_UNTIL_KEY, String(Date.now() + ms));
-    } catch {}
-  };
-  const clearMfaBusy = () => {
-    try {
-      sessionStorage.removeItem(MFA_BUSY_UNTIL_KEY);
-    } catch {}
-  };
-
   // --------- INSTRUMENTAÇÃO: DISABLE 2FA (TRACE PERSISTENTE) ---------
   const MFA_DISABLE_LOG_KEY = "to_mfa_disable_2fa_logs_v1";
   const disableTraceRef = useRef<string | null>(null);
@@ -1258,6 +1243,148 @@ function SecuritySection({
     } catch {
       return String(err);
     }
+  };
+
+  // ===== MFA REST HELPERS (evita deadlock do supabase-js em challengeAndVerify) =====
+  const TO_SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string;
+  const TO_SUPABASE_KEY = (import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY ||
+    import.meta.env.VITE_SUPABASE_ANON_KEY) as string;
+
+  const toGetProjectRef = () => {
+    try {
+      return new URL(TO_SUPABASE_URL).hostname.split(".")[0] || "";
+    } catch {
+      return "";
+    }
+  };
+
+  const TO_AUTH_STORAGE_KEY = (() => {
+    const ref = toGetProjectRef();
+    return ref ? `sb-${ref}-auth-token` : "sb-auth-token";
+  })();
+
+  const toReadAccessToken = () => {
+    try {
+      const raw = localStorage.getItem(TO_AUTH_STORAGE_KEY);
+      if (!raw) return null;
+      const j = JSON.parse(raw);
+      return (
+        j?.access_token ??
+        j?.currentSession?.access_token ??
+        j?.session?.access_token ??
+        j?.data?.session?.access_token ??
+        null
+      );
+    } catch {
+      return null;
+    }
+  };
+
+  const toFetchJson = async (
+    url: string,
+    init: RequestInit,
+    timeoutMs = 8000,
+    log?: (step: string, payload?: any) => void,
+  ) => {
+    let timer: number | null = null;
+    const ctrl = new AbortController();
+    timer = window.setTimeout(() => ctrl.abort(), timeoutMs);
+
+    const startedAt = Date.now();
+    try {
+      log?.("fetch:start", { url, method: init.method, timeoutMs });
+      const res = await fetch(url, { ...init, signal: ctrl.signal });
+
+      const text = await res.text();
+      let body: any = null;
+      try {
+        body = text ? JSON.parse(text) : null;
+      } catch {
+        body = text;
+      }
+
+      log?.("fetch:done", { url, status: res.status, ms: Date.now() - startedAt });
+      return { ok: res.ok, status: res.status, body };
+    } finally {
+      if (timer !== null) window.clearTimeout(timer);
+    }
+  };
+
+  const toMfaChallenge = async (factorId: string, log?: (step: string, payload?: any) => void) => {
+    const token = toReadAccessToken();
+    if (!token) return { ok: false as const, error: "NO_ACCESS_TOKEN" };
+
+    const url = `${TO_SUPABASE_URL}/auth/v1/factors/${factorId}/challenge`;
+    const res = await toFetchJson(
+      url,
+      {
+        method: "POST",
+        headers: {
+          apikey: TO_SUPABASE_KEY,
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: "{}",
+      },
+      8000,
+      log ? (s, p) => log(`rest.challenge.${s}`, p) : undefined,
+    );
+
+    const challengeId = (res.body as any)?.id || (res.body as any)?.challenge_id || (res.body as any)?.data?.id || null;
+
+    if (!res.ok || !challengeId) return { ok: false as const, error: res.body ?? res.status };
+    return { ok: true as const, challengeId: String(challengeId) };
+  };
+
+  const toMfaVerify = async (
+    factorId: string,
+    challengeId: string,
+    code: string,
+    log?: (step: string, payload?: any) => void,
+  ) => {
+    const token = toReadAccessToken();
+    if (!token) return { ok: false as const, error: "NO_ACCESS_TOKEN" };
+
+    const url = `${TO_SUPABASE_URL}/auth/v1/factors/${factorId}/verify`;
+    const res = await toFetchJson(
+      url,
+      {
+        method: "POST",
+        headers: {
+          apikey: TO_SUPABASE_KEY,
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ challenge_id: challengeId, code }),
+      },
+      8000,
+      log ? (s, p) => log(`rest.verify.${s}`, p) : undefined,
+    );
+
+    if (!res.ok) return { ok: false as const, error: res.body ?? res.status };
+    return { ok: true as const };
+  };
+
+  const toMfaUnenroll = async (factorId: string, log?: (step: string, payload?: any) => void) => {
+    const token = toReadAccessToken();
+    if (!token) return { ok: false as const, error: "NO_ACCESS_TOKEN" };
+
+    const url = `${TO_SUPABASE_URL}/auth/v1/factors/${factorId}`;
+    const res = await toFetchJson(
+      url,
+      {
+        method: "DELETE",
+        headers: {
+          apikey: TO_SUPABASE_KEY,
+          Authorization: `Bearer ${token}`,
+        },
+      },
+      8000,
+      log ? (s, p) => log(`rest.unenroll.${s}`, p) : undefined,
+    );
+
+    if (!res.ok) return { ok: false as const, error: res.body ?? res.status };
+    return { ok: true as const };
   };
 
   const pushDisableLog = (traceId: string, step: string, payload?: any) => {
@@ -1577,9 +1704,6 @@ function SecuritySection({
     setTotpError(null);
     setTwoFactorSaving(true);
 
-    // ✅ começa “janela MFA” (usuário pode alternar para app autenticador)
-    markMfaBusy(45000);
-
     try {
       // 1) Limpa fatores TOTP não verificados antigos
       await removeUnverifiedTotpFactors();
@@ -1616,7 +1740,6 @@ function SecuritySection({
       setTotpError("Erro inesperado ao iniciar a configuração do 2FA.");
     } finally {
       setTwoFactorSaving(false);
-      // Não limpa busy aqui: o fluxo continua no confirm (challenge/verify).
     }
   };
 
@@ -1639,70 +1762,66 @@ function SecuritySection({
   };
 
   const handleConfirmTotp = async () => {
-    if (!totpFactorId) return;
-    if (!totpCode.trim()) {
-      setTotpError("Informe o código de 6 dígitos.");
-      return;
-    }
-
-    setTotpVerifying(true);
-    setTotpError(null);
-
-    // ✅ mantém MFA busy enquanto verifica (usuário troca de app/aba)
+    const trace = `MFA-ENROLL-${Date.now()}`;
     markMfaBusy(45000);
+    setMfaBusy(true);
 
     try {
-      const { error: verifyError } = await supabase.auth.mfa.challengeAndVerify({
-        factorId: totpFactorId,
-        code: totpCode.trim(),
-      } as any);
+      setTotpVerifying(true);
+      setTotpError("");
 
-      if (verifyError) {
-        setTotpError("Código inválido. Confira no app autenticador e tente novamente.");
+      if (!totpFactorId) {
+        setTotpError("Fator TOTP não encontrado. Feche e tente novamente.");
         return;
       }
 
-      const checkRealStatus = async () => {
-        const { data } = await supabase.auth.mfa.listFactors();
-        return hasVerifiedTotpFromFactors(data);
-      };
-
-      await new Promise((resolve) => setTimeout(resolve, 200));
-      let isActuallyEnabled = await checkRealStatus();
-
-      if (!isActuallyEnabled) {
-        await new Promise((resolve) => setTimeout(resolve, 500));
-        isActuallyEnabled = await checkRealStatus();
-      }
-
-      if (isActuallyEnabled) {
-        setTwoFactorEnabled(true);
-
-        // ✅ FECHA o modal de verdade
-        setShowTotpModal(false);
-        resetTotpSetupState();
-
-        setSuccessMessage("2FA ativado com sucesso!");
-
-        // Atualiza banco em background
-        supabase.auth.getUser().then(({ data }) => {
-          if (data.user) {
-            supabase
-              .from("profiles")
-              .update({ two_factor_enabled: true } as any)
-              .eq("id", data.user.id);
-          }
-        });
-
+      if (!totpCode || totpCode.replace(/\D/g, "").length !== 6) {
+        setTotpError("Digite um código válido de 6 dígitos.");
         return;
       }
 
-      setTotpError("Não conseguimos confirmar a ativação. Feche o modal e tente novamente mais tarde.");
+      // REST: challenge -> verify (não usa challengeAndVerify)
+      const ch = await toMfaChallenge(totpFactorId);
+      if (!ch.ok) {
+        setTotpError("Falha ao iniciar verificação (challenge).");
+        return;
+      }
+
+      const vr = await toMfaVerify(totpFactorId, ch.challengeId, totpCode.replace(/\D/g, ""));
+      if (!vr.ok) {
+        setTotpError("Código inválido ou expirado.");
+        return;
+      }
+
+      // Pequena espera e confirma status via listFactors (fonte de verdade)
+      await new Promise((r) => setTimeout(r, 200));
+
+      const { data: factorsData } = await supabase.auth.mfa.listFactors();
+      const enabled = hasVerifiedTotpFromFactors(factorsData);
+
+      // Confia no verify: fecha modal e força refresh; status do toggle vem logo em seguida.
+      setTwoFactorEnabled(enabled || true);
+      setShowTotpModal(false);
+      resetTotpSetupState();
+
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      if (user?.id) {
+        await supabase
+          .from("profiles")
+          .update({ two_factor_enabled: true } as any)
+          .eq("id", user.id);
+        scheduleRefreshAllUserData(user.id);
+        fetchCredits();
+      }
     } catch (err) {
-      console.error("Erro no fluxo de confirmação:", err);
-      setTotpError("Erro inesperado. Tente novamente.");
+      console.error("Erro ao confirmar 2FA (enroll):", err);
+      setTotpError("Erro inesperado ao validar o código. Tente novamente.");
     } finally {
       setTotpVerifying(false);
+      setMfaBusy(false);
       clearMfaBusy();
     }
   };
@@ -1773,127 +1892,93 @@ function SecuritySection({
   };
 
   const handleConfirmDisableTwoFactor = async () => {
-    const traceId = disableTraceRef.current ?? newDisableTraceId();
+    const traceId = disableTraceRef.current || newDisableTraceId("MFA-DISABLE");
     disableTraceRef.current = traceId;
+
+    markMfaBusy(45000);
+    setMfaBusy(true);
 
     pushDisableLog(traceId, "handleConfirmDisableTwoFactor:enter", {
       disableFactorId,
-      codeLen: disableCode.trim().length,
+      codeLen: disableCode?.length ?? 0,
     });
 
-    setDisableError(null);
-
-    if (!disableFactorId) {
-      pushDisableLog(traceId, "validation:failed", { reason: "no_factor_id" });
-      setDisableError("Erro interno ao desativar 2FA. Recarregue a página e tente novamente.");
-      return;
-    }
-
-    const code = disableCode.trim();
-    if (!code) {
-      pushDisableLog(traceId, "validation:failed", { reason: "no_code" });
-      setDisableError("Informe o código de 6 dígitos do app autenticador.");
-      return;
-    }
-    setMfaBusy(true);
-    markMfaBusy(45000);
-    setDisableVerifying(true);
-    pushDisableLog(traceId, "disableVerifying:true");
-
     try {
-      // Buscar usuário ANTES de challengeAndVerify para evitar deadlock depois
-      pushDisableLog(traceId, "auth.getUser:before_challenge:start");
-      const {
-        data: { user: preUser },
-        error: preUserError,
-      } = await supabase.auth.getUser();
-      pushDisableLog(traceId, "auth.getUser:before_challenge:done", {
-        error: serializeSupabaseError(preUserError),
-        user_id: preUser?.id ?? null,
-      });
+      setDisableVerifying(true);
+      pushDisableLog(traceId, "disableVerifying:true");
 
-      const userId = preUser?.id ?? null;
-
-      // 1) Verifica o TOTP (AAL2). IMPORTANTE: NÃO chamar getSession aqui (ele está pendurando no seu app)
-      pushDisableLog(traceId, "mfa.challengeAndVerify:start", { factorId: disableFactorId });
-      const { error: verifyError } = await supabase.auth.mfa.challengeAndVerify({
-        factorId: disableFactorId,
-        code,
-      } as any);
-      pushDisableLog(traceId, "mfa.challengeAndVerify:done", { error: serializeSupabaseError(verifyError) });
-
-      if (verifyError) {
-        console.error("Erro ao verificar TOTP para desativar:", verifyError);
-        setDisableError("Código inválido. Confira no app autenticador e tente novamente.");
+      if (!disableFactorId) {
+        pushDisableLog(traceId, "guard:no_factor");
+        setDisableError("Fator 2FA não encontrado. Atualize a página e tente novamente.");
         return;
       }
 
-      // Delay de 500ms para estabilizar sessão após mudança AAL1→AAL2
-      await new Promise((resolve) => setTimeout(resolve, 500));
+      const code = (disableCode || "").replace(/\D/g, "");
+      if (code.length !== 6) {
+        pushDisableLog(traceId, "guard:bad_code", { codeLen: code.length });
+        setDisableError("Digite um código válido de 6 dígitos.");
+        return;
+      }
 
-      pushDisableLog(traceId, "checkpoint:after_verify_before_unenroll");
+      // REST: challenge -> verify -> DELETE factor
+      pushDisableLog(traceId, "rest.challenge:start", { factorId: disableFactorId });
+      const ch = await toMfaChallenge(disableFactorId, (s, p) => pushDisableLog(traceId, s, p));
+      if (!ch.ok) {
+        pushDisableLog(traceId, "rest.challenge:failed", { error: ch.error });
+        setDisableError("Falha ao iniciar verificação (challenge).");
+        return;
+      }
 
-      // 2) Unenroll
-      pushDisableLog(traceId, "mfa.unenroll:start", { factorId: disableFactorId });
-      const { error: unenrollError } = await supabase.auth.mfa.unenroll({ factorId: disableFactorId } as any);
-      pushDisableLog(traceId, "mfa.unenroll:done", { error: serializeSupabaseError(unenrollError) });
+      pushDisableLog(traceId, "rest.verify:start", { factorId: disableFactorId });
+      const vr = await toMfaVerify(disableFactorId, ch.challengeId, code, (s, p) => pushDisableLog(traceId, s, p));
+      if (!vr.ok) {
+        pushDisableLog(traceId, "rest.verify:failed", { error: vr.error });
+        setDisableError("Código inválido ou expirado.");
+        return;
+      }
 
-      if (unenrollError) {
-        console.error("Erro ao desativar fator TOTP:", unenrollError);
+      pushDisableLog(traceId, "rest.unenroll:start", { factorId: disableFactorId });
+      const un = await toMfaUnenroll(disableFactorId, (s, p) => pushDisableLog(traceId, s, p));
+      if (!un.ok) {
+        pushDisableLog(traceId, "rest.unenroll:failed", { error: un.error });
         setDisableError("Não foi possível desativar o 2FA. Tente novamente.");
         return;
       }
 
-      // 3) Limpeza de fatores residuais (best-effort) — igual espírito do Profile (3)
-      try {
-        pushDisableLog(traceId, "cleanup.listFactors:start");
-        const { data: factorsData, error: listError } = await supabase.auth.mfa.listFactors();
-        pushDisableLog(traceId, "cleanup.listFactors:done", { error: serializeSupabaseError(listError) });
+      // Confirma status (fonte de verdade)
+      await new Promise((r) => setTimeout(r, 200));
+      const { data: factorsData } = await supabase.auth.mfa.listFactors();
+      const stillEnabled = hasVerifiedTotpFromFactors(factorsData);
 
-        if (!listError) {
-          const anyFactors: any = factorsData;
-          const totpFactors = (anyFactors?.totp ?? anyFactors?.all ?? []) as Array<{ id: string }>;
-          for (const factor of totpFactors) {
-            if (factor.id !== disableFactorId) {
-              pushDisableLog(traceId, "cleanup.unenroll_residual:start", { factorId: factor.id });
-              const { error: e2 } = await supabase.auth.mfa.unenroll({ factorId: factor.id } as any);
-              pushDisableLog(traceId, "cleanup.unenroll_residual:done", {
-                factorId: factor.id,
-                error: serializeSupabaseError(e2),
-              });
-            }
-          }
-        }
-      } catch (e) {
-        console.warn("Erro ao limpar fatores residuais:", e);
-        pushDisableLog(traceId, "cleanup:catch", { err: serializeUnknownError(e) });
-      }
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
 
-      // 4) Atualizar profiles usando userId capturado ANTES do challengeAndVerify
-      if (userId) {
-        pushDisableLog(traceId, "profiles.update:start", { user_id: userId, two_factor_enabled: false });
-        const upd = await supabase
+      if (user?.id) {
+        pushDisableLog(traceId, "profiles.update:start", { user_id: user.id, two_factor_enabled: false });
+        await supabase
           .from("profiles")
           .update({ two_factor_enabled: false } as any)
-          .eq("id", userId);
-        pushDisableLog(traceId, "profiles.update:done", { error: serializeSupabaseError((upd as any)?.error) });
+          .eq("id", user.id);
+        scheduleRefreshAllUserData(user.id);
+        fetchCredits();
       }
 
-      setTwoFactorEnabled(false);
-      setSuccessMessage("Autenticação de dois fatores desativada com sucesso.");
+      setTwoFactorEnabled(stillEnabled ? false : false);
       setShowDisableModal(false);
-      resetDisableState();
+      setDisableCode("");
+      setDisableError("");
+      setDisableFactorId(null);
 
-      pushDisableLog(traceId, "handleConfirmDisableTwoFactor:success_end");
-    } catch (err: any) {
-      console.error("Erro inesperado ao desativar 2FA:", err);
-      pushDisableLog(traceId, "handleConfirmDisableTwoFactor:catch", { err: serializeUnknownError(err) });
+      pushDisableLog(traceId, "done:modal_closed");
+    } catch (err) {
+      pushDisableLog(traceId, "catch", { err: serializeUnknownError(err) });
       setDisableError("Erro inesperado ao desativar o 2FA. Tente novamente.");
     } finally {
-      pushDisableLog(traceId, "handleConfirmDisableTwoFactor:finally");
-      clearMfaBusy();
+      pushDisableLog(traceId, "finally");
       setDisableVerifying(false);
       setMfaBusy(false);
+      clearMfaBusy();
     }
   };
 
