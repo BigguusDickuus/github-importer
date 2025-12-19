@@ -107,17 +107,16 @@ export function Profile() {
   // Fonte de verdade do toggle 2FA = /auth/v1/factors (supabase.auth.mfa.listFactors()).
   // Se a sessão ainda não estiver pronta, listFactors pode falhar ANTES de fazer request (sem aparecer no Network).
   // Este bloco faz retry curto para garantir que o GET /auth/v1/factors aconteça.
-useEffect(() => {
-  const loadInitialData = async () => {
-    // Carrega o perfil (o que você já faz)
-    await loadPreferences(); 
-    
-    // BUSCA O ESTADO REAL DOS FACTORS (O que estava faltando)
-    await syncMFAStatus();
-  };
+  useEffect(() => {
+    let cancelled = false;
+    let retryTimer: number | null = null;
 
-  loadInitialData();
-}, []);
+    const clearRetry = () => {
+      if (retryTimer != null) {
+        window.clearTimeout(retryTimer);
+        retryTimer = null;
+      }
+    };
 
     const fetchCreditsForUserId = async (userId: string) => {
       try {
