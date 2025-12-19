@@ -17,6 +17,18 @@ type CreateCheckoutSessionResponse = {
   session_id: string;
 };
 
+function extractTotpFactors(factorsData: any): any[] {
+  const anyData: any = factorsData ?? {};
+  const totp = Array.isArray(anyData?.totp) ? anyData.totp : [];
+  if (totp.length) return totp;
+
+  const all = Array.isArray(anyData?.all) ? anyData.all : [];
+  return all.filter((f: any) => {
+    const t = String(f?.factor_type ?? f?.factorType ?? f?.type ?? "").toLowerCase();
+    return t === "totp";
+  });
+}
+
 export function Profile() {
   const [twoFactorEnabled, setTwoFactorEnabled] = useState(false);
 
@@ -146,17 +158,17 @@ export function Profile() {
           }
 
           const anyFactors: any = factorsData;
-          const totpFactors = (anyFactors?.totp ?? anyFactors?.all ?? []) as any[];
-          const hasVerifiedTotp = totpFactors.some((f) => f?.status === "verified");
+          const totpFactors = extractTotpFactors(factorsData) as any[];
+          const hasVerifiedTotp = totpFactors.some((f: any) => String(f?.status ?? "").toLowerCase() === "verified");
           const desired = hasVerifiedTotp || profileFlag;
 
           setTwoFactorEnabled(desired);
 
           // Corrige desync no profiles (best-effort)
-          if (typeof prefs.two_factor_enabled === "boolean" && prefs.two_factor_enabled !== hasVerifiedTotp) {
+          if (typeof prefs.two_factor_enabled === "boolean" && prefs.two_factor_enabled !== desired) {
             void supabase
               .from("profiles")
-              .update({ two_factor_enabled: hasVerifiedTotp } as any)
+              .update({ two_factor_enabled: desired } as any)
               .eq("id", userId);
           }
         } catch (e) {
@@ -194,21 +206,19 @@ export function Profile() {
 
     void bootstrap();
 
-    const { data: listener } = supabase.auth.onAuthStateChange(async (event, session) => {
+    const { data: listener } = supabase.auth.onAuthStateChange(async (event: any, session: any) => {
       if (cancelled) return;
-
-      // Só zera estados quando realmente saiu da conta.
-      if (event === "SIGNED_OUT") {
-        setCredits(0);
-        setTwoFactorEnabled(false);
-        return;
-      }
 
       const userId = session?.user?.id ?? null;
 
-      // Durante refresh/MFA pode haver eventos onde session/userId vêm null momentaneamente.
-      // NÃO derrube o toggle/saldo nesses casos (isso fazia o switch ficar OFF indevidamente).
-      if (!userId) return;
+      // Só “zera” quando realmente saiu.
+      if (!userId) {
+        if (event === "SIGNED_OUT") {
+          setCredits(0);
+          setTwoFactorEnabled(false);
+        }
+        return;
+      }
 
       await Promise.all([loadPreferencesForUserId(userId), fetchCreditsForUserId(userId)]);
     });
