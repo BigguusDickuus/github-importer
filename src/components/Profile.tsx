@@ -198,7 +198,7 @@ export function Profile() {
       if (cancelled) return;
 
       // Só zera estados quando realmente saiu da conta.
-      if (event === "SIGNED_OUT" || event === "USER_DELETED") {
+      if (event === "SIGNED_OUT") {
         setCredits(0);
         setTwoFactorEnabled(false);
         return;
