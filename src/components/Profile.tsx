@@ -1105,12 +1105,6 @@ function SecuritySection({
   const [totpError, setTotpError] = useState<string | null>(null);
   const [totpVerifying, setTotpVerifying] = useState(false);
 
-  // Guarda o userId capturado ANTES do verify (evita getUser() depois do verify, que está travando)
-  const enrollUserIdRef = useRef<string | null>(null);
-
-  // Sinaliza que o verify já passou (para impedir unenroll no X/Cancelar)
-  const totpVerifiedRef = useRef(false);
-
   // ---- ESTADO PARA DESATIVAR 2FA (CONFIRMAR CÓDIGO) ----
   const [showDisableModal, setShowDisableModal] = useState(false);
   const [disableFactorId, setDisableFactorId] = useState<string | null>(null);
@@ -1498,27 +1492,11 @@ function SecuritySection({
     setTotpError(null);
     setTwoFactorSaving(true);
 
-    // reset do estado de “já verificado” a cada novo fluxo
-    totpVerifiedRef.current = false;
-
     try {
-      // CAPTURA userId ANTES do enroll/verify (não chamar getUser depois do verify)
-      const {
-        data: { user },
-        error: userError,
-      } = await supabase.auth.getUser();
-
-      if (userError || !user?.id) {
-        console.error("startTotpEnrollment: getUser falhou:", userError);
-        setTotpError("Sessão expirada. Faça login novamente.");
-        return;
-      }
-      enrollUserIdRef.current = user.id;
-
-      // 1) Limpa fatores TOTP não verificados antigos (ok)
+      // 1) Limpa fatores TOTP não verificados antigos
       await removeUnverifiedTotpFactors();
 
-      // 2) Cria fator novo (ENROLL)
+      // 2) Cria fator novo
       const { data, error } = await supabase.auth.mfa.enroll({
         factorType: "totp",
         friendlyName: "TOTP TarotOnline",
@@ -1530,13 +1508,14 @@ function SecuritySection({
         const message =
           (error as any)?.message || (error as any)?.error_description || "Não foi possível iniciar o 2FA.";
 
-        if (String(message).toLowerCase().includes("friendly")) {
+        if (message.includes("friendly name")) {
           setTotpError(
             "Já existe um 2FA configurado neste usuário. Desative o 2FA atual antes de configurar novamente.",
           );
         } else {
           setTotpError("Não foi possível iniciar a configuração do 2FA. Tente novamente.");
         }
+
         return;
       }
 
@@ -1555,12 +1534,6 @@ function SecuritySection({
   // Cancelar setup: se já criou fator mas não confirmou, tenta descartar
   const handleCancelTotpSetup = async () => {
     try {
-      // Se o verify já passou, NÃO dá unenroll aqui (isso estava “desfazendo” sua ativação)
-      if (totpVerifiedRef.current) {
-        return;
-      }
-
-      // Só descarta fator se ainda estiver não-verificado
       if (totpFactorId) {
         await supabase.auth.mfa.unenroll({ factorId: totpFactorId } as any);
       }
@@ -1580,8 +1553,7 @@ function SecuritySection({
       return;
     }
 
-    const code = totpCode.trim();
-    if (!code || code.length < 6) {
+    if (!totpCode.trim()) {
       setTotpError("Informe o código gerado pelo app autenticador.");
       return;
     }
@@ -1589,10 +1561,25 @@ function SecuritySection({
     setTotpVerifying(true);
 
     try {
-      // 1) VERIFY (challenge+verify)
+      // ✅ CRITICAL FIX: Buscar userId ANTES de challengeAndVerify
+      const {
+        data: { user },
+        error: userError,
+      } = await supabase.auth.getUser();
+
+      if (userError || !user) {
+        if (!(userError as any)?.message?.includes("Auth session missing")) {
+          console.error("Erro ao buscar usuário logado para 2FA:", userError);
+        }
+        setTotpError("Sessão expirada. Faça login novamente.");
+        return;
+      }
+
+      const userId = user.id; // ✅ Capturar ANTES do challengeAndVerify
+
       const { error: verifyError } = await supabase.auth.mfa.challengeAndVerify({
         factorId: totpFactorId,
-        code,
+        code: totpCode.trim(),
       } as any);
 
       if (verifyError) {
@@ -1601,33 +1588,22 @@ function SecuritySection({
         return;
       }
 
-      // MUITO IMPORTANTE: marca que já verificou ANTES de qualquer await extra
-      totpVerifiedRef.current = true;
+      await new Promise((resolve) => setTimeout(resolve, 500));
 
-      // 2) Atualiza flag no profiles SEM chamar getUser() aqui (isso estava travando)
-      const userId = enrollUserIdRef.current;
+      // ✅ Usa userId capturado ANTES
+      const { error: updateError } = await supabase
+        .from("profiles")
+        .update({ two_factor_enabled: true } as any)
+        .eq("id", userId);
 
-      if (userId) {
-        const { error: updateError } = await supabase
-          .from("profiles")
-          .update({ two_factor_enabled: true } as any)
-          .eq("id", userId);
-
-        if (updateError) {
-          // Não aborta: o Auth já está com fator verificado; só avisa sobre desync.
-          console.error("Erro ao atualizar two_factor_enabled:", updateError);
-          setSuccessMessage("2FA ativado, mas houve erro ao salvar nas preferências. Recarregue a página.");
-        } else {
-          setSuccessMessage("Autenticação de dois fatores ativada.");
-        }
-      } else {
-        // Não aborta: o Auth já está com fator verificado
-        console.warn("handleConfirmTotp: userId não disponível; vou ativar UI e depender do sync por listFactors.");
-        setSuccessMessage("Autenticação de dois fatores ativada.");
+      if (updateError) {
+        console.error("Erro ao atualizar two_factor_enabled:", updateError);
+        setTotpError("2FA confirmado, mas houve erro ao salvar nas preferências.");
+        return;
       }
 
-      // 3) Fecha modal + atualiza UI imediatamente
       setTwoFactorEnabled(true);
+      setSuccessMessage("Autenticação de dois fatores ativada.");
       setShowTotpModal(false);
       resetTotpSetupState();
     } catch (err) {
@@ -1921,11 +1897,7 @@ function SecuritySection({
             {/* Botão X – fundo igual ao modal */}
             <button
               onClick={handleCancelTotpSetup}
-              disabled={totpVerifying || twoFactorSaving}
-              className={`absolute -top-4 -right-4 w-10 h-10 rounded-full bg-midnight-surface border border-obsidian-border 
-    text-moonlight-text hover:text-starlight-text hover:border-mystic-indigo transition-colors 
-    flex items-center justify-center z-50
-    ${totpVerifying || twoFactorSaving ? "opacity-50 cursor-not-allowed pointer-events-none" : ""}`}
+              className="absolute -top-4 -right-4 w-10 h-10 rounded-full bg-midnight-surface border border-obsidian-border text-moonlight-text hover:text-starlight-text hover:border-mystic-indigo transition-colors flex items-center justify-center z-50"
               aria-label="Fechar configuração de 2FA"
             >
               <svg
