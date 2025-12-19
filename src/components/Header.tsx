@@ -23,6 +23,16 @@ export function Header({ isLoggedIn = false, onBuyCredits, onLoginClick }: Heade
   const [isAdmin, setIsAdmin] = useState(false);
   const [adminLoading, setAdminLoading] = useState(false);
 
+  const MFA_BUSY_UNTIL_KEY = "to_mfa_busy_until";
+  const isMfaBusy = () => {
+    try {
+      const until = Number(sessionStorage.getItem(MFA_BUSY_UNTIL_KEY) || "0");
+      return until > 0 && Date.now() < until;
+    } catch {
+      return false;
+    }
+  };
+
   const getUserIdSafe = async (): Promise<string | null> => {
     // getUser() é mais estável do que getSession() quando o app está em transição MFA/AAL
     const { data, error } = await supabase.auth.getUser();
@@ -97,6 +107,9 @@ export function Header({ isLoggedIn = false, onBuyCredits, onLoginClick }: Heade
 
   // 1) Recarrega por mudança de rota / isLoggedIn
   useEffect(() => {
+    // Durante MFA, NÃO faz chamadas que dependem de auth/storage (evita deadlock).
+    if (isMfaBusy()) return;
+
     fetchCredits();
 
     if (isLoggedIn) fetchIsAdmin();
@@ -107,6 +120,20 @@ export function Header({ isLoggedIn = false, onBuyCredits, onLoginClick }: Heade
   // 2) ✅ O que realmente destrava: quando a sessão “aparece” após login, refaz fetch
   useEffect(() => {
     const { data } = supabase.auth.onAuthStateChange(async (event, session) => {
+      // Em eventos MFA, o GoTrue pode ficar sensível a chamadas concorrentes (getUser/select),
+      // e isso costuma travar exatamente no challengeAndVerify.
+      // Então: não faz fetch aqui; agenda um refresh curto após estabilizar.
+      const ev = String(event || "");
+      if (isMfaBusy() || ev.startsWith("MFA_")) {
+        // mantém UI como está (não seta loading infinito)
+        window.setTimeout(() => {
+          if (isMfaBusy()) return;
+          void fetchCredits();
+          if (isLoggedIn) void fetchIsAdmin();
+        }, 900);
+        return;
+      }
+
       const userId = session?.user?.id ?? null;
 
       // Em eventos de MFA, alguns builds entregam session null momentaneamente.

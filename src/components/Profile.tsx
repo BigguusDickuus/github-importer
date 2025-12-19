@@ -1192,15 +1192,25 @@ function SecuritySection({
   // ===== MFA busy helpers (escopo local do SecuritySection) =====
   const MFA_BUSY_UNTIL_KEY = "to_mfa_busy_until";
 
+  // IMPORTANTE:
+  // - sessionStorage é o “sinal” que LandingGate/ProtectedRoute usam pra NÃO reset/reload durante MFA
+  // - setMfaBusy é o “sinal” visual/local pro Profile/sections
   const markMfaBusy = (ms = 45000) => {
     try {
       sessionStorage.setItem(MFA_BUSY_UNTIL_KEY, String(Date.now() + ms));
+    } catch {}
+    // garante que o app inteiro saiba que estamos em fluxo MFA
+    try {
+      setMfaBusy(true);
     } catch {}
   };
 
   const clearMfaBusy = () => {
     try {
       sessionStorage.removeItem(MFA_BUSY_UNTIL_KEY);
+    } catch {}
+    try {
+      setMfaBusy(false);
     } catch {}
   };
 
@@ -1618,7 +1628,7 @@ function SecuritySection({
 
   // Cancelar setup: se já criou fator mas não confirmou, tenta descartar
   const handleCancelTotpSetup = async () => {
-    setMfaBusy(true);
+    markMfaBusy();
     try {
       // SÓ deleta se ainda não habilitou 2FA globalmente
       if (totpFactorId && !twoFactorEnabled) {
@@ -1630,7 +1640,7 @@ function SecuritySection({
     } finally {
       resetTotpSetupState();
       setShowTotpModal(false); // <-- FECHA O MODAL DE VERDADE
-      setMfaBusy(false);
+      clearMfaBusy();
     }
   };
 
@@ -1643,7 +1653,7 @@ function SecuritySection({
       return;
     }
 
-    setMfaBusy(true);
+    markMfaBusy();
     setTotpVerifying(true);
     setTotpError(null);
 
@@ -1701,7 +1711,7 @@ function SecuritySection({
       setTotpError("Erro inesperado. Tente novamente.");
     } finally {
       setTotpVerifying(false);
-      setMfaBusy(false);
+      clearMfaBusy();
     }
   };
 
@@ -1793,7 +1803,7 @@ function SecuritySection({
       setDisableError("Informe o código de 6 dígitos do app autenticador.");
       return;
     }
-    setMfaBusy(true);
+    markMfaBusy();
     setDisableVerifying(true);
     pushDisableLog(traceId, "disableVerifying:true");
 
@@ -1889,7 +1899,7 @@ function SecuritySection({
     } finally {
       pushDisableLog(traceId, "handleConfirmDisableTwoFactor:finally");
       setDisableVerifying(false);
-      setMfaBusy(false);
+      clearMfaBusy();
     }
   };
 
