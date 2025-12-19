@@ -1,76 +1,162 @@
-import { ReactNode, useEffect, useState } from "react";
+import { ReactNode, useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase, resetSupabaseClient } from "@/integrations/supabase/client";
+
+// PATCH_MARK: PROTECTED_ROUTE_TIMEOUT_V1
 
 interface ProtectedRouteProps {
   children: ReactNode;
+  requireAdmin?: boolean;
 }
 
-/**
- * Componente que protege rotas:
- * - Enquanto checa a sessão, mostra tela de "Carregando..."
- * - Se não tiver sessão, redireciona pra "/"
- * - Se tiver sessão, renderiza o children normalmente
- */
-export function ProtectedRoute({ children }: ProtectedRouteProps) {
-  const [checking, setChecking] = useState(true);
+export function ProtectedRoute({ children, requireAdmin = false }: ProtectedRouteProps) {
+  const [checking, setChecking] = useState(true); // só bootstrap
   const [allowed, setAllowed] = useState(false);
 
   const navigate = useNavigate();
   const location = useLocation();
 
-  useEffect(() => {
-    let isMounted = true;
+  const mountedRef = useRef(true);
 
-    const checkSession = async () => {
+  // evita concorrência / duplicação
+  const inFlightRef = useRef(false);
+  const inFlightStartedAtRef = useRef<number>(0);
+
+  const getSessionWithTimeout = async (timeoutMs: number) => {
+    let timerId: number | null = null;
+
+    const timeoutPromise = new Promise<never>((_, reject) => {
+      timerId = window.setTimeout(() => reject(new Error("GET_SESSION_TIMEOUT")), timeoutMs);
+    });
+
+    try {
+      const res = (await Promise.race([supabase.auth.getSession(), timeoutPromise])) as any;
+      return res as { data: any; error: any };
+    } finally {
+      if (timerId !== null) window.clearTimeout(timerId);
+    }
+  };
+
+  const runCheck = async (opts?: { bootstrap?: boolean }) => {
+    const bootstrap = opts?.bootstrap ?? false;
+    if (inFlightRef.current) return;
+
+    inFlightRef.current = true;
+    inFlightStartedAtRef.current = Date.now();
+
+    if (bootstrap) setChecking(true);
+
+    try {
+      // 1) tentativa normal (rápida)
+      let sessionRes: { data: any; error: any } | null = null;
       try {
-        const { data, error } = await supabase.auth.getSession();
-
-        if (!isMounted) return;
-
-        if (error) {
-          console.error("Erro ao checar sessão:", error);
-          setAllowed(false);
-          setChecking(false);
-          navigate("/", {
-            replace: true,
-            state: { from: location },
-          });
-          return;
+        sessionRes = await getSessionWithTimeout(3000);
+      } catch (e: any) {
+        if (e?.message === "GET_SESSION_TIMEOUT") {
+          console.warn("ProtectedRoute: getSession timeout (1). Tentando resetSupabaseClient + retry.");
+        } else {
+          console.warn("ProtectedRoute: getSession erro (1). Tentando resetSupabaseClient + retry.", e);
         }
+      }
 
-        if (!data.session) {
-          // Não tem sessão → manda pra landing
-          setAllowed(false);
-          setChecking(false);
-          navigate("/", {
-            replace: true,
-            state: { from: location },
-          });
-          return;
+      // 2) retry com reset (controlado)
+      if (!sessionRes) {
+        try {
+          resetSupabaseClient();
+        } catch {}
+        try {
+          sessionRes = await getSessionWithTimeout(3000);
+        } catch (e: any) {
+          console.warn("ProtectedRoute: getSession falhou também após reset.", e);
+          sessionRes = null;
         }
+      }
 
-        // Tem sessão → permite acesso
-        setAllowed(true);
-        setChecking(false);
-      } catch (err) {
-        console.error("Erro inesperado ao checar sessão:", err);
-        if (!isMounted) return;
+      if (!mountedRef.current) return;
+
+      // 3) se ainda não conseguiu sessão, falha com segurança (sem reload)
+      if (!sessionRes || sessionRes.error || !sessionRes.data?.session) {
         setAllowed(false);
         setChecking(false);
-        navigate("/", {
-          replace: true,
-          state: { from: location },
-        });
+
+        // segurança: manda pro login
+        navigate("/", { replace: true, state: { from: location } });
+        return;
       }
+
+      // 4) sem admin requerido
+      if (!requireAdmin) {
+        setAllowed(true);
+        setChecking(false);
+        return;
+      }
+
+      // 5) valida admin
+      const userId = sessionRes.data.session.user.id;
+
+      const { data: profile, error: profileError } = await supabase
+        .from("profiles")
+        .select("is_admin")
+        .eq("id", userId)
+        .maybeSingle();
+
+      if (!mountedRef.current) return;
+
+      if (profileError || !profile?.is_admin) {
+        setAllowed(false);
+        setChecking(false);
+        navigate("/dashboard", { replace: true, state: { from: location } });
+        return;
+      }
+
+      setAllowed(true);
+      setChecking(false);
+    } finally {
+      inFlightRef.current = false;
+      inFlightStartedAtRef.current = 0;
+      if (mountedRef.current && bootstrap) setChecking(false);
+    }
+  };
+
+  useEffect(() => {
+    mountedRef.current = true;
+
+    // Bootstrap inicial (pode mostrar carregando)
+    runCheck({ bootstrap: true });
+
+    // Ao voltar pra aba: revalida em background.
+    // Importante: NÃO resetar client aqui (isso pode interferir em fluxos MFA quando o usuário troca de app)
+    const wake = () => {
+      if (document.visibilityState !== "visible") return;
+
+      // Se ficou travado, tenta destravar sem reload
+      if (inFlightRef.current) {
+        const startedAt = inFlightStartedAtRef.current || 0;
+        const age = startedAt ? Date.now() - startedAt : 0;
+
+        // se passou tempo demais, libera e tenta de novo
+        if (age > 6000) {
+          console.warn("ProtectedRoute: inFlight travado há >6s. Liberando e revalidando sem reload.");
+          inFlightRef.current = false;
+          inFlightStartedAtRef.current = 0;
+          runCheck({ bootstrap: false });
+        }
+        return;
+      }
+
+      runCheck({ bootstrap: false });
     };
 
-    checkSession();
+    document.addEventListener("visibilitychange", wake);
+    window.addEventListener("focus", wake);
 
     return () => {
-      isMounted = false;
+      mountedRef.current = false;
+      document.removeEventListener("visibilitychange", wake);
+      window.removeEventListener("focus", wake);
     };
-  }, [navigate, location]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [requireAdmin, location.pathname]);
 
   if (checking) {
     return (
@@ -80,10 +166,6 @@ export function ProtectedRoute({ children }: ProtectedRouteProps) {
     );
   }
 
-  if (!allowed) {
-    // Já estamos redirecionando, então não renderiza nada
-    return null;
-  }
-
+  if (!allowed) return null;
   return <>{children}</>;
 }
