@@ -21,8 +21,8 @@ export let supabase = createClient<Database>(SUPABASE_URL, SUPABASE_KEY, {
 });
 
 export function resetSupabaseClient() {
-  // Recria com os MESMOS parâmetros/opções do client inicial.
-  // Isso evita corromper auth (getSession travando) após reset.
+  // NÃO recriar o client: isso cria múltiplos GoTrueClient no mesmo storage key
+  // e causa comportamento indefinido (travamento de getSession/MFA).
   if (!SUPABASE_URL || !SUPABASE_KEY) {
     console.error("resetSupabaseClient: env inválido", {
       hasUrl: !!SUPABASE_URL,
@@ -31,13 +31,16 @@ export function resetSupabaseClient() {
     return supabase;
   }
 
-  supabase = createClient<Database>(SUPABASE_URL, SUPABASE_KEY, {
-    auth: {
-      storage: localStorage,
-      persistSession: true,
-      autoRefreshToken: true,
-    },
-  });
+  try {
+    // soft reset: reinicia auto-refresh sem recriar cliente
+    (supabase.auth as any)?.stopAutoRefresh?.();
+    (supabase.auth as any)?.startAutoRefresh?.();
+
+    // "kick" leve para atualizar estado interno (não bloquear UI)
+    void supabase.auth.getSession();
+  } catch (e) {
+    console.warn("resetSupabaseClient soft reset falhou:", e);
+  }
 
   return supabase;
 }
