@@ -28,6 +28,7 @@ export function HomeDeslogada() {
   const [mfaCode, setMfaCode] = useState("");
   const [mfaError, setMfaError] = useState<string | null>(null);
   const [mfaLoading, setMfaLoading] = useState(false);
+  const [loginMfaFactorId, setLoginMfaFactorId] = useState<string | null>(null);
 
   // Sinaliza "janela crítica" de MFA para evitar checks agressivos em outras partes
   const MFA_BUSY_UNTIL_KEY = "to_mfa_busy_until";
@@ -49,10 +50,15 @@ export function HomeDeslogada() {
   const [showErrorBar, setShowErrorBar] = useState(false);
   const [errorBarMessage, setErrorBarMessage] = useState("");
 
+  const MFA_LOGIN_PENDING_KEY = "to_mfa_login_pending_v1";
+
   // Login form states (modal da landing)
   const [loginEmail, setLoginEmail] = useState("");
   const [loginPassword, setLoginPassword] = useState("");
   const [loginLoading, setLoginLoading] = useState(false);
+
+  // Step do modal (mesmo modal)
+  const [loginStep, setLoginStep] = useState<"credentials" | "mfa">("credentials");
 
   // Signup form states
   const [signupEmail, setSignupEmail] = useState("");
@@ -80,25 +86,55 @@ export function HomeDeslogada() {
   useEffect(() => {
     let cancelled = false;
 
+    type MfaGate = {
+      hasVerifiedTotp: boolean;
+      factorId: string | null;
+      needsMfa: boolean;
+      currentLevel: string | null;
+      nextLevel: string | null;
+    };
+
+    const resolveMfaGate = async (): Promise<MfaGate> => {
+      try {
+        // 1) Só exigimos MFA se existir TOTP verified
+        const { data: factorsData, error: factorsError } = await supabase.auth.mfa.listFactors();
+        if (factorsError) {
+          return { hasVerifiedTotp: false, factorId: null, needsMfa: false, currentLevel: null, nextLevel: null };
+        }
+
+        const totp = (((factorsData as any)?.totp ?? []) as any[]).filter(Boolean);
+        const verified = totp.find((f: any) => f?.status === "verified") ?? null;
+
+        const factorId = (verified?.id as string) || null;
+        const hasVerifiedTotp = !!factorId;
+
+        if (!hasVerifiedTotp) {
+          return { hasVerifiedTotp: false, factorId: null, needsMfa: false, currentLevel: null, nextLevel: null };
+        }
+
+        // 2) Se tem TOTP verified, exigimos AAL2 (senão, bloqueia)
+        const { data: aalData, error: aalError } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+
+        const currentLevel = ((aalData as any)?.currentLevel as string) ?? null;
+        const nextLevel = ((aalData as any)?.nextLevel as string) ?? null;
+
+        // Se não conseguimos ler AAL, por segurança assumimos que ainda precisa validar
+        const needsMfa = aalError ? true : nextLevel === "aal2" && currentLevel !== "aal2";
+
+        return { hasVerifiedTotp: true, factorId, needsMfa, currentLevel, nextLevel };
+      } catch {
+        return { hasVerifiedTotp: false, factorId: null, needsMfa: false, currentLevel: null, nextLevel: null };
+      }
+    };
+
     const gateSession = async (session: any | null) => {
       if (!session || cancelled) return;
 
-      const { data: aalData, error: aalError } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
-
+      const gate = await resolveMfaGate();
       if (cancelled) return;
 
-      // Se não conseguir ler AAL, seguimos como "sem exigência explícita"
-      if (aalError) {
-        navigate("/dashboard", { replace: true });
-        return;
-      }
-
-      const currentLevel = aalData?.currentLevel;
-      const nextLevel = aalData?.nextLevel;
-      const needsMfa = nextLevel === "aal2" && currentLevel !== "aal2";
-
-      if (needsMfa) {
-        // Fica na Landing, obriga o 2FA no mesmo modal de login
+      if (gate.needsMfa) {
+        setLoginMfaFactorId(gate.factorId);
         setShowLoginModal(true);
         setLoginStep("mfa");
         setMfaCode("");
@@ -119,9 +155,11 @@ export function HomeDeslogada() {
 
     const { data: listener } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (cancelled) return;
+
+      // Sem sessão: não faz nada aqui
       if (!session) return;
 
-      // Esse evento é o "ok, está em AAL2"
+      // MFA verificado => pode ir
       if (event === "MFA_CHALLENGE_VERIFIED") {
         navigate("/dashboard", { replace: true });
         return;
@@ -250,8 +288,7 @@ export function HomeDeslogada() {
     setLoginStep("credentials");
     setMfaCode("");
     setMfaError(null);
-
-    // NÃO limpamos email/senha automaticamente aqui (UX). Se quiser, limpe.
+    setLoginMfaFactorId(null);
   };
 
   const handleLogin = async () => {
@@ -303,15 +340,16 @@ export function HomeDeslogada() {
         return;
       }
 
-      // Checa AAL: se nextLevel=aal2 e current!=aal2, exige MFA e NÃO navega.
-      const { data: aalData, error: aalError } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+      // ✅ Checa se o usuário TEM TOTP verified. Só exige 2FA nesse caso.
+      const { data: factorsData, error: factorsError } = await supabase.auth.mfa.listFactors();
 
-      if (!aalError) {
-        const currentLevel = aalData?.currentLevel;
-        const nextLevel = aalData?.nextLevel;
-        const needsMfa = nextLevel === "aal2" && currentLevel !== "aal2";
+      if (!factorsError) {
+        const totp = (((factorsData as any)?.totp ?? []) as any[]).filter(Boolean);
+        const verified = totp.find((f: any) => f?.status === "verified") ?? null;
 
-        if (needsMfa) {
+        if (verified?.id) {
+          // Tem 2FA ativo => exige código e NÃO navega
+          setLoginMfaFactorId(String(verified.id));
           setLoginStep("mfa");
           setMfaCode("");
           setMfaError(null);
@@ -324,13 +362,15 @@ export function HomeDeslogada() {
         }
       }
 
-      // Sem MFA (ou já em AAL2): pode seguir.
+      // Sem 2FA ativo => pode seguir
       toast({ title: "Login realizado", description: "Bem-vindo de volta." });
 
       setShowLoginModal(false);
       setLoginError(false);
       setShakeModal(false);
+
       setLoginStep("credentials");
+      setLoginMfaFactorId(null);
 
       setLoginEmail("");
       setLoginPassword("");
@@ -365,33 +405,39 @@ export function HomeDeslogada() {
     markMfaBusy(9000);
 
     try {
-      const factors = await supabase.auth.mfa.listFactors();
-      if (factors.error) throw factors.error;
+      let factorId = loginMfaFactorId;
 
-      const totpFactors = (factors.data.totp || []) as any[];
-      const verifiedFactor = totpFactors.find((f) => f?.status === "verified") || totpFactors[0];
-      if (!verifiedFactor?.id) throw new Error("Nenhum fator TOTP configurado/validado para este usuário.");
+      // Se por algum motivo não temos o factorId em state, tenta resolver agora
+      if (!factorId) {
+        const factors = await supabase.auth.mfa.listFactors();
+        if (factors.error) throw factors.error;
 
-      const factorId = verifiedFactor.id;
+        const totpFactors = (((factors.data as any)?.totp ?? []) as any[]).filter(Boolean);
+        const verifiedFactor = totpFactors.find((f: any) => f?.status === "verified") ?? null;
+        factorId = verifiedFactor?.id ? String(verifiedFactor.id) : null;
+
+        if (!factorId) throw new Error("Nenhum fator TOTP verified encontrado para este usuário.");
+        setLoginMfaFactorId(factorId);
+      }
 
       const cav = await supabase.auth.mfa.challengeAndVerify({ factorId, code: trimmed });
       if (cav.error) throw cav.error;
 
-      // Espera curtinho e confirma que AAL virou AAL2
+      // Confirma AAL2 rapidamente (sem depender de reload)
       const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
       let ok = false;
-      for (let i = 0; i < 2; i++) {
+      for (let i = 0; i < 3; i++) {
         await wait(250);
         const { data: aalData, error: aalError } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
-        if (!aalError && aalData?.currentLevel === "aal2") {
+        if (!aalError && (aalData as any)?.currentLevel === "aal2") {
           ok = true;
           break;
         }
       }
 
       if (!ok) {
-        throw new Error("2FA verificado, mas o nível AAL2 não foi confirmado. Tente novamente.");
+        throw new Error("Código aceito, mas AAL2 não confirmou. Tente novamente.");
       }
 
       toast({ title: "2FA verificado!", description: "Login concluído com sucesso." });
@@ -399,6 +445,7 @@ export function HomeDeslogada() {
       setMfaCode("");
       setMfaError(null);
       setLoginStep("credentials");
+      setLoginMfaFactorId(null);
       setShowLoginModal(false);
 
       navigate("/dashboard");
@@ -414,9 +461,11 @@ export function HomeDeslogada() {
     try {
       await supabase.auth.signOut();
     } catch {}
+
     setLoginStep("credentials");
     setMfaCode("");
     setMfaError(null);
+    setLoginMfaFactorId(null);
   };
 
   // Máscara de CPF

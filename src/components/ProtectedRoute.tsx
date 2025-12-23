@@ -8,7 +8,7 @@ interface ProtectedRouteProps {
 }
 
 const MFA_BUSY_UNTIL_KEY = "to_mfa_busy_until";
-const LAST_USER_ID_KEY = "to_last_user_id_v1";
+const MFA_LOGIN_PENDING_KEY = "to_mfa_login_pending_v1";
 
 const isMfaBusy = () => {
   try {
@@ -19,18 +19,12 @@ const isMfaBusy = () => {
   }
 };
 
-const getStoredUserId = (): string | null => {
+const isMfaLoginPending = () => {
   try {
-    return localStorage.getItem(LAST_USER_ID_KEY);
+    return sessionStorage.getItem(MFA_LOGIN_PENDING_KEY) === "1";
   } catch {
-    return null;
+    return false;
   }
-};
-
-const setStoredUserId = (userId: string) => {
-  try {
-    localStorage.setItem(LAST_USER_ID_KEY, userId);
-  } catch {}
 };
 
 const isGetUserTimeout = (err: any) => {
@@ -70,8 +64,16 @@ export function ProtectedRoute({ children, requireAdmin = false }: ProtectedRout
     if (bootstrap) setChecking(true);
 
     try {
-      // Durante MFA (janela crítica), não revalida no wake/focus (evita deadlock).
+      // Evita deadlock durante janelas críticas do MFA
       if (!bootstrap && isMfaBusy()) return;
+
+      // 🔒 Se MFA está pendente, bloqueia qualquer rota protegida (sem loop):
+      if (isMfaLoginPending()) {
+        setAllowed(false);
+        setChecking(false);
+        navigate("/", { replace: true, state: { from: location.pathname, mfaRequired: true } });
+        return;
+      }
 
       const { data, error } = await getUserWithTimeout(3500);
       if (!mountedRef.current) return;
@@ -79,21 +81,8 @@ export function ProtectedRoute({ children, requireAdmin = false }: ProtectedRout
       const user = data?.user ?? null;
 
       if (error || !user) {
-        const storedUserId = getStoredUserId();
-
-        // Timeout: NÃO desloga.
-        // Segurança:
-        // - Rotas admin: NÃO libera por storage.
-        // - Rotas não-admin: só libera por storage SE estivermos em janela MFA busy
-        //   (para não expulsar durante verificação), caso contrário mantém retry.
+        // Timeout: NÃO redireciona (evita loop). Só tenta de novo.
         if (isGetUserTimeout(error)) {
-          if (!requireAdmin && storedUserId && isMfaBusy()) {
-            setAllowed(true);
-            setChecking(false);
-            window.setTimeout(() => runCheck({ bootstrap: false }), 800);
-            return;
-          }
-
           setChecking(true);
           window.setTimeout(() => runCheck({ bootstrap: false }), 800);
           return;
@@ -101,29 +90,8 @@ export function ProtectedRoute({ children, requireAdmin = false }: ProtectedRout
 
         setAllowed(false);
         setChecking(false);
-        navigate("/", { replace: true, state: { from: location } });
+        navigate("/", { replace: true, state: { from: location.pathname } });
         return;
-      }
-
-      // Guarda id para casos transitórios de timeout (apenas referência, não auth real)
-      if (user?.id) setStoredUserId(user.id);
-
-      // 🔒 Enforce MFA (AAL2) para rotas logadas:
-      // Se o usuário tem MFA configurado (nextLevel=aal2) e ainda está em AAL1, bloqueia.
-      try {
-        const { data: aalData, error: aalError } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
-
-        if (!aalError) {
-          const needsMfa = aalData?.nextLevel === "aal2" && aalData?.currentLevel !== "aal2";
-          if (needsMfa) {
-            setAllowed(false);
-            setChecking(false);
-            navigate("/", { replace: true, state: { from: location, mfaRequired: true } });
-            return;
-          }
-        }
-      } catch {
-        // se falhar AAL check, não assume MFA; segue fluxo normal
       }
 
       if (!requireAdmin) {
@@ -145,7 +113,7 @@ export function ProtectedRoute({ children, requireAdmin = false }: ProtectedRout
       if (profileError || !profile?.is_admin) {
         setAllowed(false);
         setChecking(false);
-        navigate("/dashboard", { replace: true, state: { from: location } });
+        navigate("/dashboard", { replace: true, state: { from: location.pathname } });
         return;
       }
 
@@ -154,16 +122,8 @@ export function ProtectedRoute({ children, requireAdmin = false }: ProtectedRout
     } catch (e: any) {
       if (!mountedRef.current) return;
 
-      const storedUserId = getStoredUserId();
-
+      // Timeout: NÃO redireciona, só retry.
       if (isGetUserTimeout(e)) {
-        if (!requireAdmin && storedUserId && isMfaBusy()) {
-          setAllowed(true);
-          setChecking(false);
-          window.setTimeout(() => runCheck({ bootstrap: false }), 800);
-          return;
-        }
-
         setChecking(true);
         window.setTimeout(() => runCheck({ bootstrap: false }), 800);
         return;
@@ -171,7 +131,7 @@ export function ProtectedRoute({ children, requireAdmin = false }: ProtectedRout
 
       setAllowed(false);
       setChecking(false);
-      navigate("/", { replace: true, state: { from: location } });
+      navigate("/", { replace: true, state: { from: location.pathname } });
     } finally {
       inFlightRef.current = false;
       if (mountedRef.current && bootstrap) setChecking(false);
