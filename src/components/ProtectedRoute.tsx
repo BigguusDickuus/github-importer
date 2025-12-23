@@ -31,6 +31,29 @@ const getUserWithTimeout = async (timeoutMs: number) => {
   }
 };
 
+const getStoredUserId = (): string | null => {
+  try {
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i);
+      if (!k) continue;
+      if (!/^sb-.*-auth-token$/.test(k)) continue;
+
+      const raw = localStorage.getItem(k);
+      if (!raw) continue;
+
+      const parsed = JSON.parse(raw);
+      const id = parsed?.user?.id ?? parsed?.currentSession?.user?.id ?? null;
+      if (id) return id;
+    }
+  } catch {}
+  return null;
+};
+
+const isGetUserTimeout = (err: any) => {
+  const msg = String(err?.message ?? err ?? "");
+  return msg.includes("GET_USER_TIMEOUT");
+};
+
 export function ProtectedRoute({ children, requireAdmin = false }: ProtectedRouteProps) {
   const [checking, setChecking] = useState(true);
   const [allowed, setAllowed] = useState(false);
