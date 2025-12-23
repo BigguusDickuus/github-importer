@@ -33,16 +33,6 @@ export function Header({ isLoggedIn = false, onBuyCredits, onLoginClick }: Heade
     }
   };
 
-  const MFA_BUSY_UNTIL_KEY = "to_mfa_busy_until";
-  const isMfaBusy = () => {
-    try {
-      const until = Number(sessionStorage.getItem(MFA_BUSY_UNTIL_KEY) || "0");
-      return until > 0 && Date.now() < until;
-    } catch {
-      return false;
-    }
-  };
-
   const getStoredUserId = (): string | null => {
     try {
       for (let i = 0; i < localStorage.length; i++) {
@@ -105,7 +95,7 @@ export function Header({ isLoggedIn = false, onBuyCredits, onLoginClick }: Heade
 
     if (error) {
       console.error("Erro ao buscar créditos:", error);
-      setCredits(null);
+      // não apaga créditos por erro; mantém último valor
       return;
     }
 
