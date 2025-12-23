@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import { Menu, X, Sparkles, ChevronDown } from "lucide-react";
 import { Button } from "./ui/button";
@@ -35,14 +35,14 @@ export function Header({ isLoggedIn = false, onBuyCredits, onLoginClick }: Heade
 
   const REQUEST_TIMEOUT_MS = 3500;
 
-  const withTimeout = async <T,>(p: Promise<T>, label: string, ms: number = REQUEST_TIMEOUT_MS): Promise<T> => {
+  const withTimeout = async <T,>(p: PromiseLike<T>, label: string, ms: number = REQUEST_TIMEOUT_MS): Promise<T> => {
     let t: ReturnType<typeof setTimeout> | undefined;
     const timeoutPromise = new Promise<never>((_, rej) => {
       t = setTimeout(() => rej(new Error(`${label}_TIMEOUT`)), ms);
     });
 
     try {
-      return (await Promise.race([p, timeoutPromise])) as T;
+      return (await Promise.race([p as any, timeoutPromise])) as T;
     } finally {
       if (t) clearTimeout(t);
     }
