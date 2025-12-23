@@ -33,16 +33,67 @@ export function Header({ isLoggedIn = false, onBuyCredits, onLoginClick }: Heade
     }
   };
 
-  const getUserIdSafe = async (): Promise<string | null> => {
-    // getUser() é mais estável do que getSession() quando o app está em transição MFA/AAL
-    const { data, error } = await supabase.auth.getUser();
-    if (error) {
-      const msg = (error as any)?.message ?? "";
-      if (msg.includes("Auth session missing")) return null;
-      console.error("Erro ao checar usuário:", error);
-      return null;
+  const MFA_BUSY_UNTIL_KEY = "to_mfa_busy_until";
+  const isMfaBusy = () => {
+    try {
+      const until = Number(sessionStorage.getItem(MFA_BUSY_UNTIL_KEY) || "0");
+      return until > 0 && Date.now() < until;
+    } catch {
+      return false;
     }
-    return data.user?.id ?? null;
+  };
+
+  const getStoredUserId = (): string | null => {
+    try {
+      for (let i = 0; i < localStorage.length; i++) {
+        const k = localStorage.key(i);
+        if (!k) continue;
+        if (!/^sb-.*-auth-token$/.test(k)) continue;
+
+        const raw = localStorage.getItem(k);
+        if (!raw) continue;
+
+        const parsed = JSON.parse(raw);
+        const id = parsed?.user?.id ?? parsed?.currentSession?.user?.id ?? null;
+        if (id) return id;
+      }
+    } catch {}
+    return null;
+  };
+
+  const getUserIdSafe = async (): Promise<string | null> => {
+    // 1) Primeiro tenta storage (não trava)
+    const stored = getStoredUserId();
+    if (stored) return stored;
+
+    // 2) Durante MFA/transições, não bate em getUser
+    if (isMfaBusy()) return null;
+
+    // 3) getUser com timeout curto (pra não travar UI)
+    let timerId: number | null = null;
+    const timeoutPromise = new Promise<never>((_, reject) => {
+      timerId = window.setTimeout(() => reject(new Error("GET_USER_TIMEOUT")), 2500);
+    });
+
+    try {
+      const res = (await Promise.race([supabase.auth.getUser(), timeoutPromise])) as any;
+      const data = res?.data;
+      const error = res?.error;
+
+      if (error) {
+        const msg = (error as any)?.message ?? "";
+        if (msg.includes("Auth session missing")) return null;
+        console.error("Header: erro getUser:", error);
+        return null;
+      }
+
+      return data?.user?.id ?? null;
+    } catch (e) {
+      // fallback final
+      return getStoredUserId();
+    } finally {
+      if (timerId !== null) window.clearTimeout(timerId);
+    }
   };
 
   const fetchCreditsForUser = async (userId: string) => {
@@ -83,7 +134,7 @@ export function Header({ isLoggedIn = false, onBuyCredits, onLoginClick }: Heade
       await fetchCreditsForUser(userId);
     } catch (err) {
       console.error("Erro inesperado ao buscar créditos:", err);
-      setCredits(null);
+      // NÃO apaga créditos por erro/transição; mantém último valor
     } finally {
       setCreditsLoading(false);
     }

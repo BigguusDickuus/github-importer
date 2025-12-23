@@ -57,6 +57,24 @@ export function ProtectedRoute({ children, requireAdmin = false }: ProtectedRout
       if (!mountedRef.current) return;
 
       if (error || !data.user) {
+        const storedUserId = getStoredUserId();
+
+        // Se foi timeout, NÃO desloga.
+        // - Em rotas NÃO-admin, deixa passar se houver token/sessão no storage.
+        // - Em rotas admin, mantém carregando e tenta de novo (segurança).
+        if (isGetUserTimeout(error)) {
+          if (!requireAdmin && storedUserId) {
+            setAllowed(true);
+            setChecking(false);
+            window.setTimeout(() => runCheck({ bootstrap: false }), 800);
+            return;
+          }
+
+          setChecking(true);
+          window.setTimeout(() => runCheck({ bootstrap: false }), 800);
+          return;
+        }
+
         setAllowed(false);
         setChecking(false);
         navigate("/", { replace: true, state: { from: location } });
@@ -90,6 +108,22 @@ export function ProtectedRoute({ children, requireAdmin = false }: ProtectedRout
       setChecking(false);
     } catch (e) {
       if (!mountedRef.current) return;
+
+      const storedUserId = getStoredUserId();
+
+      if (isGetUserTimeout(e)) {
+        if (!requireAdmin && storedUserId) {
+          setAllowed(true);
+          setChecking(false);
+          window.setTimeout(() => runCheck({ bootstrap: false }), 800);
+          return;
+        }
+
+        setChecking(true);
+        window.setTimeout(() => runCheck({ bootstrap: false }), 800);
+        return;
+      }
+
       setAllowed(false);
       setChecking(false);
       navigate("/", { replace: true, state: { from: location } });

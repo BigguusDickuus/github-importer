@@ -35,6 +35,31 @@ const getUserWithTimeout = async (timeoutMs: number) => {
   }
 };
 
+const getStoredUserId = (): string | null => {
+  try {
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i);
+      if (!k) continue;
+      if (!/^sb-.*-auth-token$/.test(k)) continue;
+
+      const raw = localStorage.getItem(k);
+      if (!raw) continue;
+
+      const parsed = JSON.parse(raw);
+      const id = parsed?.user?.id ?? parsed?.currentSession?.user?.id ?? null;
+      if (id) return id;
+    }
+  } catch {}
+  return null;
+};
+
+const hasStoredSession = () => !!getStoredUserId();
+
+const isGetUserTimeout = (err: any) => {
+  const msg = String(err?.message ?? err ?? "");
+  return msg.includes("GET_USER_TIMEOUT");
+};
+
 function LandingGate() {
   const [checking, setChecking] = useState(true);
   const [hasSession, setHasSession] = useState(false);
@@ -61,16 +86,20 @@ function LandingGate() {
       const { data, error } = await getUserWithTimeout(3500);
       if (!mountedRef.current) return;
 
+      const stored = hasStoredSession();
+
       if (error) {
         console.error("LandingGate: erro getUser:", error);
-        setHasSession(false);
+        // Timeout/erro não significa “deslogado” — usa fallback do storage
+        setHasSession(stored);
       } else {
-        setHasSession(!!data.user);
+        setHasSession(!!data.user || stored);
       }
     } catch (e: any) {
       if (!mountedRef.current) return;
       console.error("LandingGate: getUser timeout/erro:", e);
-      setHasSession(false);
+      // Não derruba sessão por timeout
+      setHasSession(hasStoredSession());
     } finally {
       clearTimeout(watchdog);
       inFlightRef.current = false;
@@ -151,16 +180,20 @@ function LoginGate() {
       const { data, error } = await getUserWithTimeout(3500);
       if (!mountedRef.current) return;
 
+      const stored = hasStoredSession();
+
       if (error) {
         console.error("LoginGate: erro getUser:", error);
-        setHasSession(false);
+        // Timeout/erro não significa “deslogado” — usa fallback do storage
+        setHasSession(stored);
       } else {
-        setHasSession(!!data.user);
+        setHasSession(!!data.user || stored);
       }
     } catch (e: any) {
       if (!mountedRef.current) return;
       console.error("LoginGate: getUser timeout/erro:", e);
-      setHasSession(false);
+      // Não derruba sessão por timeout
+      setHasSession(hasStoredSession());
     } finally {
       clearTimeout(watchdog);
       inFlightRef.current = false;
