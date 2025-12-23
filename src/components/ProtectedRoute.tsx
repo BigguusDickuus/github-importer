@@ -151,11 +151,13 @@ export function ProtectedRoute({ children, requireAdmin = false }: ProtectedRout
 
     document.addEventListener("visibilitychange", wake);
     window.addEventListener("focus", wake);
+    window.addEventListener("pageshow", wake as any);
 
     return () => {
       mountedRef.current = false;
       document.removeEventListener("visibilitychange", wake);
       window.removeEventListener("focus", wake);
+      window.removeEventListener("pageshow", wake as any);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [requireAdmin, location.pathname]);

@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import { Menu, X, Sparkles, ChevronDown } from "lucide-react";
 import { Button } from "./ui/button";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase, resetSupabaseClient } from "@/integrations/supabase/client";
 
 interface HeaderProps {
   isLoggedIn?: boolean;
@@ -33,6 +33,22 @@ export function Header({ isLoggedIn = false, onBuyCredits, onLoginClick }: Heade
     }
   };
 
+  const REQUEST_TIMEOUT_MS = 3500;
+
+  const withTimeout = async <T,>(p: Promise<T>, label: string, ms: number = REQUEST_TIMEOUT_MS): Promise<T> => {
+    let t: ReturnType<typeof setTimeout> | undefined;
+    const timeoutPromise = new Promise<never>((_, rej) => {
+      t = setTimeout(() => rej(new Error(`${label}_TIMEOUT`)), ms);
+    });
+
+    try {
+      return (await Promise.race([p, timeoutPromise])) as T;
+    } finally {
+      if (t) clearTimeout(t);
+    }
+  };
+
+  const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
   const getStoredUserId = (): string | null => {
     try {
       for (let i = 0; i < localStorage.length; i++) {
@@ -87,12 +103,27 @@ export function Header({ isLoggedIn = false, onBuyCredits, onLoginClick }: Heade
   };
 
   const fetchCreditsForUser = async (userId: string) => {
-    const { data, error } = await supabase
-      .from("credit_balances")
-      .select("balance")
-      .eq("user_id", userId)
-      .maybeSingle();
+    const run = () =>
+      withTimeout(
+        supabase.from("credit_balances").select("balance").eq("user_id", userId).maybeSingle(),
+        "CREDIT_BALANCE",
+      );
 
+    let data: any = null;
+    let error: any = null;
+
+    try {
+      const res = await run();
+      data = (res as any).data;
+      error = (res as any).error;
+    } catch (err) {
+      console.warn("[Header] credit_balances timeout/erro; resetando client e tentando de novo", err);
+      resetSupabaseClient();
+      await sleep(150);
+      const res2 = await run();
+      data = (res2 as any).data;
+      error = (res2 as any).error;
+    }
     if (error) {
       console.error("Erro ao buscar créditos:", error);
       // não apaga créditos por erro; mantém último valor
@@ -103,8 +134,24 @@ export function Header({ isLoggedIn = false, onBuyCredits, onLoginClick }: Heade
   };
 
   const fetchIsAdminForUser = async (userId: string) => {
-    const { data, error } = await supabase.from("profiles").select("is_admin").eq("id", userId).maybeSingle();
+    const run = () =>
+      withTimeout(supabase.from("profiles").select("is_admin").eq("id", userId).maybeSingle(), "IS_ADMIN");
 
+    let data: any = null;
+    let error: any = null;
+
+    try {
+      const res = await run();
+      data = (res as any).data;
+      error = (res as any).error;
+    } catch (err) {
+      console.warn("[Header] is_admin timeout/erro; resetando client e tentando de novo", err);
+      resetSupabaseClient();
+      await sleep(150);
+      const res2 = await run();
+      data = (res2 as any).data;
+      error = (res2 as any).error;
+    }
     if (error) {
       console.error("Erro ao buscar is_admin:", error);
       setIsAdmin(false);
@@ -225,6 +272,48 @@ export function Header({ isLoggedIn = false, onBuyCredits, onLoginClick }: Heade
       data.subscription.unsubscribe();
     };
   }, [isLoggedIn]);
+
+  // 3) ✅ Robustez para BFCache / troca de aba / voltar do Stripe:
+  // Refaz o fetch com throttle e com respeito ao "MFA busy" para não travar o 2FA.
+  const lastWakeAtRef = useRef(0);
+
+  const wakeRefresh = useCallback(
+    async (reason: string) => {
+      if (!isLoggedIn) return;
+
+      // Evita competir com o fluxo de MFA (challenge/verify/enroll/unenroll)
+      if (isMfaBusy()) return;
+
+      const now = Date.now();
+      if (now - lastWakeAtRef.current < 800) return; // throttle
+      lastWakeAtRef.current = now;
+
+      console.log("[Header] wakeRefresh:", reason);
+      await fetchCredits();
+      await fetchIsAdmin();
+    },
+    [isLoggedIn, fetchCredits, fetchIsAdmin],
+  );
+
+  useEffect(() => {
+    if (!isLoggedIn) return;
+
+    const onVis = () => {
+      if (document.visibilityState === "visible") void wakeRefresh("visibilitychange");
+    };
+    const onFocus = () => void wakeRefresh("focus");
+    const onPageShow = (_e: any) => void wakeRefresh("pageshow");
+
+    document.addEventListener("visibilitychange", onVis);
+    window.addEventListener("focus", onFocus);
+    window.addEventListener("pageshow", onPageShow);
+
+    return () => {
+      document.removeEventListener("visibilitychange", onVis);
+      window.removeEventListener("focus", onFocus);
+      window.removeEventListener("pageshow", onPageShow);
+    };
+  }, [isLoggedIn, wakeRefresh]);
 
   // Close dropdown when clicking outside
   useEffect(() => {

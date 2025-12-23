@@ -142,12 +142,14 @@ function LandingGate() {
 
     document.addEventListener("visibilitychange", wake);
     window.addEventListener("focus", wake);
+    window.addEventListener("pageshow", wake as any);
 
     return () => {
       mountedRef.current = false;
       listener?.subscription?.unsubscribe();
       document.removeEventListener("visibilitychange", wake);
       window.removeEventListener("focus", wake);
+      window.removeEventListener("pageshow", wake as any);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -234,12 +236,14 @@ function LoginGate() {
 
     document.addEventListener("visibilitychange", wake);
     window.addEventListener("focus", wake);
+    window.addEventListener("pageshow", wake as any);
 
     return () => {
       mountedRef.current = false;
       listener?.subscription?.unsubscribe();
       document.removeEventListener("visibilitychange", wake);
       window.removeEventListener("focus", wake);
+      window.removeEventListener("pageshow", wake as any);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
