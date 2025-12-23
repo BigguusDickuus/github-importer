@@ -1257,4 +1257,3 @@ export function CardSelectionModal({
     </AnimatePresence>
   );
 }
-}
