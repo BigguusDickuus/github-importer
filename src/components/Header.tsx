@@ -148,12 +148,10 @@ export function Header({ isLoggedIn = false, onBuyCredits, onLoginClick }: Heade
 
   // 1) Recarrega por mudança de rota / isLoggedIn
   useEffect(() => {
-    // Durante MFA, NÃO faz chamadas que dependem de auth/storage (evita deadlock).
-    if (isMfaBusy()) return;
+    // Mesmo durante MFA, buscar créditos é seguro porque getUserIdSafe tenta storage primeiro.
+    void fetchCredits();
 
-    fetchCredits();
-
-    if (isLoggedIn) fetchIsAdmin();
+    if (isLoggedIn) void fetchIsAdmin();
     else setIsAdmin(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [location.pathname, isLoggedIn]);
@@ -166,12 +164,17 @@ export function Header({ isLoggedIn = false, onBuyCredits, onLoginClick }: Heade
       // Então: não faz fetch aqui; agenda um refresh curto após estabilizar.
       const ev = String(event || "");
       if (isMfaBusy() || ev.startsWith("MFA_")) {
-        // mantém UI como está (não seta loading infinito)
-        window.setTimeout(() => {
-          if (isMfaBusy()) return;
-          void fetchCredits();
-          if (isLoggedIn) void fetchIsAdmin();
-        }, 900);
+        // Não cancela por busy: fetchCredits usa storage primeiro.
+        const schedule = (ms: number) => {
+          window.setTimeout(() => {
+            void fetchCredits();
+            if (isLoggedIn) void fetchIsAdmin();
+          }, ms);
+        };
+
+        schedule(300);
+        schedule(1200);
+        schedule(3500);
         return;
       }
 
