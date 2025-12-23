@@ -21,6 +21,15 @@ const isMfaBusy = () => {
   }
 };
 
+const MFA_LOGIN_PENDING_KEY = "to_mfa_login_pending_v1";
+const isMfaLoginPending = () => {
+  try {
+    return sessionStorage.getItem(MFA_LOGIN_PENDING_KEY) === "1";
+  } catch {
+    return false;
+  }
+};
+
 const getUserWithTimeout = async (timeoutMs: number) => {
   let timerId: number | null = null;
   const timeoutPromise = new Promise<never>((_, reject) => {
@@ -151,7 +160,7 @@ function LandingGate() {
     );
   }
 
-  if (hasSession) return <Navigate to="/dashboard" replace />;
+  if (hasSession && !isMfaLoginPending()) return <Navigate to="/dashboard" replace />;
   return <HomeDeslogada />;
 }
 
@@ -243,7 +252,7 @@ function LoginGate() {
     );
   }
 
-  if (hasSession) return <Navigate to="/dashboard" replace />;
+  if (hasSession && !isMfaLoginPending()) return <Navigate to="/dashboard" replace />;
   return <Login />;
 }
 

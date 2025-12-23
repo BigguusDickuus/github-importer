@@ -52,6 +52,21 @@ export function HomeDeslogada() {
 
   const MFA_LOGIN_PENDING_KEY = "to_mfa_login_pending_v1";
 
+  const setMfaLoginPending = (pending: boolean) => {
+    try {
+      if (pending) sessionStorage.setItem(MFA_LOGIN_PENDING_KEY, "1");
+      else sessionStorage.removeItem(MFA_LOGIN_PENDING_KEY);
+    } catch {}
+  };
+
+  const isMfaLoginPending = () => {
+    try {
+      return sessionStorage.getItem(MFA_LOGIN_PENDING_KEY) === "1";
+    } catch {
+      return false;
+    }
+  };
+
   // Login form states (modal da landing)
   const [loginEmail, setLoginEmail] = useState("");
   const [loginPassword, setLoginPassword] = useState("");
@@ -308,6 +323,9 @@ export function HomeDeslogada() {
     setLoginLoading(true);
     setShakeModal(false);
 
+    // 🔒 Importante: trava rotas protegidas ANTES do signIn para evitar corrida com redirects.
+    setMfaLoginPending(true);
+
     try {
       const { error } = await supabase.auth.signInWithPassword({
         email: loginEmail,
@@ -315,19 +333,12 @@ export function HomeDeslogada() {
       });
 
       if (error) {
+        setMfaLoginPending(false);
+
         console.error("Erro ao fazer login:", error);
         setLoginError(true);
         setShakeModal(true);
         setTimeout(() => setShakeModal(false), 600);
-
-        const msg = (error.message || "").toLowerCase();
-        if (
-          msg.includes("email not confirmed") ||
-          msg.includes("email confirmation") ||
-          (msg.includes("confirm") && msg.includes("email"))
-        ) {
-          setShowEmailValidationBar(true);
-        }
 
         toast({
           title: "Não foi possível entrar",
@@ -337,43 +348,67 @@ export function HomeDeslogada() {
         return;
       }
 
-      // ✅ Checa se o usuário TEM TOTP verified. Só exige 2FA nesse caso.
-      const { data: factorsData, error: factorsError } = await supabase.auth.mfa.listFactors();
+      // ✅ Decide se MFA é necessário via AAL (não via “status do factor”)
+      const { data: aalData, error: aalError } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
 
-      if (!factorsError) {
-        const totp = (((factorsData as any)?.totp ?? []) as any[]).filter(Boolean);
-        const verified = totp.find((f: any) => f?.status === "verified") ?? null;
-
-        if (verified?.id) {
-          // Tem 2FA ativo => exige código e NÃO navega
-          setLoginMfaFactorId(String(verified.id));
-          setLoginStep("mfa");
-          setMfaCode("");
-          setMfaError(null);
-
-          toast({
-            title: "2FA obrigatório",
-            description: "Digite o código do seu app autenticador para concluir o login.",
-          });
-          return;
-        }
+      // Se não conseguimos checar AAL, não vamos travar o usuário (fallback: deixa seguir)
+      if (aalError) {
+        console.warn("AAL check falhou no login (landing). Prosseguindo sem MFA:", aalError);
+        setMfaLoginPending(false);
+        setShowLoginModal(false);
+        navigate("/dashboard");
+        return;
       }
 
-      // Sem 2FA ativo => pode seguir
-      toast({ title: "Login realizado", description: "Bem-vindo de volta." });
+      const needsMfa = (aalData as any)?.nextLevel === "aal2" && (aalData as any)?.currentLevel !== "aal2";
 
-      setShowLoginModal(false);
-      setLoginError(false);
-      setShakeModal(false);
+      if (!needsMfa) {
+        // Sem MFA obrigatório => libera
+        setMfaLoginPending(false);
+        toast({ title: "Login realizado", description: "Bem-vindo de volta." });
+        setShowLoginModal(false);
+        navigate("/dashboard");
+        return;
+      }
 
-      setLoginStep("credentials");
-      setLoginMfaFactorId(null);
+      // MFA obrigatório => resolve factorId e pede código
+      const { data: factorsData, error: factorsError } = await supabase.auth.mfa.listFactors();
 
-      setLoginEmail("");
-      setLoginPassword("");
+      if (factorsError) {
+        // fallback: não trava hard se falhar factors
+        console.error("Erro ao listar fatores MFA (landing):", factorsError);
+        setMfaLoginPending(false);
+        setShowLoginModal(false);
+        navigate("/dashboard");
+        return;
+      }
 
-      navigate("/dashboard");
+      const totpFactors = (((factorsData as any)?.totp ?? []) as any[]).filter(Boolean);
+      const verifiedFactor = totpFactors.find((f: any) => f?.status === "verified") ?? totpFactors[0] ?? null;
+
+      if (!verifiedFactor?.id) {
+        // fallback: não trava hard
+        console.warn("MFA requerido, mas nenhum TOTP factor encontrado (landing). Prosseguindo.");
+        setMfaLoginPending(false);
+        setShowLoginModal(false);
+        navigate("/dashboard");
+        return;
+      }
+
+      setLoginMfaFactorId(String(verifiedFactor.id));
+      setLoginStep("mfa");
+      setMfaCode("");
+      setMfaError(null);
+
+      toast({
+        title: "2FA obrigatório",
+        description: "Digite o código do seu app autenticador para concluir o login.",
+      });
+      // mantém pending=true até verificar o código
+      return;
     } catch (err: any) {
+      setMfaLoginPending(false);
+
       console.error("Erro inesperado no login:", err);
       setLoginError(true);
       setShakeModal(true);
@@ -404,25 +439,23 @@ export function HomeDeslogada() {
     try {
       let factorId = loginMfaFactorId;
 
-      // Se por algum motivo não temos o factorId em state, tenta resolver agora
       if (!factorId) {
         const factors = await supabase.auth.mfa.listFactors();
         if (factors.error) throw factors.error;
 
         const totpFactors = (((factors.data as any)?.totp ?? []) as any[]).filter(Boolean);
-        const verifiedFactor = totpFactors.find((f: any) => f?.status === "verified") ?? null;
+        const verifiedFactor = totpFactors.find((f: any) => f?.status === "verified") ?? totpFactors[0] ?? null;
         factorId = verifiedFactor?.id ? String(verifiedFactor.id) : null;
 
-        if (!factorId) throw new Error("Nenhum fator TOTP verified encontrado para este usuário.");
+        if (!factorId) throw new Error("Nenhum fator TOTP encontrado para este usuário.");
         setLoginMfaFactorId(factorId);
       }
 
       const cav = await supabase.auth.mfa.challengeAndVerify({ factorId, code: trimmed });
       if (cav.error) throw cav.error;
 
-      // Confirma AAL2 rapidamente (sem depender de reload)
+      // Confirma AAL2
       const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
-
       let ok = false;
       for (let i = 0; i < 3; i++) {
         await wait(250);
@@ -432,12 +465,10 @@ export function HomeDeslogada() {
           break;
         }
       }
+      if (!ok) throw new Error("Código aceito, mas AAL2 não confirmou. Tente novamente.");
 
-      if (!ok) {
-        throw new Error("Código aceito, mas AAL2 não confirmou. Tente novamente.");
-      }
-
-      toast({ title: "2FA verificado!", description: "Login concluído com sucesso." });
+      // ✅ MFA validado => libera rotas protegidas e fecha modal
+      setMfaLoginPending(false);
 
       setMfaCode("");
       setMfaError(null);
@@ -455,6 +486,9 @@ export function HomeDeslogada() {
   };
 
   const handleCancelMfaLogin = async () => {
+    // Se cancelar, não pode ficar sessão parcial + pending
+    setMfaLoginPending(false);
+
     try {
       await supabase.auth.signOut();
     } catch {}

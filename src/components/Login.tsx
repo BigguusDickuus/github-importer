@@ -27,6 +27,14 @@ export function Login() {
   const [mfaLoading, setMfaLoading] = useState(false);
   const [mfaError, setMfaError] = useState<string | null>(null);
 
+  const MFA_LOGIN_PENDING_KEY = "to_mfa_login_pending_v1";
+  const setMfaLoginPending = (pending: boolean) => {
+    try {
+      if (pending) sessionStorage.setItem(MFA_LOGIN_PENDING_KEY, "1");
+      else sessionStorage.removeItem(MFA_LOGIN_PENDING_KEY);
+    } catch {}
+  };
+
   const isEmailValid = useMemo(() => {
     if (!email) return true;
     return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
@@ -75,6 +83,7 @@ export function Login() {
       }
 
       toast({ title: "Login concluído", description: "2FA confirmado com sucesso.", variant: "default" });
+      setMfaLoginPending(false);
       resetMfaState();
       navigate("/dashboard");
     } catch (err) {
@@ -92,11 +101,20 @@ export function Login() {
 
     setLoading(true);
 
+    // default: não deixa pending “vazar” entre tentativas
+    setMfaLoginPending(false);
+
     try {
       if (isLogin) {
+        // 🔒 trava antes do signIn pra evitar corrida com redirects do app
+        setMfaLoginPending(true);
+
         const { error } = await supabase.auth.signInWithPassword({ email, password });
 
         if (error) {
+          // senha/login falhou => libera lock
+          setMfaLoginPending(false);
+
           toast({ title: "Erro ao entrar", description: error.message, variant: "destructive" });
           return;
         }
@@ -104,17 +122,24 @@ export function Login() {
         // Checar se precisa de 2FA (TOTP) e só então navegar
         try {
           const { data: aalData, error: aalError } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+
           if (aalError) {
+            // fallback: se AAL falhou, não pode travar => libera e segue
             console.warn("Erro ao checar AAL:", aalError);
+            setMfaLoginPending(false);
             navigate("/dashboard");
             return;
           }
 
-          // Se o próximo nível é AAL2 e ainda estamos em AAL1, pedir código
-          if (aalData?.nextLevel === "aal2" && aalData?.currentLevel !== "aal2") {
+          const needsMfa = aalData?.nextLevel === "aal2" && aalData?.currentLevel !== "aal2";
+
+          if (needsMfa) {
             const { data: factorsData, error: factorsError } = await supabase.auth.mfa.listFactors();
+
             if (factorsError) {
+              // fallback: não trava login se não conseguir listar factors
               console.error("Erro ao listar fatores MFA:", factorsError);
+              setMfaLoginPending(false);
               navigate("/dashboard");
               return;
             }
@@ -123,25 +148,32 @@ export function Login() {
             const verifiedTotp = totpFactors.find((f: any) => f.status === "verified") ?? totpFactors[0];
 
             if (verifiedTotp?.id) {
-              setMfaFactorId(verifiedTotp.id);
+              // ✅ MFA obrigatório => mantém pending=true e abre modal
+              setMfaFactorId(String(verifiedTotp.id));
               setShowMfa(true);
-              return; // não navega ainda
+              return; // NÃO navega ainda
             }
 
-            // Sem fator identificado: deixa passar (evita travar login)
+            // Se precisa MFA mas não achou fator (caso raro), não trava o usuário
+            setMfaLoginPending(false);
             navigate("/dashboard");
             return;
           }
 
-          // Já está em AAL2 ou não exige AAL2
+          // Não exige MFA => libera lock e navega
+          setMfaLoginPending(false);
           navigate("/dashboard");
           return;
         } catch (err) {
           console.warn("Falha ao checar MFA no login. Prosseguindo.", err);
+          setMfaLoginPending(false);
           navigate("/dashboard");
           return;
         }
       } else {
+        // signup não tem MFA aqui => garante lock off
+        setMfaLoginPending(false);
+
         const { error } = await supabase.auth.signUp({
           email,
           password,
