@@ -1692,15 +1692,30 @@ function SecuritySection({
         resetTotpSetupState();
         setShowTotpModal(false);
 
-        // Atualiza flag no profiles em background
-        supabase.auth.getUser().then(({ data }) => {
-          if (data.user) {
-            supabase
+        // Atualiza flag no profiles (aguardado; não pode ser "fire and forget")
+        try {
+          const { data: u, error: uErr } = await supabase.auth.getUser();
+          const uid = u?.user?.id;
+
+          if (uErr) {
+            console.warn("profiles.two_factor_enabled: getUser error", uErr);
+          }
+
+          if (uid) {
+            const { error: updErr } = await supabase
               .from("profiles")
               .update({ two_factor_enabled: true } as any)
-              .eq("id", data.user.id);
+              .eq("id", uid);
+
+            if (updErr) {
+              console.warn("profiles.two_factor_enabled: update error", updErr);
+            }
+          } else {
+            console.warn("profiles.two_factor_enabled: sem uid (não atualizou)");
           }
-        });
+        } catch (e) {
+          console.warn("profiles.two_factor_enabled: erro inesperado", e);
+        }
 
         return;
       }

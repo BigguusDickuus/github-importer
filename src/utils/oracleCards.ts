@@ -1,13 +1,30 @@
 // src/utils/oracleCards.ts
 import { supabase } from "@/integrations/supabase/client";
 
-export type OracleType = "tarot" | "lenormand" | "cartomancia";
+/**
+ * IMPORTANTE:
+ * - O backend/edge usa "cartomancy"
+ * - Em alguns lugares antigos do front pode existir "cartomancia"
+ * Aqui aceitamos ambos e NORMALIZAMOS para "cartomancy" internamente.
+ */
+export type OracleType = "tarot" | "lenormand" | "cartomancy" | "cartomancia";
+type OracleTypeCanonical = "tarot" | "lenormand" | "cartomancy";
+
+export function normalizeOracleType(t: any): OracleTypeCanonical {
+  if (t === "cartomancia") return "cartomancy";
+  if (t === "cartomancy") return "cartomancy";
+  if (t === "tarot") return "tarot";
+  if (t === "lenormand") return "lenormand";
+  // fallback seguro (não quebra o app)
+  console.warn("[oracleCards] normalizeOracleType: tipo desconhecido:", t);
+  return "tarot";
+}
 
 const ORACLE_BUCKET = "oracle-cards";
 
 // Cache simples em memória pra não ficar chamando getPublicUrl toda hora
 const cardUrlCache = new Map<string, string>();
-const backUrlCache = new Map<OracleType, string>();
+const backUrlCache = new Map<OracleTypeCanonical, string>();
 
 /**
  * Mapeia o código lógico da carta para o caminho no bucket.
@@ -82,12 +99,14 @@ export function getCardStoragePath(code: string): string {
  * - oracle-cards/cartomancy/cartomancy_back.png
  */
 export function getCardBackStoragePath(oracleType: OracleType): string {
-  switch (oracleType) {
+  const t = normalizeOracleType(oracleType);
+
+  switch (t) {
     case "tarot":
       return "tarot/tarot_back.png";
     case "lenormand":
       return "lenormand/lenormand_back.png";
-    case "cartomancia":
+    case "cartomancy":
       return "cartomancy/cartomancy_back.png";
     default:
       console.warn("[oracleCards] Tipo de oráculo desconhecido para verso:", oracleType);
@@ -119,17 +138,17 @@ export function getCardImageUrl(code: string): string {
  * Retorna URL pública do VERSO, com cache.
  */
 export function getCardBackImageUrl(oracleType: OracleType): string {
-  const cached = backUrlCache.get(oracleType);
+  const t = normalizeOracleType(oracleType);
+
+  const cached = backUrlCache.get(t);
   if (cached) return cached;
 
-  const path = getCardBackStoragePath(oracleType);
-  if (!path) {
-    return "";
-  }
+  const path = getCardBackStoragePath(t);
+  if (!path) return "";
 
   const { data } = supabase.storage.from(ORACLE_BUCKET).getPublicUrl(path);
   const url = data.publicUrl;
 
-  backUrlCache.set(oracleType, url);
+  backUrlCache.set(t, url);
   return url;
 }
