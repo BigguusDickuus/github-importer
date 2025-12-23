@@ -5,7 +5,13 @@ import { Shuffle, Sparkles } from "lucide-react";
 import { getCardImageUrl, getCardBackImageUrl } from "@/utils/oracleCards";
 import { supabase } from "@/integrations/supabase/client";
 
-type OracleType = "tarot" | "lenormand" | "cartomancia";
+type OracleType = "tarot" | "lenormand" | "cartomancia" | "cartomancy";
+
+type OracleTypeApi = "tarot" | "lenormand" | "cartomancy";
+
+function toApiOracleType(t: OracleType): OracleTypeApi {
+  return t === "cartomancia" ? "cartomancy" : (t as OracleTypeApi);
+}
 
 interface OracleDeck {
   type: OracleType;
@@ -63,6 +69,7 @@ const TOTAL_CARDS: Record<OracleType, number> = {
   tarot: 78,
   lenormand: 36,
   cartomancia: 52,
+  cartomancy: 52,
 };
 
 // Casas fixas do Grand Tableau (Lenormand)
@@ -110,6 +117,7 @@ const ORACLE_NAMES: Record<OracleType, string> = {
   tarot: "Tarot",
   lenormand: "Lenormand",
   cartomancia: "Cartomancia Clássica",
+  cartomancy: "Cartomancia Clássica",
 };
 
 const TAROT_MAJORS: Record<number, string> = {
@@ -910,7 +918,7 @@ export function CardSelectionModal({
 
       const { data, error } = await supabase.functions.invoke("rerandomize-oracle", {
         body: {
-          oracle_type: oracleType,
+          oracle_type: toApiOracleType(oracleType),
           spread_code: spreadCode,
         },
       });
