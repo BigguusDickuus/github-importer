@@ -8,6 +8,8 @@ interface ProtectedRouteProps {
 }
 
 const MFA_BUSY_UNTIL_KEY = "to_mfa_busy_until";
+const LAST_USER_ID_KEY = "to_last_user_id_v1";
+
 const isMfaBusy = () => {
   try {
     const until = Number(sessionStorage.getItem(MFA_BUSY_UNTIL_KEY) || "0");
@@ -15,6 +17,25 @@ const isMfaBusy = () => {
   } catch {
     return false;
   }
+};
+
+const getStoredUserId = (): string | null => {
+  try {
+    return localStorage.getItem(LAST_USER_ID_KEY);
+  } catch {
+    return null;
+  }
+};
+
+const setStoredUserId = (userId: string) => {
+  try {
+    localStorage.setItem(LAST_USER_ID_KEY, userId);
+  } catch {}
+};
+
+const isGetUserTimeout = (err: any) => {
+  const msg = String(err?.message ?? err ?? "");
+  return msg.includes("GET_USER_TIMEOUT");
 };
 
 const getUserWithTimeout = async (timeoutMs: number) => {
@@ -29,29 +50,6 @@ const getUserWithTimeout = async (timeoutMs: number) => {
   } finally {
     if (timerId !== null) window.clearTimeout(timerId);
   }
-};
-
-const getStoredUserId = (): string | null => {
-  try {
-    for (let i = 0; i < localStorage.length; i++) {
-      const k = localStorage.key(i);
-      if (!k) continue;
-      if (!/^sb-.*-auth-token$/.test(k)) continue;
-
-      const raw = localStorage.getItem(k);
-      if (!raw) continue;
-
-      const parsed = JSON.parse(raw);
-      const id = parsed?.user?.id ?? parsed?.currentSession?.user?.id ?? null;
-      if (id) return id;
-    }
-  } catch {}
-  return null;
-};
-
-const isGetUserTimeout = (err: any) => {
-  const msg = String(err?.message ?? err ?? "");
-  return msg.includes("GET_USER_TIMEOUT");
 };
 
 export function ProtectedRoute({ children, requireAdmin = false }: ProtectedRouteProps) {
@@ -72,21 +70,23 @@ export function ProtectedRoute({ children, requireAdmin = false }: ProtectedRout
     if (bootstrap) setChecking(true);
 
     try {
-      // Durante MFA, não revalida no wake/focus (isso é o que detonava tudo).
+      // Durante MFA (janela crítica), não revalida no wake/focus (evita deadlock).
       if (!bootstrap && isMfaBusy()) return;
 
       const { data, error } = await getUserWithTimeout(3500);
-
       if (!mountedRef.current) return;
 
-      if (error || !data.user) {
+      const user = data?.user ?? null;
+
+      if (error || !user) {
         const storedUserId = getStoredUserId();
 
-        // Se foi timeout, NÃO desloga.
-        // - Em rotas NÃO-admin, deixa passar se houver token/sessão no storage.
-        // - Em rotas admin, mantém carregando e tenta de novo (segurança).
+        // Timeout: NÃO desloga.
+        // Segurança:
+        // - Rotas admin: NÃO libera por storage.
+        // - Rotas não-admin: só libera por storage SE estivermos em janela MFA busy
+        //   (para não expulsar durante verificação), caso contrário mantém retry.
         if (isGetUserTimeout(error)) {
-          // Timeout NÃO pode liberar rota se não estivermos explicitamente no "período de MFA busy".
           if (!requireAdmin && storedUserId && isMfaBusy()) {
             setAllowed(true);
             setChecking(false);
@@ -99,20 +99,20 @@ export function ProtectedRoute({ children, requireAdmin = false }: ProtectedRout
           return;
         }
 
-          setChecking(true);
-          window.setTimeout(() => runCheck({ bootstrap: false }), 800);
-          return;
-        }
-
         setAllowed(false);
         setChecking(false);
         navigate("/", { replace: true, state: { from: location } });
         return;
       }
 
-            // 🔒 Enforce MFA (AAL2): se nextLevel=aal2 e current!=aal2, bloqueia rotas logadas
+      // Guarda id para casos transitórios de timeout (apenas referência, não auth real)
+      if (user?.id) setStoredUserId(user.id);
+
+      // 🔒 Enforce MFA (AAL2) para rotas logadas:
+      // Se o usuário tem MFA configurado (nextLevel=aal2) e ainda está em AAL1, bloqueia.
       try {
         const { data: aalData, error: aalError } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+
         if (!aalError) {
           const needsMfa = aalData?.nextLevel === "aal2" && aalData?.currentLevel !== "aal2";
           if (needsMfa) {
@@ -123,7 +123,7 @@ export function ProtectedRoute({ children, requireAdmin = false }: ProtectedRout
           }
         }
       } catch {
-        // se der pau aqui, não assume MFA; segue a regra atual
+        // se falhar AAL check, não assume MFA; segue fluxo normal
       }
 
       if (!requireAdmin) {
@@ -132,7 +132,7 @@ export function ProtectedRoute({ children, requireAdmin = false }: ProtectedRout
         return;
       }
 
-      const userId = data.user.id;
+      const userId = user.id;
 
       const { data: profile, error: profileError } = await supabase
         .from("profiles")
@@ -151,7 +151,7 @@ export function ProtectedRoute({ children, requireAdmin = false }: ProtectedRout
 
       setAllowed(true);
       setChecking(false);
-    } catch (e) {
+    } catch (e: any) {
       if (!mountedRef.current) return;
 
       const storedUserId = getStoredUserId();
@@ -163,11 +163,6 @@ export function ProtectedRoute({ children, requireAdmin = false }: ProtectedRout
           window.setTimeout(() => runCheck({ bootstrap: false }), 800);
           return;
         }
-
-        setChecking(true);
-        window.setTimeout(() => runCheck({ bootstrap: false }), 800);
-        return;
-      }
 
         setChecking(true);
         window.setTimeout(() => runCheck({ bootstrap: false }), 800);
