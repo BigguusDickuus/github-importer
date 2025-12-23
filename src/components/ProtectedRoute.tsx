@@ -86,7 +86,8 @@ export function ProtectedRoute({ children, requireAdmin = false }: ProtectedRout
         // - Em rotas NÃO-admin, deixa passar se houver token/sessão no storage.
         // - Em rotas admin, mantém carregando e tenta de novo (segurança).
         if (isGetUserTimeout(error)) {
-          if (!requireAdmin && storedUserId) {
+          // Timeout NÃO pode liberar rota se não estivermos explicitamente no "período de MFA busy".
+          if (!requireAdmin && storedUserId && isMfaBusy()) {
             setAllowed(true);
             setChecking(false);
             window.setTimeout(() => runCheck({ bootstrap: false }), 800);
@@ -98,10 +99,31 @@ export function ProtectedRoute({ children, requireAdmin = false }: ProtectedRout
           return;
         }
 
+          setChecking(true);
+          window.setTimeout(() => runCheck({ bootstrap: false }), 800);
+          return;
+        }
+
         setAllowed(false);
         setChecking(false);
         navigate("/", { replace: true, state: { from: location } });
         return;
+      }
+
+            // 🔒 Enforce MFA (AAL2): se nextLevel=aal2 e current!=aal2, bloqueia rotas logadas
+      try {
+        const { data: aalData, error: aalError } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+        if (!aalError) {
+          const needsMfa = aalData?.nextLevel === "aal2" && aalData?.currentLevel !== "aal2";
+          if (needsMfa) {
+            setAllowed(false);
+            setChecking(false);
+            navigate("/", { replace: true, state: { from: location, mfaRequired: true } });
+            return;
+          }
+        }
+      } catch {
+        // se der pau aqui, não assume MFA; segue a regra atual
       }
 
       if (!requireAdmin) {
@@ -135,12 +157,17 @@ export function ProtectedRoute({ children, requireAdmin = false }: ProtectedRout
       const storedUserId = getStoredUserId();
 
       if (isGetUserTimeout(e)) {
-        if (!requireAdmin && storedUserId) {
+        if (!requireAdmin && storedUserId && isMfaBusy()) {
           setAllowed(true);
           setChecking(false);
           window.setTimeout(() => runCheck({ bootstrap: false }), 800);
           return;
         }
+
+        setChecking(true);
+        window.setTimeout(() => runCheck({ bootstrap: false }), 800);
+        return;
+      }
 
         setChecking(true);
         window.setTimeout(() => runCheck({ bootstrap: false }), 800);
