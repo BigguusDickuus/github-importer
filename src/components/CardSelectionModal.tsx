@@ -407,13 +407,12 @@ function formatCardLabel(type: OracleType, code?: string, reversed?: boolean): s
 
   // ===== LENORMAND =====
   if (type === "lenormand") {
-    const numMatch = upper.match(/\b([1-9]|[12]\d|3[0-6])\b/);
-    if (numMatch) {
-      const n = Number(numMatch[1]);
-      if (LENORMAND_NAMES[n]) return LENORMAND_NAMES[n];
-    }
-    return base;
-  }
+    const numMatch = upper.match(/(?:^|_)(0?[1-9]|[12]\d|3[0-6])(?:_|$)/);
+if (numMatch) {
+  const n = parseInt(numMatch[1], 10);
+  if (LENORMAND_NAMES[n]) return `${String(n).padStart(2, "0")} - ${LENORMAND_NAMES[n]}`;
+}
+return base;
 
   // ===== CARTOMANCIA =====
   if (type === "cartomancia") {
@@ -439,8 +438,10 @@ function formatCardLabel(type: OracleType, code?: string, reversed?: boolean): s
             ? "Espadas"
             : null;
 
-    const r =
-      upper.match(/\b(A|ACE|K|KING|Q|QUEEN|J|JACK|10|[2-9])\b/)?.[1] || upper.match(/(A|K|Q|J|10|[2-9])$/)?.[1] || null;
+const r =
+  upper.match(/(?:^|_)(A|ACE|K|KING|Q|QUEEN|J|JACK|10|[2-9])(?:_|$)/)?.[1] ||
+  upper.match(/(A|K|Q|J|10|[2-9])$/)?.[1] ||
+  null;
 
     const rankLabel = r ? rankMap[r] || (r === "1" ? "Ás" : r) : null;
     if (rankLabel && suit) return `${rankLabel} de ${suit}`;
