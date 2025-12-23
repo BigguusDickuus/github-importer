@@ -57,9 +57,6 @@ export function HomeDeslogada() {
   const [loginPassword, setLoginPassword] = useState("");
   const [loginLoading, setLoginLoading] = useState(false);
 
-  // Step do modal (mesmo modal)
-  const [loginStep, setLoginStep] = useState<"credentials" | "mfa">("credentials");
-
   // Signup form states
   const [signupEmail, setSignupEmail] = useState("");
   const [signupPassword, setSignupPassword] = useState("");
