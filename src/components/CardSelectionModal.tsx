@@ -233,7 +233,6 @@ function formatCardLabel(type: OracleType, code?: string, reversed?: boolean): s
   if (type === "tarot") {
     const hasSuitHint = /(wands|paus|cups|copas|swords|espadas|pentacles|coins|ouros)/i.test(key);
 
-    // Detecta majors por número (major_XX, arcana_XX, etc) OU por prefixo numérico (ex: "00_o_louco")
     const majorNumMatch =
       key.match(/(?:^|_)(?:major|majors|arcana|arcanos|trump|trunfo)_?([01]?\d|2[01])(?:_|$)/) ||
       (!hasSuitHint ? key.match(/^(0?\d|1\d|2[01])(?:_|$)/) : null);
@@ -243,7 +242,6 @@ function formatCardLabel(type: OracleType, code?: string, reversed?: boolean): s
       if (Number.isFinite(n) && TAROT_MAJORS[n]) return TAROT_MAJORS[n] + (isRev ? " (invertida)" : "");
     }
 
-    // Detecta majors por romano (i..xxi) quando NÃO houver pista de naipe
     if (!hasSuitHint) {
       const romanMatch = key.match(
         /^(0|i|ii|iii|iv|v|vi|vii|viii|ix|x|xi|xii|xiii|xiv|xv|xvi|xvii|xviii|xix|xx|xxi)(?:_|$)/,
@@ -254,9 +252,7 @@ function formatCardLabel(type: OracleType, code?: string, reversed?: boolean): s
       }
     }
 
-    // Detecta majors por slug (inglês/pt)
     const majorSlugMap: Record<string, string> = {
-      // EN
       fool: "O Louco",
       the_fool: "O Louco",
       magician: "O Mago",
@@ -306,7 +302,6 @@ function formatCardLabel(type: OracleType, code?: string, reversed?: boolean): s
       world: "O Mundo",
       the_world: "O Mundo",
 
-      // PT (sem acento por normalizeKey)
       louco: "O Louco",
       mago: "O Mago",
       sacerdotisa: "A Sacerdotisa",
@@ -332,7 +327,6 @@ function formatCardLabel(type: OracleType, code?: string, reversed?: boolean): s
       mundo: "O Mundo",
     };
 
-    // Se não tem pista de naipe no nome, tenta slug de major antes dos minors
     if (!hasSuitHint) {
       const direct = key
         .replace(/^tarot_/, "")
@@ -350,7 +344,6 @@ function formatCardLabel(type: OracleType, code?: string, reversed?: boolean): s
       }
     }
 
-    // ===== Minors (rank + suit) =====
     const rankMap: Record<string, string> = {
       A: "Ás",
       ACE: "Ás",
@@ -407,42 +400,60 @@ function formatCardLabel(type: OracleType, code?: string, reversed?: boolean): s
 
   // ===== LENORMAND =====
   if (type === "lenormand") {
-    const numMatch = upper.match(/\b([1-9]|[12]\d|3[0-6])\b/);
-    if (numMatch) {
-      const n = Number(numMatch[1]);
-      if (LENORMAND_NAMES[n]) return LENORMAND_NAMES[n];
-    }
+    // pega o número do código, aceitando zero à esquerda (01..36)
+    const m = upper.match(/LENORMAND_(\d{1,2})_/i) || upper.match(/\b0?([1-9]|[12]\d|3[0-6])\b/);
+    const n = m ? Number(m[1]) : NaN;
+    if (Number.isFinite(n) && LENORMAND_NAMES[n]) return LENORMAND_NAMES[n];
     return base;
   }
 
   // ===== CARTOMANCIA =====
-  if (type === "cartomancia") {
+  if ((type as any) === "cartomancy" || (type as any) === "cartomancia") {
+    const suitMap: Record<string, string> = {
+      CLUBS: "Paus",
+      HEARTS: "Copas",
+      SPADES: "Espadas",
+      DIAMONDS: "Ouros",
+    };
+
     const rankMap: Record<string, string> = {
       A: "Ás",
       ACE: "Ás",
-      "1": "Ás",
-      J: "Valete",
-      JACK: "Valete",
-      Q: "Rainha",
-      QUEEN: "Rainha",
       K: "Rei",
       KING: "Rei",
+      Q: "Rainha",
+      QUEEN: "Rainha",
+      J: "Valete",
+      JACK: "Valete",
+      "1": "Ás",
     };
 
-    const suit = /HEART|COPAS|\bH\b/i.test(upper)
+    // tenta parse direto do padrão cartomancy_<suit>_<rank>
+    const m = upper.match(/CARTOMANCY_(CLUBS|HEARTS|SPADES|DIAMONDS)_(A|K|Q|J|10|[2-9])$/i);
+    if (m) {
+      const suit = suitMap[m[1].toUpperCase()] ?? null;
+      const r = m[2].toUpperCase();
+      const rank = rankMap[r] ?? r;
+      if (suit) return `${rank} de ${suit}`;
+    }
+
+    // fallback (se vier em outro formato)
+    const suit = /HEART|COPAS/i.test(upper)
       ? "Copas"
-      : /DIAMOND|OUROS|\bD\b/i.test(upper)
+      : /DIAMOND|OUROS/i.test(upper)
         ? "Ouros"
-        : /CLUB|PAUS|\bC\b/i.test(upper)
+        : /CLUB|PAUS/i.test(upper)
           ? "Paus"
-          : /SPADE|ESPADAS|\bS\b/i.test(upper)
+          : /SPADE|ESPADAS/i.test(upper)
             ? "Espadas"
             : null;
 
     const r =
-      upper.match(/\b(A|ACE|K|KING|Q|QUEEN|J|JACK|10|[2-9])\b/)?.[1] || upper.match(/(A|K|Q|J|10|[2-9])$/)?.[1] || null;
+      upper.match(/(A|K|Q|J|10|[2-9])$/i)?.[1] ||
+      upper.match(/\b(A|ACE|K|KING|Q|QUEEN|J|JACK|10|[2-9])\b/i)?.[1] ||
+      null;
 
-    const rankLabel = r ? rankMap[r] || (r === "1" ? "Ás" : r) : null;
+    const rankLabel = r ? rankMap[r.toUpperCase()] || (r === "1" ? "Ás" : r) : null;
     if (rankLabel && suit) return `${rankLabel} de ${suit}`;
     return base;
   }
