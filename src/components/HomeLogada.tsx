@@ -230,6 +230,11 @@ export function HomeLogada() {
   const [readingSpreadLabel, setReadingSpreadLabel] = useState<string>("Consulta personalizada");
   const [readingSelectedCards, setReadingSelectedCards] = useState<number[]>([]);
 
+  const handleCloseReadingResultModal = () => {
+    setShowReadingResultModal(false);
+    setQuestion(""); // limpa o input da pergunta ao fechar o resultado
+  };
+
   // Função reutilizável: busca saldo de créditos e preferência de contexto
   const fetchCreditsAndPreferences = async () => {
     try {
@@ -581,11 +586,6 @@ export function HomeLogada() {
     if (!question.trim()) {
       return;
     }
-
-    const handleCloseReadingResultModal = () => {
-      setShowReadingResultModal(false);
-      setQuestion(""); // <-- limpa o input da pergunta na Home
-    };
 
     // Monta label combinada para o modal
     const combinedSpreadLabel = buildCombinedSpreadLabel(currentOracleQueue);
