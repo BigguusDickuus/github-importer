@@ -79,7 +79,7 @@ export function ReadingResultModal({
         <div className="space-y-3">
           <p className="text-sm text-amber-300/90 flex items-center gap-2">
             <Sparkles className="w-4 h-4" />
-            Interpretação gerada por IA, personalizada para o seu jogo.
+            Interpretação ao vivo, personalizada para o seu jogo.
           </p>
 
           <div className="bg-midnight-surface border border-obsidian-border rounded-xl px-4 py-3 text-sm">

@@ -582,6 +582,11 @@ export function HomeLogada() {
       return;
     }
 
+    const handleCloseReadingResultModal = () => {
+      setShowReadingResultModal(false);
+      setQuestion(""); // <-- limpa o input da pergunta na Home
+    };
+
     // Monta label combinada para o modal
     const combinedSpreadLabel = buildCombinedSpreadLabel(currentOracleQueue);
     const flattenedSelection = Object.values(finalSelections).flat();
@@ -1668,7 +1673,7 @@ export function HomeLogada() {
       {/* Reading Result Modal */}
       <ReadingResultModal
         isOpen={showReadingResultModal}
-        onClose={() => setShowReadingResultModal(false)}
+        onClose={handleCloseReadingResultModal}
         spread={readingSpreadLabel}
         question={question}
         selectedCards={readingSelectedCards}
