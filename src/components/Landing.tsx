@@ -336,6 +336,35 @@ export function HomeDeslogada() {
         setMfaLoginPending(false);
 
         console.error("Erro ao fazer login:", error);
+
+        // ✅ Caso específico: usuário existe, mas NÃO confirmou o e-mail
+        const errorMessage = String((error as any)?.message ?? "");
+        const errorName = String((error as any)?.name ?? "");
+        const errorStatus = (error as any)?.status;
+
+        const isEmailNotConfirmed =
+          errorStatus === 400 && errorName === "AuthApiError" && /email not confirmed/i.test(errorMessage);
+
+        if (isEmailNotConfirmed) {
+          // Mostra HelloBar persistente (ela já tem autoCloseDelay=0 no JSX)
+          setShowEmailValidationBar(true);
+
+          // Não treme o modal como "login inválido", porque aqui não é senha errada
+          setLoginError(false);
+          setShakeModal(false);
+
+          // (opcional) toast mais amigável (sem destructive)
+          toast({
+            title: "Confirme seu e-mail",
+            description:
+              "Você precisa clicar no link de verificação que enviamos para seu e-mail antes de fazer login.",
+            variant: "default",
+          });
+
+          return;
+        }
+
+        // ❌ Qualquer outro erro: mantém o comportamento atual (shake + erro genérico)
         setLoginError(true);
         setShakeModal(true);
         setTimeout(() => setShakeModal(false), 600);
@@ -1006,7 +1035,7 @@ export function HomeDeslogada() {
     <div className="min-h-screen bg-night-sky text-moonlight-text relative">
       {/* Hello Bars */}
       <HelloBar
-        message="Usuário criado com sucesso! Enviamos um email para validação, confira-o."
+        message="Usuário criado com sucesso"
         type="success"
         show={showSuccessBar}
         onClose={() => setShowSuccessBar(false)}
