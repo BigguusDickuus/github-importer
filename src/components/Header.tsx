@@ -360,7 +360,10 @@ export function Header({ isLoggedIn = false, onBuyCredits, onLoginClick }: Heade
               {/* Logo */}
               <Link to={isLoggedIn ? "/dashboard" : "/"} className="flex items-center gap-3 group">
                 {/* Mesa dos Oráculos Logo */}
-                <div className="w-10 h-10 bg-midnight-surface rounded-lg flex items-center justify-center border border-obsidian-border">
+                <div
+                  className="w-10 h-10 rounded-lg flex items-center justify-center border border-obsidian-border"
+                  style={{ background: "linear-gradient(135deg, #6366F1 0%, #F97316 100%)" }}
+                >
                   <img
                     src="https://jhlosmgvlvjaemtgrhka.supabase.co/storage/v1/object/public/images/mdo_logo.png"
                     alt="Mesa dos Oráculos"
