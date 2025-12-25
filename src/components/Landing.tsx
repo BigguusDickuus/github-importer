@@ -71,6 +71,9 @@ export function HomeDeslogada() {
   const [loginEmail, setLoginEmail] = useState("");
   const [loginPassword, setLoginPassword] = useState("");
   const [loginLoading, setLoginLoading] = useState(false);
+  const [resendPending, setResendPending] = useState(false);
+  const [resendDone, setResendDone] = useState(false);
+  const [resendError, setResendError] = useState<string | null>(null);
 
   // Signup form states
   const [signupEmail, setSignupEmail] = useState("");
@@ -361,6 +364,10 @@ export function HomeDeslogada() {
             variant: "default",
           });
 
+          setResendDone(false);
+          setResendError(null);
+          setResendPending(false);
+
           return;
         }
 
@@ -450,6 +457,35 @@ export function HomeDeslogada() {
       });
     } finally {
       setLoginLoading(false);
+    }
+  };
+
+  const handleResendConfirmationEmail = async () => {
+    try {
+      setResendPending(true);
+      setResendDone(false);
+      setResendError(null);
+
+      const email = (loginEmail || "").trim();
+      if (!email) {
+        setResendError("Digite seu e-mail acima para reenviar a confirmação.");
+        return;
+      }
+
+      const { error } = await supabase.auth.resend({
+        type: "signup",
+        email,
+        // opcional: para onde o link leva depois de confirmar
+        // options: { emailRedirectTo: "https://mesadosoraculos.com.br" },
+      });
+
+      if (error) throw error;
+
+      setResendDone(true);
+    } catch (e: any) {
+      setResendError(e?.message || "Não foi possível reenviar agora. Tente novamente em instantes.");
+    } finally {
+      setResendPending(false);
     }
   };
 
@@ -1874,6 +1910,32 @@ export function HomeDeslogada() {
                         {loginError && (
                           <div className="w-full flex justify-center">
                             <p className="text-sm text-oracle-ember text-center">Login inválido</p>
+                          </div>
+                        )}
+                        {showEmailValidationBar && (
+                          <div className="rounded-lg border border-mystic-indigo/30 bg-mystic-indigo/10 p-3 space-y-2">
+                            <p className="text-sm text-moonlight-text/90">
+                              Seu e-mail ainda não foi confirmado. Clique no link que enviamos para você.
+                            </p>
+
+                            <div className="flex items-center gap-3">
+                              <Button
+                                type="button"
+                                onClick={handleResendConfirmationEmail}
+                                disabled={resendPending}
+                                className="bg-mystic-indigo hover:bg-mystic-indigo-dark text-starlight-text"
+                              >
+                                {resendPending ? "Reenviando..." : "Reenviar e-mail de verificação"}
+                              </Button>
+
+                              {resendDone && (
+                                <span className="text-sm text-verdant-success">
+                                  Reenviado! Verifique sua caixa de entrada.
+                                </span>
+                              )}
+                            </div>
+
+                            {resendError && <p className="text-sm text-blood-moon-error">{resendError}</p>}
                           </div>
                         )}
 
