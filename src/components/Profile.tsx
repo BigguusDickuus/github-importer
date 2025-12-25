@@ -2418,9 +2418,9 @@ function TarotOnlineFooter() {
   })();
 
   const openMailto = () => {
-    const subject = (contactSubject || "Contato pelo Tarot Online").trim();
+    const subject = (contactSubject || "Contato pelo Mesa dos Oráculos").trim();
     const body = [
-      "Mensagem enviada pelo site Tarot Online",
+      "Mensagem enviada pelo site Mesa dos Oráculos",
       "",
       `Nome: ${contactName || "-"}`,
       `Email: ${contactEmail || "-"}`,
@@ -2446,7 +2446,7 @@ function TarotOnlineFooter() {
           </p>
 
           <div className="space-y-2">
-            <h4 className="text-starlight-text text-base">Como usamos aqui no Tarot Online</h4>
+            <h4 className="text-starlight-text text-base">Como usamos aqui no Mesa dos Oráculos</h4>
             <p>
               Você escolhe um método (tiragem), embaralha e seleciona as cartas. A leitura entrega uma interpretação
               detalhada, conectando os símbolos ao seu tema e ao momento da pergunta.
@@ -2484,7 +2484,7 @@ function TarotOnlineFooter() {
           </p>
 
           <div className="space-y-2">
-            <h4 className="text-starlight-text text-base">Como usamos aqui no Tarot Online</h4>
+            <h4 className="text-starlight-text text-base">Como usamos aqui no Mesa dos Oráculos</h4>
             <p>
               Você escolhe o método, embaralha e seleciona as cartas. A leitura interpreta combinações e conexões entre
               os símbolos, trazendo um mapa claro do tema consultado.
@@ -2519,7 +2519,7 @@ function TarotOnlineFooter() {
           </p>
 
           <div className="space-y-2">
-            <h4 className="text-starlight-text text-base">Como usamos aqui no Tarot Online</h4>
+            <h4 className="text-starlight-text text-base">Como usamos aqui no Mesa dos Oráculos</h4>
             <p>
               Você escolhe o método, embaralha e seleciona as cartas. A leitura interpreta naipes, números e
               combinações, trazendo direção e clareza para o tema consultado.
@@ -2569,7 +2569,7 @@ function TarotOnlineFooter() {
       return (
         <div className="space-y-4 text-sm text-moonlight-text/80 leading-relaxed">
           <p className="text-moonlight-text/70">
-            Última atualização: 2025. Ao usar o Tarot Online, você concorda com estes Termos.
+            Última atualização: 2025. Ao usar o Mesa dos Oráculos, você concorda com estes Termos.
           </p>
 
           <div className="space-y-2">
@@ -2800,7 +2800,7 @@ function TarotOnlineFooter() {
                   <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-mystic-indigo to-oracle-ember flex items-center justify-center">
                     <Sparkles className="w-5 h-5 text-starlight-text" />
                   </div>
-                  <span className="text-xl text-starlight-text">Tarot Online</span>
+                  <span className="text-xl text-starlight-text">Mesa dos Oráculos</span>
                 </div>
                 <small className="block text-moonlight-text/70 leading-relaxed">
                   Consultas de Tarot, Lenormand (Baralho Cigano) e Cartomancia Clássica disponíveis 24/7 com
@@ -2896,7 +2896,7 @@ function TarotOnlineFooter() {
 
             {/* Bottom bar */}
             <div className="pt-8 border-t border-obsidian-border flex flex-col md:flex-row items-center justify-between gap-4">
-              <p className="text-sm text-moonlight-text/60">© 2025 Tarot Online. Todos os direitos reservados.</p>
+              <p className="text-sm text-moonlight-text/60">© 2025 Mesa dos Oráculos. Todos os direitos reservados.</p>
               <div className="flex items-center gap-6 text-sm text-moonlight-text/60">
                 <span>Feito com 🔮 para você</span>
               </div>

@@ -1,8 +1,8 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import { Menu, X, Sparkles, ChevronDown } from "lucide-react";
 import { Button } from "./ui/button";
-import { supabase, resetSupabaseClient } from "@/integrations/supabase/client";
+import { supabase } from "@/integrations/supabase/client";
 
 interface HeaderProps {
   isLoggedIn?: boolean;
@@ -15,305 +15,65 @@ export function Header({ isLoggedIn = false, onBuyCredits, onLoginClick }: Heade
   const [profileDropdownOpen, setProfileDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
-  const location = useLocation();
-
   const [credits, setCredits] = useState<number | null>(null);
   const [creditsLoading, setCreditsLoading] = useState(false);
-
-  const [isAdmin, setIsAdmin] = useState(false);
-  const [adminLoading, setAdminLoading] = useState(false);
-
-  const MFA_BUSY_UNTIL_KEY = "to_mfa_busy_until";
-  const isMfaBusy = () => {
-    try {
-      const until = Number(sessionStorage.getItem(MFA_BUSY_UNTIL_KEY) || "0");
-      return until > 0 && Date.now() < until;
-    } catch {
-      return false;
-    }
-  };
-
-  const REQUEST_TIMEOUT_MS = 3500;
-
-  const withTimeout = async <T,>(p: PromiseLike<T>, label: string, ms: number = REQUEST_TIMEOUT_MS): Promise<T> => {
-    let t: ReturnType<typeof setTimeout> | undefined;
-    const timeoutPromise = new Promise<never>((_, rej) => {
-      t = setTimeout(() => rej(new Error(`${label}_TIMEOUT`)), ms);
-    });
-
-    try {
-      return (await Promise.race([p as any, timeoutPromise])) as T;
-    } finally {
-      if (t) clearTimeout(t);
-    }
-  };
-
-  const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
-  const getStoredUserId = (): string | null => {
-    try {
-      for (let i = 0; i < localStorage.length; i++) {
-        const k = localStorage.key(i);
-        if (!k) continue;
-        if (!/^sb-.*-auth-token$/.test(k)) continue;
-
-        const raw = localStorage.getItem(k);
-        if (!raw) continue;
-
-        const parsed = JSON.parse(raw);
-        const id = parsed?.user?.id ?? parsed?.currentSession?.user?.id ?? null;
-        if (id) return id;
-      }
-    } catch {}
-    return null;
-  };
-
-  const getUserIdSafe = async (): Promise<string | null> => {
-    // 1) Primeiro tenta storage (não trava)
-    const stored = getStoredUserId();
-    if (stored) return stored;
-
-    // 2) Durante MFA/transições, não bate em getUser
-    if (isMfaBusy()) return null;
-
-    // 3) getUser com timeout curto (pra não travar UI)
-    let timerId: number | null = null;
-    const timeoutPromise = new Promise<never>((_, reject) => {
-      timerId = window.setTimeout(() => reject(new Error("GET_USER_TIMEOUT")), 2500);
-    });
-
-    try {
-      const res = (await Promise.race([supabase.auth.getUser(), timeoutPromise])) as any;
-      const data = res?.data;
-      const error = res?.error;
-
-      if (error) {
-        const msg = (error as any)?.message ?? "";
-        if (msg.includes("Auth session missing")) return null;
-        console.error("Header: erro getUser:", error);
-        return null;
-      }
-
-      return data?.user?.id ?? null;
-    } catch (e) {
-      // fallback final
-      return getStoredUserId();
-    } finally {
-      if (timerId !== null) window.clearTimeout(timerId);
-    }
-  };
-
-  const fetchCreditsForUser = async (userId: string) => {
-    const run = () =>
-      withTimeout(
-        supabase.from("credit_balances").select("balance").eq("user_id", userId).maybeSingle(),
-        "CREDIT_BALANCE",
-      );
-
-    let data: any = null;
-    let error: any = null;
-
-    try {
-      const res = await run();
-      data = (res as any).data;
-      error = (res as any).error;
-    } catch (err) {
-      console.warn("[Header] credit_balances timeout/erro; resetando client e tentando de novo", err);
-      resetSupabaseClient();
-      await sleep(150);
-      const res2 = await run();
-      data = (res2 as any).data;
-      error = (res2 as any).error;
-    }
-    if (error) {
-      console.error("Erro ao buscar créditos:", error);
-      // não apaga créditos por erro; mantém último valor
-      return;
-    }
-
-    setCredits(data?.balance ?? 0);
-  };
-
-  const fetchIsAdminForUser = async (userId: string) => {
-    const run = () =>
-      withTimeout(supabase.from("profiles").select("is_admin").eq("id", userId).maybeSingle(), "IS_ADMIN");
-
-    let data: any = null;
-    let error: any = null;
-
-    try {
-      const res = await run();
-      data = (res as any).data;
-      error = (res as any).error;
-    } catch (err) {
-      console.warn("[Header] is_admin timeout/erro; resetando client e tentando de novo", err);
-      resetSupabaseClient();
-      await sleep(150);
-      const res2 = await run();
-      data = (res2 as any).data;
-      error = (res2 as any).error;
-    }
-    if (error) {
-      console.error("Erro ao buscar is_admin:", error);
-      setIsAdmin(false);
-      return;
-    }
-
-    setIsAdmin(!!data?.is_admin);
-  };
+  const location = useLocation();
 
   const fetchCredits = async () => {
     try {
       setCreditsLoading(true);
 
-      const userId = await getUserIdSafe();
-      if (!userId) return;
+      // 1) Pega usuário atual
+      const {
+        data: { user },
+        error: userError,
+      } = await supabase.auth.getUser();
 
-      await fetchCreditsForUser(userId);
+      if (userError) {
+        console.error("Erro ao buscar usuário logado:", userError);
+        setCredits(null);
+        return;
+      }
+
+      if (!user) {
+        // Não logado → sem saldo
+        setCredits(null);
+        return;
+      }
+
+      // 2) Pega saldo na tabela credit_balances
+      const { data, error } = await supabase
+        .from("credit_balances")
+        .select("balance")
+        .eq("user_id", user.id)
+        .maybeSingle(); // retorna null se não tiver linha
+
+      if (error) {
+        console.error("Erro ao buscar créditos:", error);
+        // Se der erro de RLS ou qualquer outra coisa, melhor mostrar 0 do que quebrar
+        setCredits(null);
+        return;
+      }
+
+      if (!data) {
+        // Sem linha -> assume saldo 0
+        setCredits(0);
+        return;
+      }
+
+      setCredits(data.balance ?? 0);
     } catch (err) {
       console.error("Erro inesperado ao buscar créditos:", err);
-      // NÃO apaga créditos por erro/transição; mantém último valor
+      setCredits(null);
     } finally {
       setCreditsLoading(false);
     }
   };
 
-  const fetchIsAdmin = async () => {
-    try {
-      setAdminLoading(true);
-
-      const userId = await getUserIdSafe();
-      if (!userId) return;
-
-      await fetchIsAdminForUser(userId);
-    } catch (err) {
-      console.error("Erro inesperado ao buscar is_admin:", err);
-      setIsAdmin(false);
-    } finally {
-      setAdminLoading(false);
-    }
-  };
-
-  // 1) Recarrega por mudança de rota / isLoggedIn
   useEffect(() => {
-    // Mesmo durante MFA, buscar créditos é seguro porque getUserIdSafe tenta storage primeiro.
-    void fetchCredits();
-
-    if (isLoggedIn) void fetchIsAdmin();
-    else setIsAdmin(false);
+    fetchCredits();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [location.pathname, isLoggedIn]);
-
-  // 2) ✅ O que realmente destrava: quando a sessão “aparece” após login, refaz fetch
-  useEffect(() => {
-    const { data } = supabase.auth.onAuthStateChange(async (event, session) => {
-      // Em eventos MFA, o GoTrue pode ficar sensível a chamadas concorrentes (getUser/select),
-      // e isso costuma travar exatamente no challengeAndVerify.
-      // Então: não faz fetch aqui; agenda um refresh curto após estabilizar.
-      const ev = String(event || "");
-      if (isMfaBusy() || ev.startsWith("MFA_")) {
-        // Não cancela por busy: fetchCredits usa storage primeiro.
-        const schedule = (ms: number) => {
-          window.setTimeout(() => {
-            void fetchCredits();
-            if (isLoggedIn) void fetchIsAdmin();
-          }, ms);
-        };
-
-        schedule(300);
-        schedule(1200);
-        schedule(3500);
-        return;
-      }
-
-      const userId = session?.user?.id ?? null;
-
-      // Em eventos de MFA, alguns builds entregam session null momentaneamente.
-      // NÃO zera a UI: re-busca user via getUser().
-      if (!userId) {
-        const ev = String(event || "");
-        if (ev === "SIGNED_OUT") {
-          setCredits(null);
-          setIsAdmin(false);
-          return;
-        }
-
-        setCreditsLoading(true);
-        setAdminLoading(true);
-        try {
-          await fetchCredits();
-          if (isLoggedIn) await fetchIsAdmin();
-        } finally {
-          setCreditsLoading(false);
-          setAdminLoading(false);
-        }
-        return;
-      }
-
-      if (isLoggedIn) {
-        setCreditsLoading(true);
-        setAdminLoading(true);
-        try {
-          await Promise.all([fetchCreditsForUser(userId), fetchIsAdminForUser(userId)]);
-        } finally {
-          setCreditsLoading(false);
-          setAdminLoading(false);
-        }
-      } else {
-        setCreditsLoading(true);
-        try {
-          await fetchCreditsForUser(userId);
-        } finally {
-          setCreditsLoading(false);
-        }
-      }
-    });
-
-    return () => {
-      data.subscription.unsubscribe();
-    };
-  }, [isLoggedIn]);
-
-  // 3) ✅ Robustez para BFCache / troca de aba / voltar do Stripe:
-  // Refaz o fetch com throttle e com respeito ao "MFA busy" para não travar o 2FA.
-  const lastWakeAtRef = useRef(0);
-
-  const wakeRefresh = useCallback(
-    async (reason: string) => {
-      if (!isLoggedIn) return;
-
-      // Evita competir com o fluxo de MFA (challenge/verify/enroll/unenroll)
-      if (isMfaBusy()) return;
-
-      const now = Date.now();
-      if (now - lastWakeAtRef.current < 800) return; // throttle
-      lastWakeAtRef.current = now;
-
-      console.log("[Header] wakeRefresh:", reason);
-      await fetchCredits();
-      await fetchIsAdmin();
-    },
-    [isLoggedIn, fetchCredits, fetchIsAdmin],
-  );
-
-  useEffect(() => {
-    if (!isLoggedIn) return;
-
-    const onVis = () => {
-      if (document.visibilityState === "visible") void wakeRefresh("visibilitychange");
-    };
-    const onFocus = () => void wakeRefresh("focus");
-    const onPageShow = (_e: any) => void wakeRefresh("pageshow");
-
-    document.addEventListener("visibilitychange", onVis);
-    window.addEventListener("focus", onFocus);
-    window.addEventListener("pageshow", onPageShow);
-
-    return () => {
-      document.removeEventListener("visibilitychange", onVis);
-      window.removeEventListener("focus", onFocus);
-      window.removeEventListener("pageshow", onPageShow);
-    };
-  }, [isLoggedIn, wakeRefresh]);
+  }, [location.pathname]);
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -325,19 +85,22 @@ export function Header({ isLoggedIn = false, onBuyCredits, onLoginClick }: Heade
 
     if (profileDropdownOpen) {
       document.addEventListener("mousedown", handleClickOutside);
-      return () => document.removeEventListener("mousedown", handleClickOutside);
+      return () => {
+        document.removeEventListener("mousedown", handleClickOutside);
+      };
     }
   }, [profileDropdownOpen]);
 
   const publicLinks = [{ label: "Como funciona", href: "#como-funciona" }];
+
   const loggedInLinks: never[] = [];
+
   const links = isLoggedIn ? loggedInLinks : publicLinks;
 
-  const showAdminLink = isLoggedIn && isAdmin;
-
   const handleLogout = async () => {
+    // Fecha dropdown e menu mobile (se existirem)
     setProfileDropdownOpen(false);
-    setMobileMenuOpen(false);
+    setMobileMenuOpen(false); // se esse state existir no componente
 
     try {
       await supabase.auth.signOut();
@@ -358,24 +121,16 @@ export function Header({ isLoggedIn = false, onBuyCredits, onLoginClick }: Heade
           <div className="w-full max-w-[1400px] flex flex-col items-center">
             <div className="flex items-center justify-between h-16 md:h-20 w-full">
               {/* Logo */}
-              <Link to={isLoggedIn ? "/dashboard" : "/"} className="flex items-center gap-3 group">
-                {/* Mesa dos Oráculos Logo */}
-                <div
-                  className="w-10 h-10 rounded-lg flex items-center justify-center border border-obsidian-border"
-                  style={{ background: "linear-gradient(135deg, #6366F1 0%, #F97316 100%)" }}
-                >
-                  <img
-                    src="https://jhlosmgvlvjaemtgrhka.supabase.co/storage/v1/object/public/images/mdo_logo.png"
-                    alt="Mesa dos Oráculos"
-                    className="w-8 h-8 object-contain"
-                  />
+              <Link to={isLoggedIn ? "/dashboard" : "/"} className="flex items-center gap-2 group">
+                <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-mystic-indigo to-oracle-ember flex items-center justify-center">
+                  <Sparkles className="w-5 h-5 text-starlight-text" />
                 </div>
                 <span className="text-starlight-text transition-colors group-hover:text-mystic-indigo">
                   Mesa dos Oráculos
                 </span>
               </Link>
 
-              {/* Centro: Créditos */}
+              {/* Centro: Créditos - Desktop: absoluto centro | Mobile: centro entre logo e hambúrguer */}
               {isLoggedIn && (
                 <button
                   onClick={onBuyCredits}
@@ -399,16 +154,15 @@ export function Header({ isLoggedIn = false, onBuyCredits, onLoginClick }: Heade
                       Comprar créditos
                     </button>
 
-                    {showAdminLink && (
-                      <button
-                        onClick={() => navigate("/admin")}
-                        disabled={adminLoading}
-                        className="text-moonlight-text hover:text-starlight-text transition-colors text-sm disabled:opacity-60"
-                        title={adminLoading ? "Carregando..." : "Admin"}
+                    {links.map((link) => (
+                      <Link
+                        key={link.href}
+                        to={link.href}
+                        className="text-moonlight-text hover:text-starlight-text transition-colors text-sm"
                       >
-                        Admin
-                      </button>
-                    )}
+                        {link.label}
+                      </Link>
+                    ))}
 
                     {/* Dropdown Meu Perfil */}
                     <div className="relative" ref={dropdownRef}>
@@ -427,6 +181,7 @@ export function Header({ isLoggedIn = false, onBuyCredits, onLoginClick }: Heade
                           className="absolute right-0 top-full mt-2 w-56 bg-midnight-surface border border-obsidian-border rounded-xl shadow-xl"
                           style={{ padding: "12px" }}
                         >
+                          {/* Links de navegação */}
                           <button
                             onClick={() => {
                               setProfileDropdownOpen(false);
@@ -441,7 +196,7 @@ export function Header({ isLoggedIn = false, onBuyCredits, onLoginClick }: Heade
                           <button
                             onClick={() => {
                               setProfileDropdownOpen(false);
-                              navigate("/history");
+                              navigate("/History");
                             }}
                             className="w-full text-left text-sm text-moonlight-text hover:bg-night-sky hover:text-starlight-text transition-colors rounded-lg"
                             style={{ padding: "10px 12px", marginBottom: "4px" }}
@@ -452,7 +207,7 @@ export function Header({ isLoggedIn = false, onBuyCredits, onLoginClick }: Heade
                           <button
                             onClick={() => {
                               setProfileDropdownOpen(false);
-                              navigate("/transaction-history");
+                              navigate("/TransactionHistory");
                             }}
                             className="w-full text-left text-sm text-moonlight-text hover:bg-night-sky hover:text-starlight-text transition-colors rounded-lg"
                             style={{ padding: "10px 12px", marginBottom: "12px" }}
@@ -460,8 +215,10 @@ export function Header({ isLoggedIn = false, onBuyCredits, onLoginClick }: Heade
                             Histórico de transações
                           </button>
 
-                          <div className="border-t border-obsidian-border" style={{ marginBottom: "12px" }} />
+                          {/* Separador */}
+                          <div className="border-t border-obsidian-border" style={{ marginBottom: "12px" }}></div>
 
+                          {/* Botão de Sair destacado */}
                           <button
                             onClick={handleLogout}
                             className="w-full text-sm text-starlight-text bg-blood-moon-error/20 hover:bg-blood-moon-error/30 border border-blood-moon-error/40 rounded-lg transition-colors"
@@ -497,7 +254,7 @@ export function Header({ isLoggedIn = false, onBuyCredits, onLoginClick }: Heade
                 )}
               </nav>
 
-              {/* Mobile Menu Toggle */}
+              {/* Mobile Menu Button */}
               <button
                 onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
                 className="md:hidden w-10 h-10 flex items-center justify-center text-starlight-text hover:text-mystic-indigo transition-colors"
@@ -514,11 +271,13 @@ export function Header({ isLoggedIn = false, onBuyCredits, onLoginClick }: Heade
       {/* Mobile Menu */}
       {mobileMenuOpen && (
         <>
+          {/* Backdrop */}
           <div
             className="md:hidden fixed inset-0 top-16 z-40 bg-transparent"
             onClick={() => setMobileMenuOpen(false)}
           />
 
+          {/* Menu */}
           <div
             className="md:hidden fixed top-16 z-50 w-full flex justify-center pointer-events-none"
             style={{ paddingLeft: "32px", paddingRight: "32px" }}
@@ -558,22 +317,6 @@ export function Header({ isLoggedIn = false, onBuyCredits, onLoginClick }: Heade
                     >
                       Comprar créditos
                     </Button>
-
-                    {showAdminLink && (
-                      <Button
-                        variant="outline"
-                        className="w-full"
-                        onClick={() => {
-                          setMobileMenuOpen(false);
-                          navigate("/admin");
-                        }}
-                        style={{ height: "44px" }}
-                        disabled={adminLoading}
-                      >
-                        Admin
-                      </Button>
-                    )}
-
                     <Button
                       variant="outline"
                       className="w-full"
@@ -585,31 +328,28 @@ export function Header({ isLoggedIn = false, onBuyCredits, onLoginClick }: Heade
                     >
                       Configurações
                     </Button>
-
                     <Button
                       variant="outline"
                       className="w-full"
                       onClick={() => {
                         setMobileMenuOpen(false);
-                        navigate("/history");
+                        navigate("/historico");
                       }}
                       style={{ height: "44px" }}
                     >
                       Histórico de leituras
                     </Button>
-
                     <Button
                       variant="outline"
                       className="w-full"
                       onClick={() => {
                         setMobileMenuOpen(false);
-                        navigate("/transaction-history");
+                        navigate("/transacoes");
                       }}
                       style={{ height: "44px" }}
                     >
                       Histórico de transações
                     </Button>
-
                     <Button
                       variant="outline"
                       className="w-full !bg-blood-moon-error/20 hover:!bg-blood-moon-error/30 !border-blood-moon-error/40 !text-starlight-text"

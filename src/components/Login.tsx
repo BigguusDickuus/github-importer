@@ -217,7 +217,7 @@ export function Login() {
                 <Sparkles className="w-5 h-5 text-aurora-accent" />
               </div>
               <div>
-                <h1 className="text-xl font-semibold text-starlight-text">Tarot Online</h1>
+                <h1 className="text-xl font-semibold text-starlight-text">Mesa dos Oráculos</h1>
                 <p className="text-sm text-moonlight-text">{isLogin ? "Entrar" : "Criar conta"}</p>
               </div>
             </div>
