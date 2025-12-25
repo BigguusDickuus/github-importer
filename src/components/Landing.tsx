@@ -1010,6 +1010,7 @@ export function HomeDeslogada() {
         type="success"
         show={showSuccessBar}
         onClose={() => setShowSuccessBar(false)}
+        autoCloseDelay={0}
       />
       <HelloBar
         message="Valide o email enviado antes de logar!"
@@ -1023,6 +1024,7 @@ export function HomeDeslogada() {
         type="error"
         show={showErrorBar}
         onClose={() => setShowErrorBar(false)}
+        autoCloseDelay={0}
       />
       <HelloBar
         message="Email de recuperação enviado, cheque seu inbox e sua pasta de spam"
@@ -2344,12 +2346,6 @@ function TarotOnlineFooter() {
   const [contactEmail, setContactEmail] = useState("");
   const [contactSubject, setContactSubject] = useState("");
   const [contactMessage, setContactMessage] = useState("");
-  const [contactSending, setContactSending] = useState(false);
-  const [contactError, setContactError] = useState<string | null>(null);
-  const [contactSuccess, setContactSuccess] = useState(false);
-
-  // (opcional, anti-spam simples)
-  const [botField, setBotField] = useState("");
 
   const closeModal = () => setActiveModal(null);
 
@@ -2374,32 +2370,21 @@ function TarotOnlineFooter() {
     }
   })();
 
-  const handleContactSubmit = async () => {
-    try {
-      setContactSending(true);
-      setContactError(null);
-      setContactSuccess(false);
+  const openMailto = () => {
+    const subject = (contactSubject || "Contato pelo Mesa dos Oráculos").trim();
+    const body = [
+      "Mensagem enviada pelo site Mesa dos Oráculos",
+      "",
+      `Nome: ${contactName || "-"}`,
+      `Email: ${contactEmail || "-"}`,
+      "",
+      "Mensagem:",
+      contactMessage || "-",
+      "",
+    ].join("\n");
 
-      const { data, error } = await supabase.functions.invoke("contact-form", {
-        body: {
-          name: contactName,
-          email: contactEmail,
-          subject: contactSubject,
-          message: contactMessage,
-          page: "landing", // troque para "home" ou "profile" no arquivo correspondente
-          botField, // opcional
-        },
-      });
-
-      if (error) throw error;
-      if (!data?.ok) throw new Error("Falha ao enviar.");
-
-      setContactSuccess(true);
-    } catch (e: any) {
-      setContactError(e?.message || "Erro ao enviar. Tente novamente.");
-    } finally {
-      setContactSending(false);
-    }
+    // mailto sem destinatário (em branco) por enquanto
+    window.location.href = `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
   };
 
   const renderModalBody = () => {
@@ -2665,7 +2650,8 @@ function TarotOnlineFooter() {
           </div>
 
           <p className="text-xs text-moonlight-text/60">
-            Para solicitações relacionadas à privacidade, use o canal de Contato: contato@mesadosoraculos.com.br.
+            Para solicitações relacionadas à privacidade, use o canal de Contato (em breve com email oficial dentro da
+            plataforma).
           </p>
         </div>
       );
@@ -2675,22 +2661,10 @@ function TarotOnlineFooter() {
     return (
       <div className="space-y-4">
         <p className="text-sm text-moonlight-text/80 leading-relaxed">
-          Preencha abaixo e clique em Enviar. Sua mensagem será enviada automaticamente para nossa equipe.
+          Preencha abaixo para montar uma mensagem. Por enquanto, ao enviar, abriremos o seu app de email com a mensagem
+          pronta (sem destinatário preenchido).
         </p>
 
-        {contactError && <p className="text-sm text-blood-moon-error">{contactError}</p>}
-
-        {contactSuccess && (
-          <p className="text-sm text-verdant-success">Mensagem enviada! Vamos te responder por email.</p>
-        )}
-
-        <input
-          className="hidden"
-          value={botField}
-          onChange={(e) => setBotField(e.target.value)}
-          tabIndex={-1}
-          autoComplete="off"
-        />
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
             <Label className="text-moonlight-text mb-2 block">Seu nome</Label>
@@ -2738,12 +2712,11 @@ function TarotOnlineFooter() {
             Cancelar
           </Button>
           <Button
-            onClick={handleContactSubmit}
+            onClick={() => openMailto()}
             type="button"
-            disabled={contactSending}
             className="bg-mystic-indigo hover:bg-mystic-indigo-dark text-starlight-text"
           >
-            {contactSending ? "Enviando..." : "Enviar"}
+            Abrir no email
           </Button>
         </div>
       </div>
