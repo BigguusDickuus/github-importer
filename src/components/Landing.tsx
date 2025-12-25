@@ -663,13 +663,15 @@ export function HomeDeslogada() {
     const hasMinLength = password.length >= 8;
     const hasUpperCase = /[A-Z]/.test(password);
     const hasLowerCase = /[a-z]/.test(password);
+    const hasNumber = /\d/.test(password); // ✅ novo
     const hasSpecialChar = /[!@#$%^&*(),.?":{}|<>]/.test(password);
 
     return {
-      isValid: hasMinLength && hasUpperCase && hasLowerCase && hasSpecialChar,
+      isValid: hasMinLength && hasUpperCase && hasLowerCase && hasNumber && hasSpecialChar, // ✅ novo
       hasMinLength,
       hasUpperCase,
       hasLowerCase,
+      hasNumber, // ✅ novo
       hasSpecialChar,
     };
   };
@@ -2174,6 +2176,20 @@ export function HomeDeslogada() {
                                 )}
                               </div>
                               <div className="flex items-center gap-2">
+                                {validation.hasNumber ? (
+                                  <>
+                                    <Check className="w-4 h-4 text-verdant-success" />
+                                    <span className="text-sm text-verdant-success">Um número</span>
+                                  </>
+                                ) : (
+                                  <>
+                                    <div className="w-4 h-4 rounded-full border-2 border-oracle-ember" />
+                                    <span className="text-sm text-oracle-ember">Um número</span>
+                                  </>
+                                )}
+                              </div>
+
+                              <div className="flex items-center gap-2">
                                 {validation.hasSpecialChar ? (
                                   <>
                                     <Check className="w-4 h-4 text-verdant-success" />
@@ -2191,6 +2207,7 @@ export function HomeDeslogada() {
                         })()}
                       </div>
                     )}
+                    {passwordError && <p className="text-sm text-oracle-ember">{passwordError}</p>}
                   </div>
 
                   {/* Campo Confirmar Senha */}
