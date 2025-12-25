@@ -358,12 +358,17 @@ export function Header({ isLoggedIn = false, onBuyCredits, onLoginClick }: Heade
           <div className="w-full max-w-[1400px] flex flex-col items-center">
             <div className="flex items-center justify-between h-16 md:h-20 w-full">
               {/* Logo */}
-              <Link to={isLoggedIn ? "/dashboard" : "/"} className="flex items-center gap-2 group">
-                <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-mystic-indigo to-oracle-ember flex items-center justify-center">
-                  <Sparkles className="w-5 h-5 text-starlight-text" />
+              <Link to={isLoggedIn ? "/dashboard" : "/"} className="flex items-center gap-3 group">
+                {/* Mesa dos Oráculos Logo */}
+                <div className="w-10 h-10 bg-midnight-surface rounded-lg flex items-center justify-center border border-obsidian-border">
+                  <img
+                    src="https://jhlosmgvlvjaemtgrhka.supabase.co/storage/v1/object/public/images/mdo_logo.png"
+                    alt="Mesa dos Oráculos"
+                    className="w-8 h-8 object-contain"
+                  />
                 </div>
                 <span className="text-starlight-text transition-colors group-hover:text-mystic-indigo">
-                  Tarot Online
+                  Mesa dos Oráculos
                 </span>
               </Link>
 
