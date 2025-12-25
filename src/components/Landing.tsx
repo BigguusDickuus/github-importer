@@ -1918,18 +1918,18 @@ export function HomeDeslogada() {
                               Seu e-mail ainda não foi confirmado. Clique no link que enviamos para você.
                             </p>
 
-                            <div className="flex items-center gap-3">
+                            <div className="flex flex-col items-center gap-2">
                               <Button
                                 type="button"
                                 onClick={handleResendConfirmationEmail}
                                 disabled={resendPending}
-                                className="bg-mystic-indigo hover:bg-mystic-indigo-dark text-starlight-text"
+                                className="bg-mystic-indigo hover:bg-mystic-indigo-dark text-starlight-text px-6 py-3 text-center whitespace-normal h-auto"
                               >
                                 {resendPending ? "Reenviando..." : "Reenviar e-mail de verificação"}
                               </Button>
 
                               {resendDone && (
-                                <span className="text-sm text-verdant-success">
+                                <span className="text-sm text-verdant-success text-center">
                                   Reenviado! Verifique sua caixa de entrada.
                                 </span>
                               )}
