@@ -1006,11 +1006,10 @@ export function HomeDeslogada() {
     <div className="min-h-screen bg-night-sky text-moonlight-text relative">
       {/* Hello Bars */}
       <HelloBar
-        message="Usuário criado com sucesso"
+        message="Usuário criado com sucesso! Enviamos um email para validação, confira-o."
         type="success"
         show={showSuccessBar}
         onClose={() => setShowSuccessBar(false)}
-        autoCloseDelay={0}
       />
       <HelloBar
         message="Valide o email enviado antes de logar!"
@@ -1024,7 +1023,6 @@ export function HomeDeslogada() {
         type="error"
         show={showErrorBar}
         onClose={() => setShowErrorBar(false)}
-        autoCloseDelay={0}
       />
       <HelloBar
         message="Email de recuperação enviado, cheque seu inbox e sua pasta de spam"
