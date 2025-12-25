@@ -5,7 +5,7 @@ import { Input } from "./ui/input";
 import { Label } from "./ui/label";
 import { Switch } from "./ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs";
-import { User, Shield, CreditCard, Check, Sparkles, Settings } from "lucide-react";
+import { User, Shield, CreditCard, Check, Settings } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { HelloBar } from "./HelloBar";
 import { Modal } from "./Modal";
@@ -2798,7 +2798,11 @@ function TarotOnlineFooter() {
               <div>
                 <div className="flex items-center gap-3 mb-4">
                   <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-mystic-indigo to-oracle-ember flex items-center justify-center">
-                    <Sparkles className="w-5 h-5 text-starlight-text" />
+                    <img
+                      src="https://jhlosmgvlvjaemtgrhka.supabase.co/storage/v1/object/public/images/mdo_logo.png"
+                      alt="Mesa dos Oráculos"
+                      className="w-8 h-8 object-contain"
+                    />
                   </div>
                   <span className="text-xl text-starlight-text">Mesa dos Oráculos</span>
                 </div>
