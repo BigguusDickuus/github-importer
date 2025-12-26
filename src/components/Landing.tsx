@@ -663,15 +663,15 @@ export function HomeDeslogada() {
     const hasMinLength = password.length >= 8;
     const hasUpperCase = /[A-Z]/.test(password);
     const hasLowerCase = /[a-z]/.test(password);
-    const hasNumber = /\d/.test(password); // ✅ novo
+    const hasNumber = /\d/.test(password); // <-- NOVO
     const hasSpecialChar = /[!@#$%^&*(),.?":{}|<>]/.test(password);
 
     return {
-      isValid: hasMinLength && hasUpperCase && hasLowerCase && hasNumber && hasSpecialChar, // ✅ novo
+      isValid: hasMinLength && hasUpperCase && hasLowerCase && hasNumber && hasSpecialChar, // <-- ATUALIZADO
       hasMinLength,
       hasUpperCase,
       hasLowerCase,
-      hasNumber, // ✅ novo
+      hasNumber, // <-- NOVO
       hasSpecialChar,
     };
   };

@@ -65,11 +65,35 @@ export function Profile() {
   const [activeLimitAmount, setActiveLimitAmount] = useState("50");
   const [activeLimitPeriod, setActiveLimitPeriod] = useState("semana");
 
+  const [showDeleteAccountModal, setShowDeleteAccountModal] = useState(false);
+  const [deleteAccountPending, setDeleteAccountPending] = useState(false);
+  const [deleteAccountError, setDeleteAccountError] = useState<string | null>(null);
+
   // Refs para as seções
   const accountRef = useRef<HTMLDivElement>(null);
   const preferencesRef = useRef<HTMLDivElement>(null);
   const securityRef = useRef<HTMLDivElement>(null);
   const billingRef = useRef<HTMLDivElement>(null);
+
+  const handleDeleteAccount = async () => {
+    try {
+      setDeleteAccountPending(true);
+      setDeleteAccountError(null);
+
+      const { data, error } = await supabase.functions.invoke("delete-account", { body: {} });
+
+      if (error) throw error;
+      if (!data?.ok) throw new Error("Falha ao excluir conta.");
+
+      // desloga e manda pra landing
+      await supabase.auth.signOut();
+      window.location.href = "/";
+    } catch (e: any) {
+      setDeleteAccountError(e?.message || "Não foi possível excluir sua conta agora. Tente novamente.");
+    } finally {
+      setDeleteAccountPending(false);
+    }
+  };
 
   const fetchCredits = async () => {
     try {
@@ -945,10 +969,44 @@ function AccountSection({ twoFactorEnabled }: { twoFactorEnabled: boolean }) {
                   {saving ? "Salvando..." : "Salvar alterações"}
                 </Button>
               </div>
+              <div className="mt-6 rounded-xl border border-blood-moon-error/30 bg-blood-moon-error/10 p-4">
+                <h3 className="text-lg font-semibold text-moonlight-text">Excluir conta</h3>
+                <p className="text-sm text-moonlight-text/80 mt-1">
+                  Esta ação é permanente. Seus dados serão removidos, e manteremos apenas um registro anonimizado (hash)
+                  para evitar abuso de créditos de boas-vindas.
+                </p>
+
+                <div className="mt-4 flex justify-end">
+                  <Button type="button" variant="destructive" onClick={() => setShowDeleteAccountModal(true)}>
+                    Excluir minha conta
+                  </Button>
+                </div>
+              </div>
             </>
           )}
         </div>
       )}
+      <Modal
+        isOpen={showDeleteAccountModal}
+        onClose={() => setShowDeleteAccountModal(false)}
+        title="Confirmar exclusão"
+      >
+        <div className="space-y-4">
+          <p className="text-sm text-moonlight-text/80">Tem certeza? Esta ação é irreversível.</p>
+
+          {deleteAccountError && <p className="text-sm text-blood-moon-error">{deleteAccountError}</p>}
+
+          <div className="flex gap-3 justify-end">
+            <Button type="button" variant="ghost" onClick={() => setShowDeleteAccountModal(false)}>
+              Cancelar
+            </Button>
+
+            <Button type="button" variant="destructive" onClick={handleDeleteAccount} disabled={deleteAccountPending}>
+              {deleteAccountPending ? "Excluindo..." : "Confirmar exclusão"}
+            </Button>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 }
