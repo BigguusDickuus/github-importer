@@ -1073,7 +1073,7 @@ export function HomeDeslogada() {
     <div className="min-h-screen bg-night-sky text-moonlight-text relative">
       {/* Hello Bars */}
       <HelloBar
-        message="Usuário criado com sucesso"
+        message="Usuário criado com sucesso! Confirme seu email com o link que enviamos."
         type="success"
         show={showSuccessBar}
         onClose={() => setShowSuccessBar(false)}
@@ -1090,6 +1090,7 @@ export function HomeDeslogada() {
         type="error"
         show={showErrorBar}
         onClose={() => setShowErrorBar(false)}
+        autoCloseDelay={0}
       />
       <HelloBar
         message="Email de recuperação enviado, cheque seu inbox e sua pasta de spam"
