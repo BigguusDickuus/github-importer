@@ -702,6 +702,8 @@ function AccountSection({ twoFactorEnabled }: { twoFactorEnabled: boolean }) {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [totpCode, setTotpCode] = useState("");
   const [totpError, setTotpError] = useState<string | null>(null);
+  const [deletePassword, setDeletePassword] = useState("");
+  const [deleteTotp, setDeleteTotp] = useState("");
 
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
@@ -716,21 +718,64 @@ function AccountSection({ twoFactorEnabled }: { twoFactorEnabled: boolean }) {
       setDeleteAccountPending(true);
       setDeleteAccountError(null);
 
-      const { data, error } = await supabase.functions.invoke("delete-account", { body: {} });
+      // 1) validações rápidas
+      if (!deletePassword.trim()) {
+        throw new Error("Digite sua senha para confirmar a exclusão.");
+      }
+      if (twoFactorEnabled && deleteTotp.trim().length !== 6) {
+        throw new Error("Digite o código 2FA de 6 dígitos.");
+      }
 
+      // 2) pega email do usuário atual
+      const { data: userData, error: userErr } = await supabase.auth.getUser();
+      if (userErr || !userData?.user?.email) throw new Error("Sessão inválida. Faça login novamente.");
+      const email = userData.user.email;
+
+      // 3) Reautentica com senha (confirma que o usuário sabe a senha)
+      const { error: reauthErr } = await supabase.auth.signInWithPassword({
+        email,
+        password: deletePassword,
+      });
+      if (reauthErr) throw new Error("Senha incorreta.");
+
+      // 4) Se tem 2FA habilitado, garante AAL2 (MFA verificado nesta sessão)
+      if (twoFactorEnabled) {
+        const { data: aal } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+        // se existe MFA configurado, nextLevel costuma ser 'aal2'
+        // e se currentLevel não é 'aal2', ainda falta verificar o fator
+        if (aal?.currentLevel !== "aal2") {
+          const { data: factors, error: factorsErr } = await supabase.auth.mfa.listFactors();
+          if (factorsErr) throw new Error("Não foi possível carregar fatores 2FA.");
+
+          // tenta achar um fator TOTP verificado
+          const all = (factors as any)?.all ?? [];
+          const totp =
+            all.find((f: any) => f.factor_type === "totp" && f.status === "verified") ??
+            all.find((f: any) => f.factor_type === "totp");
+
+          if (!totp?.id) throw new Error("2FA não configurado corretamente (nenhum fator TOTP encontrado).");
+
+          const { error: mfaErr } = await supabase.auth.mfa.challengeAndVerify({
+            factorId: totp.id,
+            code: deleteTotp,
+          });
+          if (mfaErr) throw new Error("Código 2FA inválido.");
+        }
+      }
+
+      // 5) Agora sim: chama a Edge Function para deletar (service_role no backend)
+      const { data, error } = await supabase.functions.invoke("delete-account", { body: {} });
       if (error) throw error;
       if (!data?.ok) throw new Error("Falha ao excluir conta.");
 
-      // desloga e manda pra landing
       await supabase.auth.signOut();
       window.location.href = "/";
     } catch (e: any) {
-      setDeleteAccountError(e?.message || "Não foi possível excluir sua conta agora. Tente novamente.");
+      setDeleteAccountError(e?.message || "Não foi possível excluir sua conta agora.");
     } finally {
       setDeleteAccountPending(false);
     }
   };
-
   useEffect(() => {
     const loadUserData = async () => {
       try {
@@ -1001,7 +1046,29 @@ function AccountSection({ twoFactorEnabled }: { twoFactorEnabled: boolean }) {
           <p className="text-sm text-moonlight-text/80">Tem certeza? Esta ação é irreversível.</p>
 
           {deleteAccountError && <p className="text-sm text-blood-moon-error">{deleteAccountError}</p>}
+          <div className="space-y-3">
+            <div>
+              <label className="text-sm text-moonlight-text/80">Digite sua senha para confirmar</label>
+              <Input
+                type="password"
+                value={deletePassword}
+                onChange={(e) => setDeletePassword(e.target.value)}
+                placeholder="Sua senha"
+              />
+            </div>
 
+            {twoFactorEnabled && (
+              <div>
+                <label className="text-sm text-moonlight-text/80">Código 2FA (Authenticator)</label>
+                <Input
+                  inputMode="numeric"
+                  value={deleteTotp}
+                  onChange={(e) => setDeleteTotp(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                  placeholder="6 dígitos"
+                />
+              </div>
+            )}
+          </div>
           <div className="flex gap-3 justify-end">
             <Button type="button" variant="ghost" onClick={() => setShowDeleteAccountModal(false)}>
               Cancelar
