@@ -65,35 +65,11 @@ export function Profile() {
   const [activeLimitAmount, setActiveLimitAmount] = useState("50");
   const [activeLimitPeriod, setActiveLimitPeriod] = useState("semana");
 
-  const [showDeleteAccountModal, setShowDeleteAccountModal] = useState(false);
-  const [deleteAccountPending, setDeleteAccountPending] = useState(false);
-  const [deleteAccountError, setDeleteAccountError] = useState<string | null>(null);
-
   // Refs para as seções
   const accountRef = useRef<HTMLDivElement>(null);
   const preferencesRef = useRef<HTMLDivElement>(null);
   const securityRef = useRef<HTMLDivElement>(null);
   const billingRef = useRef<HTMLDivElement>(null);
-
-  const handleDeleteAccount = async () => {
-    try {
-      setDeleteAccountPending(true);
-      setDeleteAccountError(null);
-
-      const { data, error } = await supabase.functions.invoke("delete-account", { body: {} });
-
-      if (error) throw error;
-      if (!data?.ok) throw new Error("Falha ao excluir conta.");
-
-      // desloga e manda pra landing
-      await supabase.auth.signOut();
-      window.location.href = "/";
-    } catch (e: any) {
-      setDeleteAccountError(e?.message || "Não foi possível excluir sua conta agora. Tente novamente.");
-    } finally {
-      setDeleteAccountPending(false);
-    }
-  };
 
   const fetchCredits = async () => {
     try {
@@ -729,6 +705,31 @@ function AccountSection({ twoFactorEnabled }: { twoFactorEnabled: boolean }) {
 
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+
+  // ===== Excluir Conta (Modal + estado + handler) =====
+  const [showDeleteAccountModal, setShowDeleteAccountModal] = useState(false);
+  const [deleteAccountPending, setDeleteAccountPending] = useState(false);
+  const [deleteAccountError, setDeleteAccountError] = useState<string | null>(null);
+
+  const handleDeleteAccount = async () => {
+    try {
+      setDeleteAccountPending(true);
+      setDeleteAccountError(null);
+
+      const { data, error } = await supabase.functions.invoke("delete-account", { body: {} });
+
+      if (error) throw error;
+      if (!data?.ok) throw new Error("Falha ao excluir conta.");
+
+      // desloga e manda pra landing
+      await supabase.auth.signOut();
+      window.location.href = "/";
+    } catch (e: any) {
+      setDeleteAccountError(e?.message || "Não foi possível excluir sua conta agora. Tente novamente.");
+    } finally {
+      setDeleteAccountPending(false);
+    }
+  };
 
   useEffect(() => {
     const loadUserData = async () => {
