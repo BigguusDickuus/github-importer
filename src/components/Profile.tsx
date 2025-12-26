@@ -1006,7 +1006,13 @@ function AccountSection({ twoFactorEnabled }: { twoFactorEnabled: boolean }) {
               Cancelar
             </Button>
 
-            <Button type="button" variant="destructive" onClick={handleDeleteAccount} disabled={deleteAccountPending}>
+            <Button
+              type="button"
+              variant="destructive"
+              onClick={handleDeleteAccount}
+              disabled={deleteAccountPending}
+              className="px-6 py-3 text-center whitespace-normal h-auto"
+            >
               {deleteAccountPending ? "Excluindo..." : "Confirmar exclusão"}
             </Button>
           </div>
