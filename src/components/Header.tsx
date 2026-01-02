@@ -150,14 +150,14 @@ export function Header({ isLoggedIn = false, onBuyCredits, onLoginClick, onHowIt
   const handleHowItWorks = () => {
     setMobileMenuOpen(false);
 
-    // Preferência: abrir o modal da Landing (quando o Header está sendo usado lá)
-    if (onHowItWorksClick) {
+    // ✅ Só delega para a Landing quando estiver DESLOGADO
+    if (!effectiveLoggedIn && onHowItWorksClick) {
       onHowItWorksClick();
       return;
     }
 
-    // Fallback universal: volta para a Landing com um parâmetro de URL que faz a Landing abrir o modal
-    navigate("/?howItWorks=1");
+    // ✅ Em qualquer página (inclusive logado): abre o modal do Header
+    setShowHowItWorksModal(true);
   };
 
   const handleLogout = async () => {
@@ -215,20 +215,18 @@ export function Header({ isLoggedIn = false, onBuyCredits, onLoginClick, onHowIt
                 {isLoggedIn ? (
                   <>
                     <button
-                      onClick={onBuyCredits}
-                      className="text-moonlight-text hover:text-starlight-text transition-colors text-sm"
-                    >
-                      Comprar créditos
-                    </button>
-
-                    <button
                       type="button"
                       onClick={handleHowItWorks}
                       className="text-moonlight-text hover:text-starlight-text transition-colors text-sm"
                     >
                       Como funciona
                     </button>
-
+                    <button
+                      onClick={onBuyCredits}
+                      className="text-moonlight-text hover:text-starlight-text transition-colors text-sm"
+                    >
+                      Comprar créditos
+                    </button>
                     {isAdmin && (
                       <button
                         type="button"
@@ -359,17 +357,14 @@ export function Header({ isLoggedIn = false, onBuyCredits, onLoginClick, onHowIt
               className="bg-night-sky/95 backdrop-blur-lg rounded-2xl border border-obsidian-border flex flex-col w-full pointer-events-auto"
               style={{ padding: "15px" }}
             >
-              {!isLoggedIn && (
-                <button
-                  type="button"
-                  onClick={handleHowItWorks}
-                  className="text-starlight-text hover:text-mystic-indigo transition-colors px-4 rounded-lg hover:bg-midnight-surface text-center"
-                  style={{ fontSize: "1rem", marginBottom: "16px", paddingTop: "12px", paddingBottom: "12px" }}
-                >
-                  Como funciona
-                </button>
-              )}
-
+              <button
+                type="button"
+                onClick={handleHowItWorks}
+                className="text-starlight-text hover:text-mystic-indigo transition-colors px-4 rounded-lg hover:bg-midnight-surface text-center"
+                style={{ fontSize: "1rem", marginBottom: "16px", paddingTop: "12px", paddingBottom: "12px" }}
+              >
+                Como funciona
+              </button>
               <div
                 style={{ paddingTop: links.length > 0 ? "16px" : "0" }}
                 className={
