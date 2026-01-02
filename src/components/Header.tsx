@@ -1,8 +1,10 @@
 import { useState, useEffect, useRef } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
-import { Menu, X, ChevronDown } from "lucide-react";
+import { Menu, X, ChevronDown, User, DollarSign } from "lucide-react";
 import { Button } from "./ui/button";
 import { supabase } from "@/integrations/supabase/client";
+import { Modal } from "./Modal";
+import { CardsIcon } from "./icons/CardsIcon";
 
 interface HeaderProps {
   isLoggedIn?: boolean;
@@ -22,6 +24,8 @@ export function Header({ isLoggedIn = false, onBuyCredits, onLoginClick, onHowIt
 
   const [isAdmin, setIsAdmin] = useState(false);
   const [adminCheckLoading, setAdminCheckLoading] = useState(false);
+  const [effectiveLoggedIn, setEffectiveLoggedIn] = useState<boolean>(isLoggedIn);
+  const [showHowItWorksModal, setShowHowItWorksModal] = useState(false);
 
   const fetchCredits = async () => {
     try {
@@ -79,31 +83,10 @@ export function Header({ isLoggedIn = false, onBuyCredits, onLoginClick, onHowIt
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [location.pathname]);
 
-  useEffect(() => {
-    let unsub: { unsubscribe: () => void } | null = null;
-
-    const sync = async () => {
-      const { data } = await supabase.auth.getSession();
-      setEffectiveLoggedIn(!!data.session?.user);
-    };
-
-    sync();
-
-    const { data } = supabase.auth.onAuthStateChange((_event, session) => {
-      setEffectiveLoggedIn(!!session?.user);
-    });
-
-    unsub = data.subscription;
-
-    return () => {
-      unsub?.unsubscribe();
-    };
-  }, []);
-
   // Verifica se o usuário é admin (para exibir link do Admin no Header)
   useEffect(() => {
     const checkAdmin = async () => {
-      if (!effectiveLoggedIn) {
+      if (!isLoggedIn) {
         setIsAdmin(false);
         return;
       }
@@ -140,7 +123,7 @@ export function Header({ isLoggedIn = false, onBuyCredits, onLoginClick, onHowIt
 
     checkAdmin();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [effectiveLoggedIn]);
+  }, [isLoggedIn]);
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -160,44 +143,21 @@ export function Header({ isLoggedIn = false, onBuyCredits, onLoginClick, onHowIt
 
   const publicLinks = [{ label: "Como funciona", href: "#como-funciona" }];
 
-  const loggedInLinks: never[] = [];
+  const loggedInLinks: { label: string; href: string }[] = [];
 
-  const links = effectiveLoggedIn ? loggedInLinks : publicLinks;
-
-  const features = [
-    {
-      icon: User,
-      title: "1. Crie sua conta",
-      description: (
-        <>
-          Registre-se rapidamente e <span className="text-oracle-ember">ganhe 3 créditos</span> iniciais para começar
-          suas consultas.
-        </>
-      ),
-    },
-    {
-      icon: DollarSign,
-      title: "2. Adquira créditos",
-      description: "Compre créditos que nunca expiram. Cada consulta consome 1 crédito por oráculo selecionado.",
-    },
-    {
-      icon: CardsIcon,
-      title: "3. Consulte o oráculo",
-      description: "Faça sua pergunta, escolha o tipo de oráculo e receba interpretações profundas e personalizadas.",
-    },
-  ];
+  const links = isLoggedIn ? loggedInLinks : publicLinks;
 
   const handleHowItWorks = () => {
     setMobileMenuOpen(false);
 
-    // Se a Landing passou handler, usa ele (continua funcionando lá)
+    // Preferência: abrir o modal da Landing (quando o Header está sendo usado lá)
     if (onHowItWorksClick) {
       onHowItWorksClick();
       return;
     }
 
-    // Em qualquer página logada: abre o modal do próprio Header
-    setShowHowItWorksModal(true);
+    // Fallback universal: volta para a Landing com um parâmetro de URL que faz a Landing abrir o modal
+    navigate("/?howItWorks=1");
   };
 
   const handleLogout = async () => {
@@ -224,7 +184,7 @@ export function Header({ isLoggedIn = false, onBuyCredits, onLoginClick, onHowIt
           <div className="w-full max-w-[1400px] flex flex-col items-center">
             <div className="flex items-center justify-between h-16 md:h-20 w-full">
               {/* Logo */}
-              <Link to={effectiveLoggedIn ? "/dashboard" : "/"} className="flex items-center gap-2 group">
+              <Link to={isLoggedIn ? "/dashboard" : "/"} className="flex items-center gap-2 group">
                 <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-mystic-indigo to-oracle-ember flex items-center justify-center">
                   <img
                     src="https://jhlosmgvlvjaemtgrhka.supabase.co/storage/v1/object/public/images/mdo_logo.png"
@@ -238,7 +198,7 @@ export function Header({ isLoggedIn = false, onBuyCredits, onLoginClick, onHowIt
               </Link>
 
               {/* Centro: Créditos - Desktop: absoluto centro | Mobile: centro entre logo e hambúrguer */}
-              {effectiveLoggedIn && (
+              {isLoggedIn && (
                 <button
                   onClick={onBuyCredits}
                   className="flex flex-col items-center hover:opacity-80 transition-opacity cursor-pointer md:absolute md:left-1/2 md:-translate-x-1/2"
@@ -252,7 +212,7 @@ export function Header({ isLoggedIn = false, onBuyCredits, onLoginClick, onHowIt
 
               {/* Desktop Navigation */}
               <nav className="hidden md:flex items-center gap-6">
-                {effectiveLoggedIn ? (
+                {isLoggedIn ? (
                   <>
                     <button
                       onClick={onBuyCredits}
@@ -381,28 +341,6 @@ export function Header({ isLoggedIn = false, onBuyCredits, onLoginClick, onHowIt
         </div>
       </header>
 
-      {/* Modal "Como funciona" (Header global) */}
-      <Modal isOpen={showHowItWorksModal} onClose={() => setShowHowItWorksModal(false)} title="Como funciona">
-        <div className="flex flex-col gap-8">
-          {features.map((feature, index) => (
-            <div key={index} className="flex gap-6">
-              <div className="flex-shrink-0">
-                <div
-                  className="rounded-full bg-mystic-indigo/10 border border-mystic-indigo/30 flex items-center justify-center"
-                  style={{ width: "56px", height: "56px" }}
-                >
-                  <feature.icon className="w-6 h-6 text-mystic-indigo" />
-                </div>
-              </div>
-              <div>
-                <h3 className="text-xl text-starlight-text mb-3">{feature.title}</h3>
-                <p className="text-base text-moonlight-text leading-relaxed">{feature.description}</p>
-              </div>
-            </div>
-          ))}
-        </div>
-      </Modal>
-
       {/* Mobile Menu */}
       {mobileMenuOpen && (
         <>
@@ -421,7 +359,7 @@ export function Header({ isLoggedIn = false, onBuyCredits, onLoginClick, onHowIt
               className="bg-night-sky/95 backdrop-blur-lg rounded-2xl border border-obsidian-border flex flex-col w-full pointer-events-auto"
               style={{ padding: "15px" }}
             >
-              {!effectiveLoggedIn && (
+              {!isLoggedIn && (
                 <button
                   type="button"
                   onClick={handleHowItWorks}
@@ -438,7 +376,7 @@ export function Header({ isLoggedIn = false, onBuyCredits, onLoginClick, onHowIt
                   links.length > 0 ? "border-t border-obsidian-border flex flex-col gap-3" : "flex flex-col gap-3"
                 }
               >
-                {isLoggedIn ? (
+                {effectiveLoggedIn ? (
                   <>
                     <Button
                       variant="outline"
