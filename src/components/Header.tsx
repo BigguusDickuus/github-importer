@@ -8,9 +8,10 @@ interface HeaderProps {
   isLoggedIn?: boolean;
   onBuyCredits?: () => void;
   onLoginClick?: () => void;
+  onHowItWorksClick?: () => void;
 }
 
-export function Header({ isLoggedIn = false, onBuyCredits, onLoginClick }: HeaderProps) {
+export function Header({ isLoggedIn = false, onBuyCredits, onLoginClick, onHowItWorksClick }: HeaderProps) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [profileDropdownOpen, setProfileDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -18,6 +19,9 @@ export function Header({ isLoggedIn = false, onBuyCredits, onLoginClick }: Heade
   const [credits, setCredits] = useState<number | null>(null);
   const [creditsLoading, setCreditsLoading] = useState(false);
   const location = useLocation();
+
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [adminCheckLoading, setAdminCheckLoading] = useState(false);
 
   const fetchCredits = async () => {
     try {
@@ -75,6 +79,48 @@ export function Header({ isLoggedIn = false, onBuyCredits, onLoginClick }: Heade
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [location.pathname]);
 
+  // Verifica se o usuário é admin (para exibir link do Admin no Header)
+  useEffect(() => {
+    const checkAdmin = async () => {
+      if (!isLoggedIn) {
+        setIsAdmin(false);
+        return;
+      }
+
+      try {
+        setAdminCheckLoading(true);
+
+        const {
+          data: { user },
+          error: userError,
+        } = await supabase.auth.getUser();
+        if (userError || !user) {
+          setIsAdmin(false);
+          return;
+        }
+
+        const { data: profile, error: profileError } = await supabase
+          .from("profiles")
+          .select("is_admin")
+          .eq("id", user.id)
+          .maybeSingle();
+
+        if (profileError) {
+          console.error("Erro ao buscar is_admin no profiles:", profileError);
+          setIsAdmin(false);
+          return;
+        }
+
+        setIsAdmin(!!(profile as any)?.is_admin);
+      } finally {
+        setAdminCheckLoading(false);
+      }
+    };
+
+    checkAdmin();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isLoggedIn]);
+
   // Close dropdown when clicking outside
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -96,6 +142,26 @@ export function Header({ isLoggedIn = false, onBuyCredits, onLoginClick }: Heade
   const loggedInLinks: never[] = [];
 
   const links = isLoggedIn ? loggedInLinks : publicLinks;
+
+  const handleHowItWorks = () => {
+    setMobileMenuOpen(false);
+
+    // Preferência: abrir o modal da Landing (quando o Header está sendo usado lá)
+    if (onHowItWorksClick) {
+      onHowItWorksClick();
+      return;
+    }
+
+    // Fallback: tenta scroll para uma seção com id="como-funciona" (se existir)
+    const el = document.getElementById("como-funciona");
+    if (el) {
+      el.scrollIntoView({ behavior: "smooth", block: "start" });
+      return;
+    }
+
+    // Último fallback: volta para a landing
+    navigate("/");
+  };
 
   const handleLogout = async () => {
     // Fecha dropdown e menu mobile (se existirem)
@@ -158,15 +224,13 @@ export function Header({ isLoggedIn = false, onBuyCredits, onLoginClick }: Heade
                       Comprar créditos
                     </button>
 
-                    {links.map((link) => (
-                      <Link
-                        key={link.href}
-                        to={link.href}
-                        className="text-moonlight-text hover:text-starlight-text transition-colors text-sm"
-                      >
-                        {link.label}
-                      </Link>
-                    ))}
+                    <button
+                      type="button"
+                      onClick={handleHowItWorks}
+                      className="text-moonlight-text hover:text-starlight-text transition-colors text-sm"
+                    >
+                      Como funciona
+                    </button>
 
                     {/* Dropdown Meu Perfil */}
                     <div className="relative" ref={dropdownRef}>
@@ -290,17 +354,16 @@ export function Header({ isLoggedIn = false, onBuyCredits, onLoginClick }: Heade
               className="bg-night-sky/95 backdrop-blur-lg rounded-2xl border border-obsidian-border flex flex-col w-full pointer-events-auto"
               style={{ padding: "15px" }}
             >
-              {links.map((link) => (
-                <Link
-                  key={link.href}
-                  to={link.href}
+              {!isLoggedIn && (
+                <button
+                  type="button"
+                  onClick={handleHowItWorks}
                   className="text-starlight-text hover:text-mystic-indigo transition-colors px-4 rounded-lg hover:bg-midnight-surface text-center"
-                  onClick={() => setMobileMenuOpen(false)}
                   style={{ fontSize: "1rem", marginBottom: "16px", paddingTop: "12px", paddingBottom: "12px" }}
                 >
-                  {link.label}
-                </Link>
-              ))}
+                  Como funciona
+                </button>
+              )}
 
               <div
                 style={{ paddingTop: links.length > 0 ? "16px" : "0" }}

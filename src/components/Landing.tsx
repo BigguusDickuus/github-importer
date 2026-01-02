@@ -1115,7 +1115,11 @@ export function HomeDeslogada() {
         <div className="absolute top-1/3 left-1/4 w-[400px] h-[400px] bg-mystic-indigo/10 rounded-full blur-[100px]" />
       </div>
 
-      <Header isLoggedIn={false} onLoginClick={() => setShowLoginModal(true)} />
+      <Header
+        isLoggedIn={false}
+        onLoginClick={() => setShowLoginModal(true)}
+        onHowItWorksClick={() => setShowHowItWorksModal(true)}
+      />
 
       {/* Hero Section */}
       <section
