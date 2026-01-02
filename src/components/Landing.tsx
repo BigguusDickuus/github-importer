@@ -1966,7 +1966,7 @@ export function HomeDeslogada() {
                         <button
                           onClick={() => {
                             setShowLoginModal(false);
-                            setLoginError("false");
+                            setLoginError(false);
                             setShowPasswordRecoveryModal(false);
                             setShowSignupModal(true);
                           }}
