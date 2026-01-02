@@ -10,7 +10,6 @@ import { supabase } from "@/integrations/supabase/client"; // caminho da sua pas
 import { toast } from "@/hooks/use-toast"; // caminho do hook de toast (pode ser diferente, veja abaixo)
 import { Label } from "./ui/label";
 import { Input } from "./ui/input";
-import { Link } from "react-router-dom";
 
 export function HomeDeslogada() {
   const navigate = useNavigate();
