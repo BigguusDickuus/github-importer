@@ -681,15 +681,19 @@ export function HomeDeslogada() {
     const formatted = formatCPF(value);
     setSignupCPF(formatted);
 
-    if (value.length > 0) {
-      if (!validateCPF(formatted)) {
-        setCpfError("CPF inválido");
-      } else {
-        setCpfError("");
-      }
-    } else {
+    const digits = value.replace(/\D/g, "");
+
+    // Não mostra erro enquanto o usuário ainda está digitando (até completar 11 dígitos)
+    if (!digits) {
       setCpfError("");
+      return;
     }
+    if (digits.length < 11) {
+      setCpfError("");
+      return;
+    }
+
+    setCpfError(validateCPF(formatted) ? "" : "CPF inválido");
   };
 
   // Handler de mudança de Telefone com máscara
@@ -697,15 +701,19 @@ export function HomeDeslogada() {
     const formatted = formatPhone(value);
     setSignupPhone(formatted);
 
-    if (value.length > 0) {
-      if (!validatePhone(formatted)) {
-        setPhoneError("Telefone inválido");
-      } else {
-        setPhoneError("");
-      }
-    } else {
+    const digits = value.replace(/\D/g, "");
+
+    // Não mostra erro enquanto o usuário ainda está digitando (até completar DDD + número)
+    if (!digits) {
       setPhoneError("");
+      return;
     }
+    if (digits.length < 10) {
+      setPhoneError("");
+      return;
+    }
+
+    setPhoneError(validatePhone(formatted) ? "" : "Telefone inválido");
   };
 
   // Validar todos os campos antes de permitir cadastro
@@ -1634,7 +1642,11 @@ export function HomeDeslogada() {
                               ? "bg-mystic-indigo hover:bg-mystic-indigo-dark text-starlight-text"
                               : "bg-midnight-surface border border-obsidian-border text-moonlight-text hover:bg-mystic-indigo/10 hover:border-mystic-indigo/50"
                           }`}
-                          onClick={() => setShowLoginModal(true)}
+                          onClick={() => {
+                            setShowLoginModal(false);
+                            setShowPasswordRecoveryModal(false);
+                            setShowSignupModal(true);
+                          }}
                         >
                           Cadastre-se já!
                         </Button>
@@ -1952,7 +1964,12 @@ export function HomeDeslogada() {
                         </Button>
 
                         <button
-                          onClick={() => setShowSignupModal(true)}
+                          onClick={() => {
+                            setShowLoginModal(false);
+                            setLoginError("");
+                            setShowPasswordRecoveryModal(false);
+                            setShowSignupModal(true);
+                          }}
                           className="text-sm text-moonlight-text hover:text-starlight-text transition-colors"
                         >
                           Não possui conta?{" "}
@@ -2281,6 +2298,7 @@ export function HomeDeslogada() {
 
                   {/* Campo CPF */}
                   <div className="flex flex-col gap-2">
+                    <Label className="text-sm text-starlight-text">CPF</Label>
                     <input
                       type="text"
                       placeholder="000.000.000-00"
@@ -2296,6 +2314,7 @@ export function HomeDeslogada() {
 
                   {/* Campo Telefone */}
                   <div className="flex flex-col gap-2">
+                    <Label className="text-sm text-starlight-text">Telefone</Label>
                     <input
                       type="text"
                       placeholder="(00) 00000-0000"
