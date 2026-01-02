@@ -2270,6 +2270,7 @@ export function HomeDeslogada() {
 
                   {/* Campo Data de Nascimento */}
                   <div className="flex flex-col gap-2">
+                    <Label className="text-sm text-starlight-text">Data de nascimento</Label>
                     <input
                       type="date"
                       placeholder="Insira sua data de nascimento"
