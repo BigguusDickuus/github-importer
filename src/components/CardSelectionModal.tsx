@@ -1017,7 +1017,7 @@ export function CardSelectionModal({
           <div className="fixed inset-0 z-50 flex items-center justify-center pointer-events-none p-4">
             <div
               className="relative pointer-events-auto w-full max-w-7xl flex flex-col"
-              style={{ height: "calc(100vh - 32px)" }}
+              style={{ height: "calc(100dvh - 96px)" }}
             >
               <button
                 onClick={onClose}
@@ -1168,7 +1168,7 @@ export function CardSelectionModal({
                       <div className="relative max-w-5xl w-full">
                         <div className="absolute inset-0 bg-night-sky/80 backdrop-blur-xl rounded-3xl border border-obsidian-border shadow-2xl" />
 
-                        <div className="relative z-10 flex flex-col items-center gap-4 p-6 md:p-8 max-h-[calc(100vh-2rem)] overflow-y-auto">
+                        <div className="relative z-10 flex flex-col items-center gap-4 p-6 md:p-8 max-h-[calc(100dvh-6rem)] overflow-y-auto">
                           <p className="text-sm md:text-base text-moonlight-text/80 text-center">Cartas selecionadas</p>
 
                           <div className="flex flex-wrap justify-center gap-4">
