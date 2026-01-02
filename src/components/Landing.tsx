@@ -5,7 +5,7 @@ import { Sparkles, User, DollarSign, Check, ChevronLeft, ChevronRight } from "lu
 import { CardsIcon } from "./icons/CardsIcon";
 import { Modal } from "./Modal";
 import { HelloBar } from "./HelloBar";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation, Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client"; // caminho da sua pasta supabase
 import { toast } from "@/hooks/use-toast"; // caminho do hook de toast (pode ser diferente, veja abaixo)
 import { Label } from "./ui/label";
@@ -14,6 +14,7 @@ import { Link } from "react-router-dom";
 
 export function HomeDeslogada() {
   const navigate = useNavigate();
+  const location = useLocation();
   const [question, setQuestion] = useState("");
   const [showHowItWorksModal, setShowHowItWorksModal] = useState(false);
   const [showLoginModal, setShowLoginModal] = useState(false);
@@ -96,6 +97,19 @@ export function HomeDeslogada() {
   const [birthDateError, setBirthDateError] = useState("");
   const [cpfError, setCpfError] = useState("");
   const [phoneError, setPhoneError] = useState("");
+
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    if (params.get("howItWorks") === "1") {
+      setShowHowItWorksModal(true);
+
+      // limpa o parâmetro da URL para não reabrir ao dar refresh
+      params.delete("howItWorks");
+      const newSearch = params.toString();
+      navigate({ pathname: "/", search: newSearch ? `?${newSearch}` : "" }, { replace: true });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location.search]);
 
   // Se cair na Landing com sessão existente, só vai pra /dashboard se MFA estiver OK (AAL2 quando exigido)
   useEffect(() => {

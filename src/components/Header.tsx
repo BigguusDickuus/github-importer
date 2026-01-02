@@ -152,15 +152,8 @@ export function Header({ isLoggedIn = false, onBuyCredits, onLoginClick, onHowIt
       return;
     }
 
-    // Fallback: tenta scroll para uma seção com id="como-funciona" (se existir)
-    const el = document.getElementById("como-funciona");
-    if (el) {
-      el.scrollIntoView({ behavior: "smooth", block: "start" });
-      return;
-    }
-
-    // Último fallback: volta para a landing
-    navigate("/");
+    // Fallback universal: volta para a Landing com um parâmetro de URL que faz a Landing abrir o modal
+    navigate("/?howItWorks=1");
   };
 
   const handleLogout = async () => {
@@ -232,6 +225,16 @@ export function Header({ isLoggedIn = false, onBuyCredits, onLoginClick, onHowIt
                       Como funciona
                     </button>
 
+                    {isAdmin && (
+                      <button
+                        type="button"
+                        onClick={() => navigate("/admin")}
+                        className="text-moonlight-text hover:text-starlight-text transition-colors text-sm"
+                      >
+                        Admin
+                      </button>
+                    )}
+
                     {/* Dropdown Meu Perfil */}
                     <div className="relative" ref={dropdownRef}>
                       <button
@@ -300,15 +303,13 @@ export function Header({ isLoggedIn = false, onBuyCredits, onLoginClick, onHowIt
                   </>
                 ) : (
                   <>
-                    {links.map((link) => (
-                      <Link
-                        key={link.href}
-                        to={link.href}
-                        className="text-moonlight-text hover:text-starlight-text transition-colors text-sm"
-                      >
-                        {link.label}
-                      </Link>
-                    ))}
+                    <button
+                      type="button"
+                      onClick={handleHowItWorks}
+                      className="text-moonlight-text hover:text-starlight-text transition-colors text-sm"
+                    >
+                      Como funciona
+                    </button>
                     <Button
                       variant="outline"
                       size="sm"
@@ -395,6 +396,19 @@ export function Header({ isLoggedIn = false, onBuyCredits, onLoginClick, onHowIt
                     >
                       Configurações
                     </Button>
+                    {isAdmin && (
+                      <Button
+                        variant="outline"
+                        className="w-full"
+                        onClick={() => {
+                          setMobileMenuOpen(false);
+                          navigate("/admin");
+                        }}
+                        style={{ height: "44px" }}
+                      >
+                        Admin
+                      </Button>
+                    )}
                     <Button
                       variant="outline"
                       className="w-full"
