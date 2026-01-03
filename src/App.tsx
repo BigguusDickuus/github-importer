@@ -10,6 +10,7 @@ import { Admin } from "./components/Admin";
 import { Login } from "./components/Login";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 import { ResetPassword } from "./components/ResetPassword";
+import AuthConfirm from "@/components/AuthConfirm";
 
 const MFA_BUSY_UNTIL_KEY = "to_mfa_busy_until";
 const isMfaBusy = () => {
@@ -315,6 +316,7 @@ export default function App() {
 
         <Route path="/login" element={<LoginGate />} />
         <Route path="/reset-password" element={<ResetPassword />} />
+        <Route path="/auth/confirm" element={<AuthConfirm />} />
 
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
