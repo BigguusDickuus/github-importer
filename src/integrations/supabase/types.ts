@@ -110,15 +110,47 @@ export type Database = {
         }
         Relationships: []
       }
+      deleted_identities: {
+        Row: {
+          cpf_hash: string | null
+          cpf_norm: string | null
+          deleted_at: string
+          email_hash: string | null
+          email_norm: string | null
+          id: number
+          reason: string | null
+        }
+        Insert: {
+          cpf_hash?: string | null
+          cpf_norm?: string | null
+          deleted_at?: string
+          email_hash?: string | null
+          email_norm?: string | null
+          id?: number
+          reason?: string | null
+        }
+        Update: {
+          cpf_hash?: string | null
+          cpf_norm?: string | null
+          deleted_at?: string
+          email_hash?: string | null
+          email_norm?: string | null
+          id?: number
+          reason?: string | null
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           birthday: string | null
           cpf: string | null
           created_at: string | null
+          deleted_at: string | null
           email: string
           full_name: string | null
           id: string
           is_admin: boolean | null
+          is_deleted: boolean
           keep_context: boolean
           phone: string | null
           two_factor_enabled: boolean | null
@@ -129,10 +161,12 @@ export type Database = {
           birthday?: string | null
           cpf?: string | null
           created_at?: string | null
+          deleted_at?: string | null
           email: string
           full_name?: string | null
           id: string
           is_admin?: boolean | null
+          is_deleted?: boolean
           keep_context?: boolean
           phone?: string | null
           two_factor_enabled?: boolean | null
@@ -143,10 +177,12 @@ export type Database = {
           birthday?: string | null
           cpf?: string | null
           created_at?: string | null
+          deleted_at?: string | null
           email?: string
           full_name?: string | null
           id?: string
           is_admin?: boolean | null
+          is_deleted?: boolean
           keep_context?: boolean
           phone?: string | null
           two_factor_enabled?: boolean | null
@@ -273,6 +309,7 @@ export type Database = {
           phone: string
         }[]
       }
+      assert_admin: { Args: never; Returns: undefined }
       cancel_stale_pending_readings: { Args: never; Returns: undefined }
       check_credits_for_oracles: {
         Args: { _oracle_types: Database["public"]["Enums"]["oracle_type"][] }
