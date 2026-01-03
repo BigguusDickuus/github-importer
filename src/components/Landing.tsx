@@ -848,6 +848,7 @@ export function HomeDeslogada() {
             birthday: signupBirthDate, // input type="date" já vem em YYYY-MM-DD
             cpf: cleanCpf,
             phone: cleanPhone,
+            emailRedirectTo: "https://www.mesadosoraculos.com.br/",
           },
         },
       });
