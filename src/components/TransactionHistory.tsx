@@ -730,9 +730,9 @@ export function TransactionHistory() {
                       <div className="plan-credits-text text-moonlight-text/70">créditos</div>
                     </div>
                     <div className="plan-price-wrapper" style={{ marginBottom: "12px" }}>
-                      <div className="plan-price text-2xl text-mystic-indigo">R$ 25,00</div>
+                      <div className="plan-price text-2xl text-mystic-indigo">R$ 29,90</div>
                       <div className="plan-price-per text-sm text-moonlight-text/70" style={{ marginTop: "2px" }}>
-                        R$ 2,50/cada
+                        R$ 2,99/cada
                       </div>
                     </div>
                     <Button
@@ -763,9 +763,9 @@ export function TransactionHistory() {
                       <div className="plan-credits-text text-moonlight-text/70">créditos</div>
                     </div>
                     <div className="plan-price-wrapper" style={{ marginBottom: "12px" }}>
-                      <div className="plan-price text-2xl text-mystic-indigo">R$ 50,00</div>
+                      <div className="plan-price text-2xl text-mystic-indigo">R$ 64,90</div>
                       <div className="plan-price-per text-sm text-moonlight-text/70" style={{ marginTop: "2px" }}>
-                        R$ 2,00/cada
+                        R$ 2,60/cada
                       </div>
                     </div>
                     <Button
@@ -790,9 +790,9 @@ export function TransactionHistory() {
                       <div className="plan-credits-text text-moonlight-text/70">créditos</div>
                     </div>
                     <div className="plan-price-wrapper" style={{ marginBottom: "12px" }}>
-                      <div className="plan-price text-2xl text-mystic-indigo">R$ 100,00</div>
+                      <div className="plan-price text-2xl text-mystic-indigo">R$ 129,90</div>
                       <div className="plan-price-per text-sm text-moonlight-text/70" style={{ marginTop: "2px" }}>
-                        R$ 1,67/cada
+                        R$ 2,16/cada
                       </div>
                     </div>
                     <Button
