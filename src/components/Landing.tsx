@@ -50,6 +50,14 @@ export function HomeDeslogada() {
   const [showErrorBar, setShowErrorBar] = useState(false);
   const [errorBarMessage, setErrorBarMessage] = useState("");
 
+  // ===== Tracking (GTM/GA4) =====
+  const dlPush = (payload: Record<string, any>) => {
+    try {
+      (window as any).dataLayer = (window as any).dataLayer || [];
+      (window as any).dataLayer.push(payload);
+    } catch {}
+  };
+
   const MFA_LOGIN_PENDING_KEY = "to_mfa_login_pending_v1";
 
   const setMfaLoginPending = (pending: boolean) => {
@@ -416,6 +424,11 @@ export function HomeDeslogada() {
         setMfaLoginPending(false);
         toast({ title: "Login realizado", description: "Bem-vindo de volta." });
         setShowLoginModal(false);
+        dlPush({
+          event: "login",
+          method: "email",
+          mfa: false,
+        });
         navigate("/dashboard");
         return;
       }
@@ -553,7 +566,11 @@ export function HomeDeslogada() {
       setLoginStep("credentials");
       setLoginMfaFactorId(null);
       setShowLoginModal(false);
-
+      dlPush({
+        event: "login",
+        method: "email",
+        mfa: true,
+      });
       navigate("/dashboard");
     } catch (err: any) {
       console.error("Erro ao verificar 2FA no login:", err);
@@ -932,6 +949,12 @@ export function HomeDeslogada() {
         description: "Verifique seu e-mail para confirmar o cadastro e acessar a plataforma.",
       });
 
+      // GA4: signup concluído
+      dlPush({
+        event: "sign_up",
+        method: "email",
+      });
+
       setShowSignupModal(false);
       setShowEmailConfirmationMessage(true);
     } catch (err: any) {
@@ -1255,7 +1278,10 @@ export function HomeDeslogada() {
               <Button
                 size="lg"
                 className="w-full sm:flex-1 bg-mystic-indigo hover:bg-mystic-indigo-dark text-starlight-text h-14 md:h-16 text-base md:text-lg"
-                onClick={() => setShowLoginModal(true)}
+                onClick={() => {
+                  dlPush({ event: "cta_open_auth" });
+                  setShowLoginModal(true);
+                }}
               >
                 Entrar | Criar conta
               </Button>
