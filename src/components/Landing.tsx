@@ -952,12 +952,6 @@ export function HomeDeslogada() {
         description: "Verifique seu e-mail para confirmar o cadastro e acessar a plataforma.",
       });
 
-      // GA4: signup concluído
-      dlPush({
-        event: "sign_up",
-        method: "email",
-      });
-
       setShowSignupModal(false);
       setShowEmailConfirmationMessage(true);
     } catch (err: any) {
