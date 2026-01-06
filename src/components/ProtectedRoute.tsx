@@ -32,6 +32,44 @@ const isGetUserTimeout = (err: any) => {
   return msg.includes("GET_USER_TIMEOUT");
 };
 
+const GA_CID_SYNC_KEY = "to_ga_cid_synced_v1";
+
+function getGa4ClientIdFromCookie(): string | null {
+  if (typeof document === "undefined") return null;
+
+  const m = document.cookie.match(/(?:^|;\s*)_ga=([^;]+)/);
+  if (!m) return null;
+
+  const val = decodeURIComponent(m[1]); // exemplo: GA1.1.1234567890.1234567890
+  const parts = val.split(".");
+  if (parts.length < 4) return null;
+
+  return `${parts[2]}.${parts[3]}`;
+}
+
+async function syncGaClientIdToProfileOnce(userId: string) {
+  try {
+    // evita ficar tentando em todo refresh/troca de página
+    const already = sessionStorage.getItem(GA_CID_SYNC_KEY);
+    if (already === "1") return;
+
+    const clientId = getGa4ClientIdFromCookie();
+    if (!clientId) return;
+
+    // Atualiza SOMENTE se ainda estiver vazio no banco (não fica sobrescrevendo)
+    const { error } = await supabase
+      .from("profiles")
+      .update({ ga_client_id: clientId })
+      .eq("id", userId)
+      .is("ga_client_id", null);
+
+    // Mesmo que não atualize (porque já tinha), marca como “feito” pra não tentar de novo
+    if (!error) sessionStorage.setItem(GA_CID_SYNC_KEY, "1");
+  } catch {
+    // não derruba navegação por causa de tracking
+  }
+}
+
 const getUserWithTimeout = async (timeoutMs: number) => {
   let timerId: number | null = null;
   const timeoutPromise = new Promise<never>((_, reject) => {
@@ -93,6 +131,8 @@ export function ProtectedRoute({ children, requireAdmin = false }: ProtectedRout
         navigate("/", { replace: true, state: { from: location.pathname } });
         return;
       }
+      // ✅ GA4 client_id -> profiles (uma vez por sessão de aba)
+      syncGaClientIdToProfileOnce(user.id);
 
       if (!requireAdmin) {
         setAllowed(true);

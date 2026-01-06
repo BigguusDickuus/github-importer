@@ -58,6 +58,28 @@ export function HomeDeslogada() {
     } catch {}
   };
 
+  const LOGIN_TRACKED_KEY = "to_login_tracked_v1";
+
+  const markLoginTracked = () => {
+    try {
+      sessionStorage.setItem(LOGIN_TRACKED_KEY, "1");
+    } catch {}
+  };
+
+  const wasLoginTracked = () => {
+    try {
+      return sessionStorage.getItem(LOGIN_TRACKED_KEY) === "1";
+    } catch {
+      return false;
+    }
+  };
+
+  const clearLoginTracked = () => {
+    try {
+      sessionStorage.removeItem(LOGIN_TRACKED_KEY);
+    } catch {}
+  };
+
   const MFA_LOGIN_PENDING_KEY = "to_mfa_login_pending_v1";
 
   const setMfaLoginPending = (pending: boolean) => {
@@ -314,9 +336,10 @@ export function HomeDeslogada() {
     if (loginStep === "mfa") {
       try {
         await supabase.auth.signOut();
+        clearLoginTracked();
       } catch {}
     }
-
+    clearLoginTracked();
     setShowLoginModal(false);
     setLoginError(false);
     setShakeModal(false);
@@ -413,6 +436,7 @@ export function HomeDeslogada() {
         console.warn("AAL check falhou no login (landing). Prosseguindo sem MFA:", aalError);
         setMfaLoginPending(false);
         setShowLoginModal(false);
+        dlPush({ event: "login", method: "email", mfa: false });
         navigate("/dashboard");
         return;
       }
@@ -423,12 +447,11 @@ export function HomeDeslogada() {
         // Sem MFA obrigatório => libera
         setMfaLoginPending(false);
         toast({ title: "Login realizado", description: "Bem-vindo de volta." });
+        if (!wasLoginTracked()) {
+          dlPush({ event: "login", method: "email", mfa: false });
+          markLoginTracked();
+        }
         setShowLoginModal(false);
-        dlPush({
-          event: "login",
-          method: "email",
-          mfa: false,
-        });
         navigate("/dashboard");
         return;
       }
@@ -566,11 +589,10 @@ export function HomeDeslogada() {
       setLoginStep("credentials");
       setLoginMfaFactorId(null);
       setShowLoginModal(false);
-      dlPush({
-        event: "login",
-        method: "email",
-        mfa: true,
-      });
+      if (!wasLoginTracked()) {
+        dlPush({ event: "login", method: "email", mfa: true });
+        markLoginTracked();
+      }
       navigate("/dashboard");
     } catch (err: any) {
       console.error("Erro ao verificar 2FA no login:", err);
@@ -586,8 +608,9 @@ export function HomeDeslogada() {
 
     try {
       await supabase.auth.signOut();
+      clearLoginTracked();
     } catch {}
-
+    clearLoginTracked();
     setLoginStep("credentials");
     setMfaCode("");
     setMfaError(null);
