@@ -939,8 +939,9 @@ export function HomeDeslogada() {
 
       // Sucesso: usuário criado no Auth
       console.log("Usuário criado no Supabase:", data);
-      window.dataLayer = window.dataLayer || [];
-      window.dataLayer.push({ event: "sign_up" });
+      // ✅ disparo do evento pro GTM/GA4
+      (window as any).dataLayer = (window as any).dataLayer || [];
+      (window as any).dataLayer.push({ event: "sign_up" });
 
       // Fecha modal e mostra Hello Bar verde
       setShowSignupModal(false);
