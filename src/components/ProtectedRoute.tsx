@@ -59,7 +59,7 @@ async function syncGaClientIdToProfileOnce(userId: string) {
     // Atualiza SOMENTE se ainda estiver vazio no banco (não fica sobrescrevendo)
     const { error } = await supabase
       .from("profiles")
-      .update({ ga_client_id: clientId })
+      .update({ ga_client_id: clientId } as any)
       .eq("id", userId)
       .is("ga_client_id", null);
 
