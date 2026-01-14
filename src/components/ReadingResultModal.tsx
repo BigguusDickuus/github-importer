@@ -112,7 +112,10 @@ export function ReadingResultModal({
                 response
               ) : (
                 <span className="text-slate-400">
-                  Não foi possível carregar a interpretação desta leitura. Tente novamente em alguns instantes.
+                  Não foi possível carregar a interpretação desta leitura - mas não se preocupe, pode ser apenas que a
+                  rede esteja carregada. Seus créditos só serão descontados quando a resposta da leitura for recebida.
+                  Para evitar duplicações, antes de jogar novamente, aguarde um minuto e cheque seu Histórico de
+                  Leituras - a pergunta estará lá assim que a resposta chegar!
                 </span>
               )}
             </div>
